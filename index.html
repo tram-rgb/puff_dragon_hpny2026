@@ -154,6 +154,14 @@
         z-index: 20;
         border-top-left-radius: 18px;
         border-top-right-radius: 18px;
+
+        /* ✅ NEW: make panels not exceed screen height */
+        max-height: min(78vh, 560px);
+        display: flex;
+        flex-direction: column;
+
+        /* ✅ iOS scrolling */
+        -webkit-overflow-scrolling: touch;
       }
 
       #stickerPanel.open,
@@ -161,13 +169,28 @@
         transform: translateY(0);
       }
 
+      /* ✅ NEW: sticky header so "Close" always visible */
       #stickerPanelHeader,
       #filterPanelHeader {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(10px);
+
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 10px;
         margin-bottom: 10px;
+        padding-bottom: 8px;
+      }
+
+      /* ✅ NEW: scroll area inside the panel */
+      .panelBody {
+        overflow-y: auto;
+        flex: 1;
+        padding-right: 2px; /* avoid scroll bar overlay */
       }
 
       #stickerGrid {
@@ -219,6 +242,16 @@
       .filterItem.active {
         outline: 2px solid rgba(255, 255, 255, 0.7);
         outline-offset: 2px;
+      }
+
+      /* ✅ NEW: actions area sticks to bottom */
+      .panelFooter {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(10px);
+        padding-top: 10px;
       }
 
       /* Desktop hint */
@@ -285,21 +318,27 @@
         <button id="stickerClose" class="secondary">Close</button>
       </div>
 
-      <div id="stickerGrid"></div>
+      <!-- ✅ NEW: scrollable body -->
+      <div class="panelBody">
+        <div id="stickerGrid"></div>
 
-      <div
-        style="
-          display: flex;
-          gap: 8px;
-          margin-top: 10px;
-          justify-content: center;
-          flex-wrap: wrap;
-        "
-      >
-        <button id="stickerRemove" class="secondary" disabled>
-          Remove selected
-        </button>
-        <button id="stickerClear" class="secondary" disabled>Clear all</button>
+        <div class="panelFooter">
+          <div
+            style="
+              display: flex;
+              gap: 8px;
+              justify-content: center;
+              flex-wrap: wrap;
+            "
+          >
+            <button id="stickerRemove" class="secondary" disabled>
+              Remove selected
+            </button>
+            <button id="stickerClear" class="secondary" disabled>
+              Clear all
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -310,7 +349,10 @@
         <button id="filterClose" class="secondary">Close</button>
       </div>
 
-      <div id="filterList"></div>
+      <!-- ✅ NEW: scrollable body -->
+      <div class="panelBody">
+        <div id="filterList"></div>
+      </div>
     </div>
 
     <script>
@@ -338,16 +380,12 @@
       /* =========================
          CACHE BUSTING
       ========================= */
-      const ASSET_VERSION = "25";
+      const ASSET_VERSION = "26";
 
       /* =========================================================
          FOODIE-LIKE FILTER RECIPES
-         - These are "recipe params" (like your screenshots).
-         - Live preview uses a light CSS approximation (fast).
-         - Capture uses real pixel processing for much closer result.
       ========================================================= */
 
-      // clamp helpers
       const clamp01 = (v) => Math.max(0, Math.min(1, v));
       const clamp255 = (v) => Math.max(0, Math.min(255, v));
 
@@ -365,10 +403,8 @@
         return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
       }
 
-      // apply saturation around luma (linear space)
       function applySaturationLin(r, g, b, sat) {
         const y = lumaLin(r, g, b);
-        // sat: 1 = same, >1 more, <1 less
         return [
           y + (r - y) * sat,
           y + (g - y) * sat,
@@ -376,70 +412,51 @@
         ];
       }
 
-      // tone helpers: highlights/shadows control (very lightweight curve)
       function adjustShadowsHighlightsLin(y, shadows, highlights) {
-        // shadows/highlights in [-1..+1] range
-        // shadows: lift/darken shadows mainly under ~0.4
-        // highlights: recover/dim highlights mainly above ~0.6
         let out = y;
 
-        // shadows
         if (shadows !== 0) {
-          const t = clamp01((0.45 - y) / 0.45); // 1 in darkest, 0 at 0.45
-          out += shadows * t * 0.35; // strength
+          const t = clamp01((0.45 - y) / 0.45);
+          out += shadows * t * 0.35;
         }
 
-        // highlights
         if (highlights !== 0) {
-          const t = clamp01((y - 0.55) / 0.45); // 0 at 0.55, 1 at 1
+          const t = clamp01((y - 0.55) / 0.45);
           out += highlights * t * 0.35;
         }
 
         return clamp01(out);
       }
 
-      // brilliance = midtone contrast boost (like local contrast)
       function applyBrillianceLin(y, brilliance) {
-        // brilliance in [-1..+1]
         if (brilliance === 0) return y;
-        // S-curve around midtones
         const k = brilliance * 0.55;
-        // smoothstep-ish
         const s = y * y * (3 - 2 * y);
         return clamp01(y + (s - y) * k);
       }
 
-      // fade = lift blacks slightly
       function applyFadeLin(y, fade) {
-        // fade in [0..1]
         if (!fade) return y;
         const lift = fade * 0.10;
         return clamp01(y * (1 - fade * 0.15) + lift);
       }
 
-      // warmth = warm/cool color bias in linear space
       function applyWarmthLin(r, g, b, warmth) {
-        // warmth in [-1..+1]
         if (!warmth) return [r, g, b];
         const w = warmth * 0.10;
-        // warm: increase red, slightly decrease blue
         return [r * (1 + w), g, b * (1 - w)];
       }
 
-      // simple unsharp mask (for capture only)
       function unsharpMask(imageData, amount = 0.35, radius = 1) {
-        // radius=1 small blur (box blur)
         const { width: w, height: h, data } = imageData;
-        const src = new Uint8ClampedArray(data); // copy
+        const src = new Uint8ClampedArray(data);
         const idx = (x, y) => (y * w + x) * 4;
 
-        // box blur 3x3
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
             let r = 0,
               g = 0,
               b = 0,
-              a = 0,
               n = 0;
             for (let dy = -radius; dy <= radius; dy++) {
               const yy = y + dy;
@@ -451,7 +468,6 @@
                 r += src[p];
                 g += src[p + 1];
                 b += src[p + 2];
-                a += src[p + 3];
                 n++;
               }
             }
@@ -460,29 +476,20 @@
               bg = g / n,
               bb = b / n;
 
-            // original
-            const or = src[p],
-              og = src[p + 1],
-              ob = src[p + 2];
-
-            // sharpened = original + amount*(original - blurred)
-            data[p] = clamp255(or + amount * (or - br));
-            data[p + 1] = clamp255(og + amount * (og - bg));
-            data[p + 2] = clamp255(ob + amount * (ob - bb));
-            data[p + 3] = src[p + 3];
+            data[p] = clamp255(src[p] + amount * (src[p] - br));
+            data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
+            data[p + 2] = clamp255(src[p + 2] + amount * (src[p + 2] - bb));
           }
         }
         return imageData;
       }
 
-      // tiny noise reduction (capture only): super light blur on chroma
       function noiseReduceLight(imageData, strength = 0.15) {
         if (!strength) return imageData;
         const { width: w, height: h, data } = imageData;
         const src = new Uint8ClampedArray(data);
         const idx = (x, y) => (y * w + x) * 4;
 
-        // 3x3 blur blended by strength
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
             let r = 0,
@@ -515,12 +522,9 @@
         return imageData;
       }
 
-      // Convert “recipe numbers” (like +22 / -44 etc) to a recipe object.
-      // We keep the same style, but normalize internally.
       function recipe(params) {
         return {
-          // roughly match app units:
-          exposure: (params.exposure || 0) / 100, // -1..+1
+          exposure: (params.exposure || 0) / 100,
           brilliance: (params.brilliance || 0) / 100,
           highlights: (params.highlights || 0) / 100,
           shadows: (params.shadows || 0) / 100,
@@ -534,13 +538,8 @@
         };
       }
 
-      // Foodie-style filter list (based on your screenshots vibe).
-      // NOTE: exact numeric recipes from screenshots vary per template,
-      // so these are tuned to *match the same look* (creamy, film, glow).
       const FILTERS = [
         { id: "none", name: "None", recipe: recipe({}) },
-
-        // 35mm / motion blur look: cool + lower contrast + slightly desat
         {
           id: "35mm04",
           name: "35mm 04",
@@ -558,8 +557,6 @@
             noiseReduce: +8,
           }),
         },
-
-        // VI4: warm + soft + creamy skin
         {
           id: "vi4",
           name: "VI4",
@@ -577,8 +574,6 @@
             noiseReduce: +10,
           }),
         },
-
-        // CM1: clean warm portrait
         {
           id: "cm1",
           name: "CM1",
@@ -596,8 +591,6 @@
             noiseReduce: +8,
           }),
         },
-
-        // Sapa: airy + cool + soft fade
         {
           id: "sapa",
           name: "Sapa",
@@ -615,8 +608,6 @@
             noiseReduce: +10,
           }),
         },
-
-        // Salt: bright sunlight + glow + warm
         {
           id: "salt",
           name: "Salt",
@@ -634,8 +625,6 @@
             noiseReduce: +8,
           }),
         },
-
-        // IN2: green-ish film / station look
         {
           id: "in2",
           name: "IN2",
@@ -653,8 +642,6 @@
             noiseReduce: +12,
           }),
         },
-
-        // FL2: bright + clean + soft
         {
           id: "fl2",
           name: "FL2",
@@ -672,8 +659,6 @@
             noiseReduce: +10,
           }),
         },
-
-        // B&W film
         {
           id: "bwfilm",
           name: "B&W Film",
@@ -685,7 +670,6 @@
             brightness: +4,
             contrast: +10,
             saturation: -100,
-            warmth: 0,
             fade: +8,
             sharpness: +10,
             noiseReduce: +10,
@@ -693,19 +677,15 @@
         },
       ];
 
-      // current filter selection
       let currentFilterId = "none";
       let currentRecipe = FILTERS[0].recipe;
 
-      // fast preview approximation (CSS)
       function recipeToPreviewCss(r) {
-        // brightness: combine exposure + brightness
         const bright = 1 + r.exposure * 0.55 + r.brightness * 0.35;
         const cont = 1 + r.contrast * 0.6 + r.brilliance * 0.25;
         const sat = 1 + r.saturation * 0.75;
-        const hue = r.warmth * -18; // negative warms (orange-ish)
+        const hue = r.warmth * -18;
         const sep = clamp01(r.warmth * 0.35 + 0.05);
-        // fade can't be done properly in CSS, but slight contrast reduction helps already
         return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(
           3
         )}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(
@@ -734,7 +714,6 @@
             "filterItem" + (f.id === currentFilterId ? " active" : "");
           b.type = "button";
 
-          // tiny “recipe line” (like your screenshots)
           const r = f.recipe;
           const recLine =
             f.id === "none"
@@ -810,7 +789,6 @@
       let currentFacingMode = "environment";
       let stream = null;
 
-      // Mirror affects preview + final capture (WYSIWYG)
       let mirrorMode = "auto";
 
       function shouldMirrorPreview() {
@@ -1232,7 +1210,7 @@
       });
 
       /* =========================
-         CAPTURE HELPERS
+         CAPTURE HELPERS + FILTER APPLY (same as before)
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
@@ -1251,62 +1229,42 @@
         return { scale, drawW, drawH, offsetX, offsetY };
       }
 
-      /* =========================================================
-         APPLY RECIPE TO IMAGE DATA (CAPTURE-ONLY, more accurate)
-      ========================================================= */
       function applyRecipeToImageData(imageData, r) {
         const d = imageData.data;
 
         const sat = 1 + r.saturation * 0.9;
-        const exposure = r.exposure; // linear gain via pow2-ish
-        const exposureGain = Math.pow(2, exposure); // nice exposure behavior
+        const exposureGain = Math.pow(2, r.exposure);
         const brightnessGain = 1 + r.brightness * 0.35;
         const contrastGain = 1 + r.contrast * 0.6;
 
         for (let i = 0; i < d.length; i += 4) {
-          const R = d[i],
-            G = d[i + 1],
-            B = d[i + 2];
+          let rLin = srgbToLin(d[i]);
+          let gLin = srgbToLin(d[i + 1]);
+          let bLin = srgbToLin(d[i + 2]);
 
-          // to linear
-          let rLin = srgbToLin(R);
-          let gLin = srgbToLin(G);
-          let bLin = srgbToLin(B);
-
-          // warmth
           [rLin, gLin, bLin] = applyWarmthLin(rLin, gLin, bLin, r.warmth);
 
-          // exposure + brightness
           rLin *= exposureGain * brightnessGain;
           gLin *= exposureGain * brightnessGain;
           bLin *= exposureGain * brightnessGain;
 
-          // luma for tone ops
           let y = lumaLin(rLin, gLin, bLin);
-
-          // brilliance
           y = applyBrillianceLin(y, r.brilliance);
-
-          // highlights/shadows
           y = adjustShadowsHighlightsLin(y, r.shadows, r.highlights);
 
-          // reconstruct by scaling towards new luma (preserve chroma)
           const y0 = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
           const scale = y / y0;
           rLin *= scale;
           gLin *= scale;
           bLin *= scale;
 
-          // saturation
           [rLin, gLin, bLin] = applySaturationLin(rLin, gLin, bLin, sat);
 
-          // contrast in linear around 0.5 (approx)
-          const pivot = 0.18; // film-ish mid gray in linear
+          const pivot = 0.18;
           rLin = (rLin - pivot) * contrastGain + pivot;
           gLin = (gLin - pivot) * contrastGain + pivot;
           bLin = (bLin - pivot) * contrastGain + pivot;
 
-          // fade
           const yFade = applyFadeLin(lumaLin(rLin, gLin, bLin), r.fade);
           const yNow = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
           const s2 = yFade / yNow;
@@ -1314,32 +1272,21 @@
           gLin *= s2;
           bLin *= s2;
 
-          // back to sRGB
           d[i] = linToSrgb(rLin);
           d[i + 1] = linToSrgb(gLin);
           d[i + 2] = linToSrgb(bLin);
-          // alpha stays
         }
 
-        // noise reduce then sharpness (capture only)
         if (r.noiseReduce > 0.01) {
           noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
         }
         if (r.sharpness > 0.01) {
-          // sharpness: amount up to ~0.55
           unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
         }
 
         return imageData;
       }
 
-      /* =========================
-         CAPTURE
-         - Background is mirrored if mirror enabled
-         - Filter recipe applied to background only (pixel accurate)
-         - Overlays drawn after, not filtered
-         - FIX: invert overlay rotation when mirrored (no sticker flip)
-      ========================= */
       captureBtn.addEventListener("click", () => {
         const win = window.open("about:blank", "_blank");
         if (!win) {
@@ -1369,7 +1316,6 @@
 
           const mirrorOutput = shouldMirrorPreview();
 
-          // 1) Draw camera (with mirror) WITHOUT css filter (we'll do recipe pixels)
           ctx.save();
           if (mirrorOutput) {
             ctx.translate(out.width, 0);
@@ -1378,7 +1324,6 @@
           ctx.drawImage(cameraEl, 0, 0, out.width, out.height);
           ctx.restore();
 
-          // 2) Apply recipe pixels to background ONLY
           if (currentFilterId !== "none") {
             const imgData = ctx.getImageData(0, 0, out.width, out.height);
             applyRecipeToImageData(imgData, currentRecipe);
@@ -1415,7 +1360,6 @@
             return mirrorOutput ? out.width - xCam : xCam;
           }
 
-          // 3) Puff overlay (invert rotation when mirrored)
           const puffRect = puffEl.getBoundingClientRect();
           const puffDraw = computeDrawRect(
             puffRect,
@@ -1438,10 +1382,8 @@
           );
           ctx.restore();
 
-          // 4) Stickers overlay (invert rotation when mirrored)
           for (const [el, st] of stickerStates.entries()) {
             if (!el.complete || !el.naturalWidth) continue;
-
             const r = el.getBoundingClientRect();
             const d = computeDrawRect(r, el.naturalWidth, el.naturalHeight);
 
@@ -1453,7 +1395,6 @@
             ctx.restore();
           }
 
-          // 5) Export
           out.toBlob((blob) => {
             if (!blob) {
               win.document.write("<h3>Capture failed</h3>");
