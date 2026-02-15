@@ -79,18 +79,19 @@
         border-radius: 14px;
       }
 
+      /* =========================
+         UI: two rows + smaller buttons
+      ========================= */
       #ui {
         position: fixed;
         left: 0;
         right: 0;
         bottom: 0;
-        padding: 16px;
+        padding: 14px;
         display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        justify-content: center;
-        align-items: center;
-        padding-bottom: calc(16px + env(safe-area-inset-bottom));
+        flex-direction: column;
+        gap: 8px;
+        padding-bottom: calc(14px + env(safe-area-inset-bottom));
         background: linear-gradient(
           to top,
           rgba(0, 0, 0, 0.65),
@@ -99,30 +100,50 @@
         z-index: 10;
       }
 
+      .ui-row {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
       button {
         border: 0;
-        border-radius: 12px;
-        padding: 12px 18px;
-        font-size: 16px;
-        font-weight: 600;
+        border-radius: 10px;
+        padding: 8px 14px; /* smaller */
+        font-size: 14px; /* smaller */
+        font-weight: 700;
         color: #fff;
         background: #e11d2e;
+        min-width: 92px;
+      }
+
+      /* Start AR color */
+      #start {
+        background: #fa213f;
+        color: #fff;
       }
 
       button.secondary {
         background: rgba(255, 255, 255, 0.15);
       }
+
       button:disabled {
         opacity: 0.5;
       }
 
+      /* Puff It! button color */
       #capture {
-        flex-basis: 100%;
-        max-width: 220px;
+        background: #fff100;
+        color: #060d3d;
+        font-weight: 800;
+        min-width: 110px;
       }
 
-      /* Sticker picker panel */
-      #stickerPanel {
+      /* Sticker + Filter panels */
+      #stickerPanel,
+      #filterPanel {
         position: fixed;
         left: 0;
         right: 0;
@@ -137,11 +158,13 @@
         border-top-right-radius: 18px;
       }
 
-      #stickerPanel.open {
+      #stickerPanel.open,
+      #filterPanel.open {
         transform: translateY(0);
       }
 
-      #stickerPanelHeader {
+      #stickerPanelHeader,
+      #filterPanelHeader {
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -171,6 +194,27 @@
         display: block;
       }
 
+      #filterList {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .filterItem {
+        border: 0;
+        border-radius: 14px;
+        padding: 12px 12px;
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.95);
+        font: 700 14px system-ui;
+        text-align: left;
+      }
+
+      .filterItem.active {
+        outline: 2px solid rgba(255, 255, 255, 0.7);
+        outline-offset: 2px;
+      }
+
       /* Desktop hint */
       #desktopHint {
         position: fixed;
@@ -196,7 +240,7 @@
 
   <body>
     <div id="desktopHint">
-      Desktop: drag=move • wheel=zoom • Alt+drag=rotate • click=select
+      Desktop: drag=move • wheel=zoom • Alt/Shift/right-drag=rotate • click=select
     </div>
 
     <video id="camera" autoplay playsinline muted></video>
@@ -214,15 +258,22 @@
 
     <div id="stickerLayer"></div>
 
+    <!-- UI: two rows -->
     <div id="ui">
-      <button id="start">Start AR</button>
-      <button id="flip" class="secondary" disabled>Flip Camera</button>
-      <button id="mirror" class="secondary" disabled>Mirror: Auto</button>
+      <div class="ui-row">
+        <button id="start">Start AR</button>
+        <button id="flip" class="secondary" disabled>Flip Camera</button>
+        <button id="mirror" class="secondary" disabled>Mirror: Auto</button>
+      </div>
 
-      <button id="stickers" class="secondary" disabled>Sticker</button>
-      <button id="capture" class="secondary" disabled>Puff It!</button>
+      <div class="ui-row">
+        <button id="stickers" class="secondary" disabled>Sticker</button>
+        <button id="filterBtn" class="secondary" disabled>Filter</button>
+        <button id="capture" disabled>Puff It!</button>
+      </div>
     </div>
 
+    <!-- Sticker panel -->
     <div id="stickerPanel" aria-hidden="true">
       <div id="stickerPanelHeader">
         <div style="color:#fff;font:600 16px system-ui">Choose a sticker</div>
@@ -249,6 +300,16 @@
       </div>
     </div>
 
+    <!-- Filter panel -->
+    <div id="filterPanel" aria-hidden="true">
+      <div id="filterPanelHeader">
+        <div style="color:#fff;font:600 16px system-ui">Choose a filter</div>
+        <button id="filterClose" class="secondary">Close</button>
+      </div>
+
+      <div id="filterList"></div>
+    </div>
+
     <script>
       const cameraEl = document.getElementById("camera");
       const puffEl = document.getElementById("puff");
@@ -260,6 +321,11 @@
       const stickersBtn = document.getElementById("stickers");
       const captureBtn = document.getElementById("capture");
 
+      const filterBtn = document.getElementById("filterBtn");
+      const filterPanel = document.getElementById("filterPanel");
+      const filterClose = document.getElementById("filterClose");
+      const filterListEl = document.getElementById("filterList");
+
       const stickerPanel = document.getElementById("stickerPanel");
       const stickerGrid = document.getElementById("stickerGrid");
       const stickerClose = document.getElementById("stickerClose");
@@ -268,13 +334,86 @@
 
       /* =========================
          CACHE BUSTING
-         bump this when you change videos OR stickers
       ========================= */
-      const ASSET_VERSION = "21";
+      const ASSET_VERSION = "22";
+
+      /* =========================
+         FILTERS (camera background)
+      ========================= */
+      const FILTERS = [
+        { id: "none", name: "None", css: "none" },
+        {
+          id: "warm",
+          name: "Warm",
+          css: "contrast(1.05) saturate(1.25) sepia(0.18)",
+        },
+        {
+          id: "cool",
+          name: "Cool",
+          css: "contrast(1.08) saturate(1.15) hue-rotate(185deg)",
+        },
+        { id: "bw", name: "B&W", css: "grayscale(1) contrast(1.1)" },
+        {
+          id: "vintage",
+          name: "Vintage",
+          css: "sepia(0.45) contrast(1.05) saturate(1.1)",
+        },
+        {
+          id: "pink",
+          name: "Pink Pop",
+          css: "saturate(1.35) hue-rotate(330deg) contrast(1.05)",
+        },
+        {
+          id: "cyber",
+          name: "Cyber Blue",
+          css: "hue-rotate(210deg) saturate(1.4) contrast(1.08)",
+        },
+      ];
+
+      let currentFilterId = "none";
+      let currentFilterCss = "none";
+
+      function applyCameraFilter() {
+        cameraEl.style.filter = currentFilterCss;
+      }
+
+      function openFilterPanel() {
+        filterPanel.classList.add("open");
+        filterPanel.setAttribute("aria-hidden", "false");
+      }
+      function closeFilterPanel() {
+        filterPanel.classList.remove("open");
+        filterPanel.setAttribute("aria-hidden", "true");
+      }
+
+      function renderFilters() {
+        filterListEl.innerHTML = "";
+        FILTERS.forEach((f) => {
+          const b = document.createElement("button");
+          b.className =
+            "filterItem" + (f.id === currentFilterId ? " active" : "");
+          b.type = "button";
+          b.textContent = f.name;
+          b.addEventListener("click", () => {
+            currentFilterId = f.id;
+            currentFilterCss = f.css;
+            applyCameraFilter();
+            renderFilters();
+            closeFilterPanel();
+          });
+          filterListEl.appendChild(b);
+        });
+      }
+      renderFilters();
+
+      filterBtn.addEventListener("click", () => {
+        if (filterBtn.disabled) return;
+        openFilterPanel();
+      });
+      filterClose.addEventListener("click", closeFilterPanel);
 
       /* =========================
          PUFF RANDOM (3 videos)
-         Put puff3.webm + puff3.mov into repo root.
       ========================= */
       const puffBases = ["puff", "puff2", "puff3"];
       const chosenBase =
@@ -292,7 +431,6 @@
 
       function setPuffSource(base) {
         const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
-
         if (isAppleSafari()) {
           puffEl.innerHTML = `
             <source src="${base}.mov?${v}" type='video/quicktime; codecs="hvc1"'>
@@ -304,7 +442,6 @@
             <source src="${base}.webm?${v}" type="video/webm">
           `;
         }
-
         puffEl.load();
       }
 
@@ -320,14 +457,18 @@
       let currentFacingMode = "environment";
       let stream = null;
 
-      // Mirror mode: "auto" | "on" | "off" (preview only)
+      // Mirror affects preview + final capture (WYSIWYG)
       let mirrorMode = "auto";
 
-      function applyMirrorToPreview() {
-        const shouldMirror =
+      function shouldMirrorPreview() {
+        return (
           mirrorMode === "on" ||
-          (mirrorMode === "auto" && currentFacingMode === "user");
-        cameraEl.classList.toggle("mirror", shouldMirror);
+          (mirrorMode === "auto" && currentFacingMode === "user")
+        );
+      }
+
+      function applyMirrorToPreview() {
+        cameraEl.classList.toggle("mirror", shouldMirrorPreview());
         mirrorBtn.textContent =
           mirrorMode === "auto"
             ? "Mirror: Auto"
@@ -359,6 +500,7 @@
         captureBtn.disabled = true;
         stickersBtn.disabled = true;
         mirrorBtn.disabled = true;
+        filterBtn.disabled = true;
 
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -386,8 +528,10 @@
         captureBtn.disabled = false;
         stickersBtn.disabled = false;
         mirrorBtn.disabled = false;
+        filterBtn.disabled = false;
 
         applyMirrorToPreview();
+        applyCameraFilter();
 
         startBtn.textContent = "AR Running";
         startBtn.disabled = true;
@@ -398,7 +542,9 @@
           await startCamera();
         } catch (e) {
           console.error(e);
-          alert("Could not access camera. Please allow permission and use HTTPS.");
+          alert(
+            "Could not access camera. Please allow permission and use HTTPS."
+          );
         }
       });
 
@@ -421,7 +567,7 @@
       });
 
       /* =========================
-         TRANSFORM HELPERS (shared)
+         TRANSFORM HELPERS
       ========================= */
       function clamp(v, min, max) {
         return Math.max(min, Math.min(max, v));
@@ -439,6 +585,14 @@
         el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
       }
 
+      /**
+       * Desktop rotate improvements:
+       * - Alt + drag rotate
+       * - Shift + drag rotate
+       * - Right-click drag rotate
+       * Mobile:
+       * - two-finger rotate/scale
+       */
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
@@ -468,11 +622,16 @@
           inertiaRAF = requestAnimationFrame(tick);
         }
 
+        el.addEventListener("contextmenu", (e) => e.preventDefault());
+
         el.addEventListener("pointerdown", (e) => {
           e.preventDefault();
           el.setPointerCapture?.(e.pointerId);
           stopInertia();
           pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+          const isRightButtonRotate =
+            e.pointerType === "mouse" && (e.buttons === 2 || e.button === 2);
 
           if (pointers.size === 1) {
             dragStart = {
@@ -482,7 +641,7 @@
               baseY: state.y,
               w: innerWidth,
               h: innerHeight,
-              rotating: !!e.altKey,
+              rotating: !!e.altKey || !!e.shiftKey || isRightButtonRotate,
               baseRotation: state.rotation,
             };
             gestureStart = null;
@@ -561,6 +720,7 @@
           gestureStart = null;
         });
 
+        // Desktop wheel zoom
         el.addEventListener(
           "wheel",
           (e) => {
@@ -587,7 +747,7 @@
          MULTI-STICKERS
       ========================= */
       let stickersLoaded = false;
-      const stickerStates = new Map(); // el -> state
+      const stickerStates = new Map();
       let selectedStickerEl = null;
 
       function setSelectedSticker(el) {
@@ -690,7 +850,6 @@
             cell.appendChild(img);
 
             cell.addEventListener("click", () => {
-              // Add NEW sticker each time
               createSticker(img.src);
               closeStickerPanel();
             });
@@ -706,15 +865,23 @@
         }
       }
 
-      // Click empty area to deselect sticker
       document.addEventListener("pointerdown", (e) => {
         const isSticker =
-          e.target && e.target.classList && e.target.classList.contains("sticker");
+          e.target &&
+          e.target.classList &&
+          e.target.classList.contains("sticker");
         const clickedPanel = stickerPanel.contains(e.target);
+        const clickedFilter = filterPanel.contains(e.target);
         const clickedUI = document.getElementById("ui").contains(e.target);
         const clickedPuff = e.target === puffEl;
 
-        if (!isSticker && !clickedPanel && !clickedUI && !clickedPuff) {
+        if (
+          !isSticker &&
+          !clickedPanel &&
+          !clickedFilter &&
+          !clickedUI &&
+          !clickedPuff
+        ) {
           if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
           selectedStickerEl = null;
           stickerRemove.disabled = true;
@@ -723,7 +890,9 @@
       });
 
       /* =========================
-         CAPTURE (FINAL IMAGE IS NOT MIRRORED)
+         CAPTURE
+         - Mirror output follows mirror settings (WYSIWYG)
+         - Filter applies to camera background only
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
@@ -769,12 +938,26 @@
             camRect.height
           );
 
-          // IMPORTANT: Always draw camera NOT mirrored (final saved image normal)
+          const mirrorOutput = shouldMirrorPreview();
+
+          // Apply filter to camera only
+          ctx.save();
+          ctx.filter = currentFilterCss || "none";
+          if (mirrorOutput) {
+            ctx.translate(out.width, 0);
+            ctx.scale(-1, 1);
+          }
           ctx.drawImage(cameraEl, 0, 0, out.width, out.height);
+          ctx.restore();
+
+          // Reset filter for overlays
+          ctx.filter = "none";
 
           function computeDrawRect(domRect, aspectW, aspectH) {
-            const centerX_screen = domRect.left + domRect.width / 2 - camRect.left;
-            const centerY_screen = domRect.top + domRect.height / 2 - camRect.top;
+            const centerX_screen =
+              domRect.left + domRect.width / 2 - camRect.left;
+            const centerY_screen =
+              domRect.top + domRect.height / 2 - camRect.top;
 
             const centerX_cam = (centerX_screen - cover.offsetX) / cover.scale;
             const centerY_cam = (centerY_screen - cover.offsetY) / cover.scale;
@@ -782,7 +965,10 @@
             const w_cam = domRect.width / cover.scale;
             const h_cam = domRect.height / cover.scale;
 
-            const ar = aspectW && aspectH ? aspectW / aspectH : domRect.width / domRect.height;
+            const ar =
+              aspectW && aspectH
+                ? aspectW / aspectH
+                : domRect.width / domRect.height;
 
             let drawW = w_cam;
             let drawH = drawW / ar;
@@ -793,7 +979,11 @@
             return { centerX_cam, centerY_cam, drawW, drawH };
           }
 
-          // Draw puff
+          function mirrorX(xCam) {
+            return mirrorOutput ? out.width - xCam : xCam;
+          }
+
+          // Puff
           const puffRect = puffEl.getBoundingClientRect();
           const puffDraw = computeDrawRect(
             puffRect,
@@ -802,8 +992,10 @@
           );
 
           ctx.save();
-          ctx.translate(puffDraw.centerX_cam, puffDraw.centerY_cam);
-          ctx.rotate((puffState.rotation * Math.PI) / 180);
+          ctx.translate(mirrorX(puffDraw.centerX_cam), puffDraw.centerY_cam);
+          const puffRot = mirrorOutput ? -puffState.rotation : puffState.rotation;
+          ctx.rotate((puffRot * Math.PI) / 180);
+          if (mirrorOutput) ctx.scale(-1, 1);
           ctx.drawImage(
             puffEl,
             -puffDraw.drawW / 2,
@@ -813,7 +1005,7 @@
           );
           ctx.restore();
 
-          // Draw all stickers
+          // Stickers
           for (const [el, st] of stickerStates.entries()) {
             if (!el.complete || !el.naturalWidth) continue;
 
@@ -821,8 +1013,10 @@
             const d = computeDrawRect(r, el.naturalWidth, el.naturalHeight);
 
             ctx.save();
-            ctx.translate(d.centerX_cam, d.centerY_cam);
-            ctx.rotate((st.rotation * Math.PI) / 180);
+            ctx.translate(mirrorX(d.centerX_cam), d.centerY_cam);
+            const rot = mirrorOutput ? -st.rotation : st.rotation;
+            ctx.rotate((rot * Math.PI) / 180);
+            if (mirrorOutput) ctx.scale(-1, 1);
             ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
             ctx.restore();
           }
@@ -844,7 +1038,7 @@
                 <a
                   href="${url}"
                   download="${filename}"
-                  style="display:inline-block;padding:12px 16px;border-radius:12px;background:#e11d2e;color:#fff;font:600 16px system-ui;text-decoration:none"
+                  style="display:inline-block;padding:12px 16px;border-radius:12px;background:#fff100;color:#060d3d;font:800 16px system-ui;text-decoration:none"
                 >
                   Download (${filename})
                 </a>
@@ -857,7 +1051,9 @@
         } catch (err) {
           console.error(err);
           win.document.write(
-            `<h3>Capture Error</h3><pre style="white-space:pre-wrap">${String(err)}</pre>`
+            `<h3>Capture Error</h3><pre style="white-space:pre-wrap">${String(
+              err
+            )}</pre>`
           );
           win.document.close();
           alert("Capture failed. Try again.");
