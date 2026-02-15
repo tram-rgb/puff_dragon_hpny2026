@@ -80,18 +80,18 @@
       }
 
       /* =========================
-         UI: two rows + smaller buttons
+         UI: smaller buttons
       ========================= */
       #ui {
         position: fixed;
         left: 0;
         right: 0;
         bottom: 0;
-        padding: 14px;
+        padding: 12px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        padding-bottom: calc(14px + env(safe-area-inset-bottom));
+        gap: 7px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
         background: linear-gradient(
           to top,
           rgba(0, 0, 0, 0.65),
@@ -102,7 +102,7 @@
 
       .ui-row {
         display: flex;
-        gap: 8px;
+        gap: 7px;
         justify-content: center;
         align-items: center;
         flex-wrap: wrap;
@@ -110,13 +110,14 @@
 
       button {
         border: 0;
-        border-radius: 10px;
-        padding: 8px 14px;
-        font-size: 14px;
-        font-weight: 700;
+        border-radius: 9px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
         color: #fff;
         background: #e11d2e;
-        min-width: 92px;
+        min-width: 76px;
       }
 
       /* Start AR color */
@@ -137,8 +138,8 @@
       #capture {
         background: #fff100;
         color: #060d3d;
-        font-weight: 800;
-        min-width: 110px;
+        font-weight: 900;
+        min-width: 92px;
       }
 
       /* Panels */
@@ -152,7 +153,7 @@
         transition: transform 0.22s ease;
         background: rgba(0, 0, 0, 0.75);
         backdrop-filter: blur(10px);
-        padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+        padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
         z-index: 20;
         border-top-left-radius: 18px;
         border-top-right-radius: 18px;
@@ -168,20 +169,20 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
         margin-bottom: 10px;
       }
 
       #stickerGrid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
+        gap: 9px;
       }
 
       .stickerItem {
         background: rgba(255, 255, 255, 0.12);
         border-radius: 14px;
-        padding: 10px;
+        padding: 9px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -197,16 +198,16 @@
       #filterList {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        gap: 9px;
       }
 
       .filterItem {
         border: 0;
         border-radius: 14px;
-        padding: 12px 12px;
+        padding: 10px 10px;
         background: rgba(255, 255, 255, 0.12);
         color: rgba(255, 255, 255, 0.95);
-        font: 700 14px system-ui;
+        font: 800 12px system-ui;
         text-align: left;
       }
 
@@ -221,11 +222,11 @@
         top: 10px;
         left: 10px;
         z-index: 11;
-        padding: 8px 10px;
+        padding: 7px 9px;
         border-radius: 10px;
         background: rgba(0, 0, 0, 0.45);
         color: rgba(255, 255, 255, 0.85);
-        font: 600 12px system-ui;
+        font: 700 11px system-ui;
         display: none;
         user-select: none;
       }
@@ -275,7 +276,7 @@
     <!-- Sticker panel -->
     <div id="stickerPanel" aria-hidden="true">
       <div id="stickerPanelHeader">
-        <div style="color:#fff;font:600 16px system-ui">Choose a sticker</div>
+        <div style="color:#fff;font:800 14px system-ui">Choose a sticker</div>
         <button id="stickerClose" class="secondary">Close</button>
       </div>
 
@@ -284,25 +285,23 @@
       <div
         style="
           display: flex;
-          gap: 10px;
-          margin-top: 12px;
+          gap: 8px;
+          margin-top: 10px;
           justify-content: center;
           flex-wrap: wrap;
         "
       >
         <button id="stickerRemove" class="secondary" disabled>
-          Remove selected sticker
+          Remove selected
         </button>
-        <button id="stickerClear" class="secondary" disabled>
-          Clear all stickers
-        </button>
+        <button id="stickerClear" class="secondary" disabled>Clear all</button>
       </div>
     </div>
 
     <!-- Filter panel -->
     <div id="filterPanel" aria-hidden="true">
       <div id="filterPanelHeader">
-        <div style="color:#fff;font:600 16px system-ui">Choose a filter</div>
+        <div style="color:#fff;font:800 14px system-ui">Choose a filter</div>
         <button id="filterClose" class="secondary">Close</button>
       </div>
 
@@ -334,49 +333,71 @@
       /* =========================
          CACHE BUSTING
       ========================= */
-      const ASSET_VERSION = "23";
+      const ASSET_VERSION = "24";
 
       /* =========================
-         FILTERS (more Instagram-like: subtle)
+         FILTERS (Foodie-like / soft film vibes)
+         Note: CSS filters are an approximation (no true "highlights/shadows"),
+               but these match the vibe of your reference images: creamy, film,
+               glowy, gentle contrast.
       ========================= */
       const FILTERS = [
         { id: "none", name: "None", css: "none" },
 
-        // "White beauty" / bright & clean (subtle)
+        // Like "camera roll glowy filter"
         {
-          id: "beauty",
-          name: "Beauty (Clean)",
-          css: "brightness(1.08) contrast(1.03) saturate(1.06)",
+          id: "glow",
+          name: "Glow",
+          css: "brightness(1.12) contrast(1.05) saturate(1.18) sepia(0.08)",
         },
 
-        // Warm, creamy (not too saturated)
-        {
-          id: "warm",
-          name: "Warm",
-          css: "brightness(1.06) contrast(1.03) saturate(1.07) sepia(0.10) hue-rotate(-6deg)",
-        },
-
-        // Soft cream / faded highlight vibe
+        // Soft pale + creamy highlights
         {
           id: "cream",
           name: "Cream",
-          css: "brightness(1.07) contrast(0.98) saturate(1.05) sepia(0.12)",
+          css: "brightness(1.10) contrast(0.96) saturate(1.10) sepia(0.14)",
         },
 
-        // Cool but subtle
+        // Warm golden (sunset / film)
         {
-          id: "cool",
-          name: "Cool",
-          css: "brightness(1.04) contrast(1.04) saturate(1.05) hue-rotate(8deg)",
+          id: "golden",
+          name: "Golden",
+          css: "brightness(1.08) contrast(1.02) saturate(1.12) sepia(0.18) hue-rotate(-10deg)",
         },
 
-        { id: "bw", name: "B&W", css: "grayscale(1) contrast(1.08)" },
+        // Dusty + slightly green-ish (film / indoor mirror vibe)
+        {
+          id: "dustyfilm",
+          name: "Dusty Film",
+          css: "brightness(1.03) contrast(0.92) saturate(0.96) sepia(0.14) hue-rotate(-8deg)",
+        },
 
-        // Vintage subtle (less orange)
+        // Cool soft fade (outdoor train station vibe)
+        {
+          id: "coolfade",
+          name: "Cool Fade",
+          css: "brightness(1.06) contrast(0.95) saturate(0.98) hue-rotate(10deg)",
+        },
+
+        // Stronger "vintage" but still subtle
         {
           id: "vintage",
           name: "Vintage",
-          css: "brightness(1.02) contrast(1.02) saturate(1.02) sepia(0.18)",
+          css: "brightness(1.04) contrast(1.00) saturate(1.02) sepia(0.22)",
+        },
+
+        // Clean bright skin / light beauty
+        {
+          id: "clean",
+          name: "Clean",
+          css: "brightness(1.09) contrast(1.03) saturate(1.06)",
+        },
+
+        // Black & white film
+        {
+          id: "bwfilm",
+          name: "B&W Film",
+          css: "grayscale(1) contrast(1.14) brightness(1.05)",
         },
       ];
 
@@ -552,9 +573,7 @@
           await startCamera();
         } catch (e) {
           console.error(e);
-          alert(
-            "Could not access camera. Please allow permission and use HTTPS."
-          );
+          alert("Could not access camera. Please allow permission and use HTTPS.");
         }
       });
 
@@ -860,18 +879,11 @@
         } catch (e) {
           console.error(e);
           stickerGrid.innerHTML =
-            `<div style="color:#fff;font:500 14px system-ui;opacity:.9">
+            `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
               Could not load stickers.json. Check /stickers.json at repo root.
             </div>`;
         }
       }
-
-      stickerClose.addEventListener("click", closeStickerPanel);
-
-      filterBtn.addEventListener("click", () => {
-        if (filterBtn.disabled) return;
-        openFilterPanel();
-      });
 
       document.addEventListener("pointerdown", (e) => {
         const isSticker =
@@ -901,7 +913,7 @@
          CAPTURE
          - Mirror output follows mirror settings (WYSIWYG)
          - Filter applies to camera background only
-         FIX: overlays (puff/stickers) should NOT be double-mirrored
+         - FIX: invert overlay rotation when mirrored (no sticker flip)
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
@@ -949,7 +961,7 @@
 
           const mirrorOutput = shouldMirrorPreview();
 
-          // Apply filter to camera only
+          // 1) Draw camera with filter + mirror (WYSIWYG)
           ctx.save();
           ctx.filter = currentFilterCss || "none";
           if (mirrorOutput) {
@@ -959,7 +971,7 @@
           ctx.drawImage(cameraEl, 0, 0, out.width, out.height);
           ctx.restore();
 
-          // Reset filter for overlays
+          // Overlays should have no filter
           ctx.filter = "none";
 
           function computeDrawRect(domRect, aspectW, aspectH) {
@@ -988,12 +1000,12 @@
             return { centerX_cam, centerY_cam, drawW, drawH };
           }
 
-          // Mirror ONLY the X position in camera space when background is mirrored
+          // Mirror ONLY the X position for overlays when output is mirrored
           function mirrorX(xCam) {
             return mirrorOutput ? out.width - xCam : xCam;
           }
 
-          // Puff
+          // 2) Puff (FIXED: invert rotation when mirrored)
           const puffRect = puffEl.getBoundingClientRect();
           const puffDraw = computeDrawRect(
             puffRect,
@@ -1003,8 +1015,13 @@
 
           ctx.save();
           ctx.translate(mirrorX(puffDraw.centerX_cam), puffDraw.centerY_cam);
-          ctx.rotate((puffState.rotation * Math.PI) / 180);
-          // IMPORTANT: do NOT ctx.scale(-1,1) here (no double mirror)
+
+          const puffRotation = mirrorOutput
+            ? -puffState.rotation
+            : puffState.rotation;
+
+          ctx.rotate((puffRotation * Math.PI) / 180);
+
           ctx.drawImage(
             puffEl,
             -puffDraw.drawW / 2,
@@ -1014,7 +1031,7 @@
           );
           ctx.restore();
 
-          // Stickers
+          // 3) Stickers (FIXED: invert rotation when mirrored)
           for (const [el, st] of stickerStates.entries()) {
             if (!el.complete || !el.naturalWidth) continue;
 
@@ -1023,12 +1040,15 @@
 
             ctx.save();
             ctx.translate(mirrorX(d.centerX_cam), d.centerY_cam);
-            ctx.rotate((st.rotation * Math.PI) / 180);
-            // IMPORTANT: do NOT ctx.scale(-1,1) here (no double mirror)
+
+            const stickerRotation = mirrorOutput ? -st.rotation : st.rotation;
+            ctx.rotate((stickerRotation * Math.PI) / 180);
+
             ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
             ctx.restore();
           }
 
+          // 4) Export
           out.toBlob((blob) => {
             if (!blob) {
               win.document.write("<h3>Capture failed</h3>");
@@ -1046,7 +1066,7 @@
                 <a
                   href="${url}"
                   download="${filename}"
-                  style="display:inline-block;padding:12px 16px;border-radius:12px;background:#fff100;color:#060d3d;font:800 16px system-ui;text-decoration:none"
+                  style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
                 >
                   Download (${filename})
                 </a>
