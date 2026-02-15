@@ -25,6 +25,7 @@
         width: 100vw;
         height: 100vh;
         object-fit: cover;
+        z-index: 1;
       }
 
       #puff {
@@ -39,6 +40,24 @@
         transform-origin: center;
         background: transparent;
         will-change: transform;
+        z-index: 2;
+      }
+
+      /* Sticker overlay (PNG only) */
+      #sticker {
+        position: fixed;
+        left: 50%;
+        top: 40%;
+        width: min(45vw, 260px);
+        height: auto;
+        pointer-events: auto;
+        touch-action: none;
+        transform: translate(-50%, -50%) scale(1);
+        transform-origin: center;
+        background: transparent;
+        will-change: transform;
+        z-index: 3;
+        display: none;
       }
 
       #ui {
@@ -58,6 +77,7 @@
           rgba(0, 0, 0, 0.65),
           rgba(0, 0, 0, 0)
         );
+        z-index: 10;
       }
 
       button {
@@ -81,6 +101,56 @@
         flex-basis: 100%;
         max-width: 220px;
       }
+
+      /* Sticker picker panel */
+      #stickerPanel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transform: translateY(110%);
+        transition: transform 0.22s ease;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(10px);
+        padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+        z-index: 20;
+        border-top-left-radius: 18px;
+        border-top-right-radius: 18px;
+      }
+
+      #stickerPanel.open {
+        transform: translateY(0);
+      }
+
+      #stickerPanelHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      #stickerGrid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .stickerItem {
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        aspect-ratio: 1 / 1;
+      }
+
+      .stickerItem img {
+        max-width: 100%;
+        max-height: 100%;
+        display: block;
+      }
     </style>
   </head>
 
@@ -98,10 +168,35 @@
       crossorigin="anonymous"
     ></video>
 
+    <img id="sticker" alt="sticker" crossorigin="anonymous" />
+
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="flip" class="secondary" disabled>Flip Camera</button>
+
+      <!-- Sticker button is LEFT of Puff It -->
+      <button id="stickers" class="secondary" disabled>Sticker</button>
       <button id="capture" class="secondary" disabled>Puff It!</button>
+    </div>
+
+    <div id="stickerPanel" aria-hidden="true">
+      <div id="stickerPanelHeader">
+        <div style="color:#fff;font:600 16px system-ui">Choose a sticker</div>
+        <button id="stickerClose" class="secondary">Close</button>
+      </div>
+
+      <div id="stickerGrid"></div>
+
+      <div
+        style="
+          display: flex;
+          gap: 10px;
+          margin-top: 12px;
+          justify-content: center;
+        "
+      >
+        <button id="stickerRemove" class="secondary">Remove sticker</button>
+      </div>
     </div>
 
     <script>
@@ -111,11 +206,18 @@
       const flipBtn = document.getElementById("flip");
       const captureBtn = document.getElementById("capture");
 
+      const stickersBtn = document.getElementById("stickers");
+      const stickerEl = document.getElementById("sticker");
+      const stickerPanel = document.getElementById("stickerPanel");
+      const stickerGrid = document.getElementById("stickerGrid");
+      const stickerClose = document.getElementById("stickerClose");
+      const stickerRemove = document.getElementById("stickerRemove");
+
       /* =========================
          CACHE BUSTING
-         IMPORTANT: bump this every time you upload/replace videos
+         bump this when you change videos OR stickers
       ========================= */
-      const ASSET_VERSION = "20"; // change to "21", "22", etc.
+      const ASSET_VERSION = "21";
 
       const puffBases = ["puff", "puff2"];
       const chosenBase =
@@ -128,20 +230,18 @@
           (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
         const isSafari =
           /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox/.test(ua);
-        return isIOS || isSafari; // treat iOS + Mac Safari the same
+        return isIOS || isSafari;
       }
 
       function setPuffSource(base) {
         const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
 
-        // Apple Safari: use .mov (best chance of real alpha)
         if (isAppleSafari()) {
           puffEl.innerHTML = `
             <source src="${base}.mov?${v}" type='video/quicktime; codecs="hvc1"'>
             <source src="${base}.mp4?${v}" type='video/mp4; codecs="hvc1"'>
           `;
         } else {
-          // Chrome/Android: webm alpha
           puffEl.innerHTML = `
             <source src="${base}.webm?${v}" type='video/webm; codecs="vp09.00.10.08"'>
             <source src="${base}.webm?${v}" type="video/webm">
@@ -155,7 +255,6 @@
       puffEl.setAttribute("webkit-playsinline", "");
       puffEl.muted = true;
       puffEl.crossOrigin = "anonymous";
-
       setPuffSource(chosenBase);
 
       /* =========================
@@ -185,6 +284,7 @@
 
       async function startCamera() {
         captureBtn.disabled = true;
+        stickersBtn.disabled = true;
 
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -205,12 +305,13 @@
         await waitLoadedMetadata(cameraEl).catch(() => {});
         await cameraEl.play().catch(() => {});
 
-        // try to play puff
         await waitLoadedMetadata(puffEl).catch(() => {});
         await puffEl.play().catch(() => {});
 
         flipBtn.disabled = false;
         captureBtn.disabled = false;
+        stickersBtn.disabled = false;
+
         startBtn.textContent = "AR Running";
         startBtn.disabled = true;
       }
@@ -237,20 +338,8 @@
       });
 
       /* =========================
-         DRAG + PINCH + ROTATE + INERTIA
+         gesture helpers
       ========================= */
-      let puffX = 50,
-        puffY = 72,
-        puffScale = 1.55,
-        puffRotation = 0;
-
-      function applyPuffTransform() {
-        puffEl.style.left = puffX + "%";
-        puffEl.style.top = puffY + "%";
-        puffEl.style.transform = `translate(-50%, -50%) scale(${puffScale}) rotate(${puffRotation}deg)`;
-      }
-      applyPuffTransform();
-
       function clamp(v, min, max) {
         return Math.max(min, Math.min(max, v));
       }
@@ -263,6 +352,21 @@
           Math.PI
         );
       }
+
+      /* =========================
+         PUFF drag/pinch/rotate/inertia
+      ========================= */
+      let puffX = 50,
+        puffY = 72,
+        puffScale = 1.55,
+        puffRotation = 0;
+
+      function applyPuffTransform() {
+        puffEl.style.left = puffX + "%";
+        puffEl.style.top = puffY + "%";
+        puffEl.style.transform = `translate(-50%, -50%) scale(${puffScale}) rotate(${puffRotation}deg)`;
+      }
+      applyPuffTransform();
 
       let dragStart = null,
         gestureStart = null;
@@ -372,6 +476,209 @@
       });
 
       /* =========================
+         STICKERS (PNG only)
+      ========================= */
+      let stickersLoaded = false;
+
+      function openStickerPanel() {
+        stickerPanel.classList.add("open");
+        stickerPanel.setAttribute("aria-hidden", "false");
+        if (!stickersLoaded) loadStickers();
+      }
+
+      function closeStickerPanel() {
+        stickerPanel.classList.remove("open");
+        stickerPanel.setAttribute("aria-hidden", "true");
+      }
+
+      stickersBtn.addEventListener("click", () => {
+        if (stickersBtn.disabled) return;
+        openStickerPanel();
+      });
+
+      stickerClose.addEventListener("click", closeStickerPanel);
+
+      stickerRemove.addEventListener("click", () => {
+        stickerEl.style.display = "none";
+        stickerEl.src = "";
+        closeStickerPanel();
+      });
+
+      async function loadStickers() {
+        try {
+          const res = await fetch(
+            `/stickers.json?v=${encodeURIComponent(ASSET_VERSION)}`
+          );
+          const list = await res.json();
+          stickersLoaded = true;
+
+          stickerGrid.innerHTML = "";
+          list.forEach((item) => {
+            const cell = document.createElement("button");
+            cell.className = "stickerItem";
+            cell.type = "button";
+            cell.style.border = "0";
+            cell.style.cursor = "pointer";
+
+            const img = document.createElement("img");
+            img.loading = "lazy";
+            img.alt = item.name || item.id || "sticker";
+
+            // handles spaces in filenames
+            const encodedSrc = encodeURI(item.src);
+            img.src = `${encodedSrc}?v=${encodeURIComponent(ASSET_VERSION)}`;
+            img.crossOrigin = "anonymous";
+
+            cell.appendChild(img);
+
+            cell.addEventListener("click", () => {
+              stickerEl.crossOrigin = "anonymous";
+              stickerEl.src = img.src;
+              stickerEl.style.display = "block";
+
+              stickerX = 50;
+              stickerY = 40;
+              stickerScale = 1.0;
+              stickerRotation = 0;
+              applyStickerTransform();
+
+              closeStickerPanel();
+            });
+
+            stickerGrid.appendChild(cell);
+          });
+        } catch (e) {
+          console.error(e);
+          stickerGrid.innerHTML =
+            `<div style="color:#fff;font:500 14px system-ui;opacity:.9">
+              Could not load stickers.json. Check that /stickers.json exists at repo root.
+            </div>`;
+        }
+      }
+
+      /* sticker gestures (same idea as puff) */
+      let stickerX = 50,
+        stickerY = 40,
+        stickerScale = 1.0,
+        stickerRotation = 0;
+
+      function applyStickerTransform() {
+        stickerEl.style.left = stickerX + "%";
+        stickerEl.style.top = stickerY + "%";
+        stickerEl.style.transform = `translate(-50%, -50%) scale(${stickerScale}) rotate(${stickerRotation}deg)`;
+      }
+      applyStickerTransform();
+
+      let stickerDragStart = null,
+        stickerGestureStart = null;
+
+      let stickerAngularVelocity = 0,
+        stickerLastAngle = null,
+        stickerLastTime = null,
+        stickerInertiaRAF = null;
+
+      function stopStickerInertia() {
+        if (stickerInertiaRAF) cancelAnimationFrame(stickerInertiaRAF);
+        stickerInertiaRAF = null;
+      }
+
+      function startStickerInertia() {
+        stopStickerInertia();
+        let prev = performance.now();
+        function tick(now) {
+          const dt = (now - prev) / 1000;
+          prev = now;
+          stickerRotation += stickerAngularVelocity * dt;
+          applyStickerTransform();
+          stickerAngularVelocity *= 0.92;
+          if (Math.abs(stickerAngularVelocity) < 5) return;
+          stickerInertiaRAF = requestAnimationFrame(tick);
+        }
+        stickerInertiaRAF = requestAnimationFrame(tick);
+      }
+
+      stickerEl.addEventListener(
+        "touchstart",
+        (e) => {
+          e.preventDefault();
+          stopStickerInertia();
+
+          if (e.touches.length === 1) {
+            const t = e.touches[0];
+            stickerDragStart = {
+              x: t.clientX,
+              y: t.clientY,
+              stickerX,
+              stickerY,
+              w: innerWidth,
+              h: innerHeight,
+            };
+            stickerGestureStart = null;
+          }
+
+          if (e.touches.length === 2) {
+            const angle = getAngle(e.touches[0], e.touches[1]);
+            stickerGestureStart = {
+              distance: getDistance(e.touches[0], e.touches[1]),
+              angle,
+              scale: stickerScale,
+              rotation: stickerRotation,
+            };
+            stickerLastAngle = angle;
+            stickerLastTime = performance.now();
+            stickerDragStart = null;
+          }
+        },
+        { passive: false }
+      );
+
+      stickerEl.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+
+          if (e.touches.length === 1 && stickerDragStart) {
+            const t = e.touches[0];
+            const dx = ((t.clientX - stickerDragStart.x) / stickerDragStart.w) * 100;
+            const dy = ((t.clientY - stickerDragStart.y) / stickerDragStart.h) * 100;
+            stickerX = clamp(stickerDragStart.stickerX + dx, 0, 100);
+            stickerY = clamp(stickerDragStart.stickerY + dy, 0, 100);
+            applyStickerTransform();
+          }
+
+          if (e.touches.length === 2 && stickerGestureStart) {
+            const t0 = e.touches[0],
+              t1 = e.touches[1];
+            const newDistance = getDistance(t0, t1);
+            const newAngle = getAngle(t0, t1);
+
+            stickerScale = clamp(
+              stickerGestureStart.scale * (newDistance / stickerGestureStart.distance),
+              0.2,
+              6
+            );
+            stickerRotation =
+              stickerGestureStart.rotation + (newAngle - stickerGestureStart.angle);
+
+            const now = performance.now();
+            const dt = (now - stickerLastTime) / 1000;
+            if (dt > 0) stickerAngularVelocity = (newAngle - stickerLastAngle) / dt;
+            stickerLastAngle = newAngle;
+            stickerLastTime = now;
+
+            applyStickerTransform();
+          }
+        },
+        { passive: false }
+      );
+
+      stickerEl.addEventListener("touchend", () => {
+        if (Math.abs(stickerAngularVelocity) > 30) startStickerInertia();
+        stickerDragStart = null;
+        stickerGestureStart = null;
+      });
+
+      /* =========================
          CAPTURE
       ========================= */
       function nextCaptureFilename() {
@@ -420,6 +727,7 @@
             camRect.height
           );
 
+          // draw puff
           const puffRect = puffEl.getBoundingClientRect();
           const puffCenterX_screen =
             puffRect.left + puffRect.width / 2 - camRect.left;
@@ -452,6 +760,42 @@
           ctx.drawImage(puffEl, -drawW / 2, -drawH / 2, drawW, drawH);
           ctx.restore();
 
+          // draw sticker (optional)
+          if (stickerEl.style.display !== "none" && stickerEl.src) {
+            const stickerRect = stickerEl.getBoundingClientRect();
+
+            const stickerCenterX_screen =
+              stickerRect.left + stickerRect.width / 2 - camRect.left;
+            const stickerCenterY_screen =
+              stickerRect.top + stickerRect.height / 2 - camRect.top;
+
+            const stickerCenterX_cam =
+              (stickerCenterX_screen - cover.offsetX) / cover.scale;
+            const stickerCenterY_cam =
+              (stickerCenterY_screen - cover.offsetY) / cover.scale;
+
+            const stickerW_cam = stickerRect.width / cover.scale;
+            const stickerH_cam = stickerRect.height / cover.scale;
+
+            const stickerAR =
+              stickerEl.naturalWidth && stickerEl.naturalHeight
+                ? stickerEl.naturalWidth / stickerEl.naturalHeight
+                : stickerRect.width / stickerRect.height;
+
+            let sDrawW = stickerW_cam;
+            let sDrawH = sDrawW / stickerAR;
+            if (sDrawH > stickerH_cam) {
+              sDrawH = stickerH_cam;
+              sDrawW = sDrawH * stickerAR;
+            }
+
+            ctx.save();
+            ctx.translate(stickerCenterX_cam, stickerCenterY_cam);
+            ctx.rotate((stickerRotation * Math.PI) / 180);
+            ctx.drawImage(stickerEl, -sDrawW / 2, -sDrawH / 2, sDrawW, sDrawH);
+            ctx.restore();
+          }
+
           out.toBlob((blob) => {
             if (!blob) {
               win.document.write("<h3>Capture failed</h3>");
@@ -482,9 +826,7 @@
         } catch (err) {
           console.error(err);
           win.document.write(
-            `<h3>Capture Error</h3><pre style="white-space:pre-wrap">${String(
-              err
-            )}</pre>`
+            `<h3>Capture Error</h3><pre style="white-space:pre-wrap">${String(err)}</pre>`
           );
           win.document.close();
           alert("Capture failed. Try again.");
