@@ -426,29 +426,26 @@
       const ASSET_VERSION = "26";
 
       /* =========================
-         INTRO LOGIC
+         INTRO LOGIC + SKIP ON REFRESH
       ========================= */
       const introOverlay = document.getElementById("introOverlay");
       const introVideo = document.getElementById("introVideo");
       const exploreBtn = document.getElementById("exploreBtn");
       const app = document.getElementById("app");
 
-      // Load intro.mp4 (same folder as index.html)
+      const INTRO_KEY = "puff_intro_seen";
+
+      // Load intro video (same folder as index.html)
       introVideo.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
 
-      // Requirement:
-      // - intro plays once
-      // - after 1 round, show Explore button
-      // - then video keeps looping until Explore is clicked
+      // First play once, then show Explore and loop forever
       let introLoopStarted = false;
 
       introVideo.addEventListener("ended", async () => {
-        // First time it ends -> show Explore, then loop forever
         if (!introLoopStarted) {
           introLoopStarted = true;
           exploreBtn.classList.remove("hidden");
 
-          // Start looping from now on
           introVideo.loop = true;
           try {
             introVideo.currentTime = 0;
@@ -457,8 +454,7 @@
         }
       });
 
-      // In case autoplay is blocked on some devices (rare when muted),
-      // we still try play on first user interaction.
+      // If autoplay is blocked (rare when muted), try on first interaction
       const tryPlayIntro = async () => {
         try {
           await introVideo.play();
@@ -467,14 +463,19 @@
       };
       window.addEventListener("pointerdown", tryPlayIntro, true);
 
+      // ✅ Skip intro if user already clicked Explore before
+      if (localStorage.getItem(INTRO_KEY) === "yes") {
+        introOverlay.classList.add("hidden");
+        app.classList.remove("hidden");
+      }
+
       exploreBtn.addEventListener("click", async () => {
-        // Hide intro overlay, show app
+        localStorage.setItem(INTRO_KEY, "yes");
+
         introOverlay.classList.add("hidden");
         app.classList.remove("hidden");
 
-        // Make sure puff video starts once app is visible
         try {
-          const puffEl = document.getElementById("puff");
           await puffEl.play();
         } catch (_) {}
       });
@@ -506,6 +507,7 @@
       /* =========================================================
          FOODIE-LIKE FILTER RECIPES
       ========================================================= */
+
       const clamp01 = (v) => Math.max(0, Math.min(1, v));
       const clamp255 = (v) => Math.max(0, Math.min(255, v));
 
@@ -525,11 +527,7 @@
 
       function applySaturationLin(r, g, b, sat) {
         const y = lumaLin(r, g, b);
-        return [
-          y + (r - y) * sat,
-          y + (g - y) * sat,
-          y + (b - y) * sat,
-        ];
+        return [y + (r - y) * sat, y + (g - y) * sat, y + (b - y) * sat];
       }
 
       function adjustShadowsHighlightsLin(y, shadows, highlights) {
@@ -574,10 +572,7 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0,
-              g = 0,
-              b = 0,
-              n = 0;
+            let r = 0, g = 0, b = 0, n = 0;
             for (let dy = -radius; dy <= radius; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -592,9 +587,7 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n,
-              bg = g / n,
-              bb = b / n;
+            const br = r / n, bg = g / n, bb = b / n;
 
             data[p] = clamp255(src[p] + amount * (src[p] - br));
             data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
@@ -612,10 +605,7 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0,
-              g = 0,
-              b = 0,
-              n = 0;
+            let r = 0, g = 0, b = 0, n = 0;
             for (let dy = -1; dy <= 1; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -630,9 +620,7 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n,
-              bg = g / n,
-              bb = b / n;
+            const br = r / n, bg = g / n, bb = b / n;
 
             data[p] = clamp255(src[p] * (1 - strength) + br * strength);
             data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
@@ -664,135 +652,72 @@
           id: "35mm04",
           name: "35mm 04",
           recipe: recipe({
-            exposure: -5,
-            brilliance: -10,
-            highlights: -30,
-            shadows: +18,
-            brightness: -10,
-            contrast: -8,
-            saturation: -6,
-            warmth: -6,
-            fade: +12,
-            sharpness: -5,
-            noiseReduce: +8,
+            exposure: -5, brilliance: -10, highlights: -30, shadows: +18,
+            brightness: -10, contrast: -8, saturation: -6, warmth: -6,
+            fade: +12, sharpness: -5, noiseReduce: +8,
           }),
         },
         {
           id: "vi4",
           name: "VI4",
           recipe: recipe({
-            exposure: +10,
-            brilliance: +18,
-            highlights: -35,
-            shadows: +14,
-            brightness: +6,
-            contrast: -6,
-            saturation: +10,
-            warmth: +10,
-            fade: +10,
-            sharpness: +6,
-            noiseReduce: +10,
+            exposure: +10, brilliance: +18, highlights: -35, shadows: +14,
+            brightness: +6, contrast: -6, saturation: +10, warmth: +10,
+            fade: +10, sharpness: +6, noiseReduce: +10,
           }),
         },
         {
           id: "cm1",
           name: "CM1",
           recipe: recipe({
-            exposure: +8,
-            brilliance: +22,
-            highlights: -25,
-            shadows: +12,
-            brightness: +4,
-            contrast: -4,
-            saturation: +12,
-            warmth: +6,
-            fade: +6,
-            sharpness: +10,
-            noiseReduce: +8,
+            exposure: +8, brilliance: +22, highlights: -25, shadows: +12,
+            brightness: +4, contrast: -4, saturation: +12, warmth: +6,
+            fade: +6, sharpness: +10, noiseReduce: +8,
           }),
         },
         {
           id: "sapa",
           name: "Sapa",
           recipe: recipe({
-            exposure: +12,
-            brilliance: +10,
-            highlights: -22,
-            shadows: +18,
-            brightness: +8,
-            contrast: -10,
-            saturation: +6,
-            warmth: -10,
-            fade: +16,
-            sharpness: +6,
-            noiseReduce: +10,
+            exposure: +12, brilliance: +10, highlights: -22, shadows: +18,
+            brightness: +8, contrast: -10, saturation: +6, warmth: -10,
+            fade: +16, sharpness: +6, noiseReduce: +10,
           }),
         },
         {
           id: "salt",
           name: "Salt",
           recipe: recipe({
-            exposure: +18,
-            brilliance: +18,
-            highlights: -40,
-            shadows: +10,
-            brightness: +10,
-            contrast: -8,
-            saturation: +14,
-            warmth: +14,
-            fade: +8,
-            sharpness: +8,
-            noiseReduce: +8,
+            exposure: +18, brilliance: +18, highlights: -40, shadows: +10,
+            brightness: +10, contrast: -8, saturation: +14, warmth: +14,
+            fade: +8, sharpness: +8, noiseReduce: +8,
           }),
         },
         {
           id: "in2",
           name: "IN2",
           recipe: recipe({
-            exposure: +10,
-            brilliance: +8,
-            highlights: -30,
-            shadows: +16,
-            brightness: +4,
-            contrast: -12,
-            saturation: -4,
-            warmth: -8,
-            fade: +18,
-            sharpness: +6,
-            noiseReduce: +12,
+            exposure: +10, brilliance: +8, highlights: -30, shadows: +16,
+            brightness: +4, contrast: -12, saturation: -4, warmth: -8,
+            fade: +18, sharpness: +6, noiseReduce: +12,
           }),
         },
         {
           id: "fl2",
           name: "FL2",
           recipe: recipe({
-            exposure: +14,
-            brilliance: +14,
-            highlights: -28,
-            shadows: +10,
-            brightness: +8,
-            contrast: -6,
-            saturation: +10,
-            warmth: +8,
-            fade: +10,
-            sharpness: +8,
-            noiseReduce: +10,
+            exposure: +14, brilliance: +14, highlights: -28, shadows: +10,
+            brightness: +8, contrast: -6, saturation: +10, warmth: +8,
+            fade: +10, sharpness: +8, noiseReduce: +10,
           }),
         },
         {
           id: "bwfilm",
           name: "B&W Film",
           recipe: recipe({
-            exposure: +6,
-            brilliance: +10,
-            highlights: -20,
-            shadows: +10,
-            brightness: +4,
-            contrast: +10,
-            saturation: -100,
-            fade: +8,
-            sharpness: +10,
-            noiseReduce: +10,
+            exposure: +6, brilliance: +10, highlights: -20, shadows: +10,
+            brightness: +4, contrast: +10, saturation: -100, fade: +8,
+            sharpness: +10, noiseReduce: +10,
           }),
         },
       ];
@@ -830,8 +755,7 @@
         filterListEl.innerHTML = "";
         FILTERS.forEach((f) => {
           const b = document.createElement("button");
-          b.className =
-            "filterItem" + (f.id === currentFilterId ? " active" : "");
+          b.className = "filterItem" + (f.id === currentFilterId ? " active" : "");
           b.type = "button";
 
           const r = f.recipe;
@@ -868,8 +792,7 @@
          PUFF RANDOM (3 videos)
       ========================= */
       const puffBases = ["puff", "puff2", "puff3"];
-      const chosenBase =
-        puffBases[Math.floor(Math.random() * puffBases.length)];
+      const chosenBase = puffBases[Math.floor(Math.random() * puffBases.length)];
 
       function isAppleSafari() {
         const ua = navigator.userAgent;
@@ -1010,8 +933,7 @@
       });
 
       mirrorBtn.addEventListener("click", () => {
-        mirrorMode =
-          mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
+        mirrorMode = mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
         applyMirrorToPreview();
       });
 
@@ -1090,8 +1012,7 @@
             lastTime = null;
           } else if (pointers.size === 2) {
             const pts = Array.from(pointers.values());
-            const a = pts[0],
-              b = pts[1];
+            const a = pts[0], b = pts[1];
             const ang = angleDeg(a, b);
             gestureStart = {
               distance: dist(a, b),
@@ -1124,8 +1045,7 @@
 
           if (pointers.size === 2 && gestureStart) {
             const pts = Array.from(pointers.values());
-            const a = pts[0],
-              b = pts[1];
+            const a = pts[0], b = pts[1];
 
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
@@ -1266,9 +1186,7 @@
 
       async function loadStickers() {
         try {
-          const res = await fetch(
-            `/stickers.json?v=${encodeURIComponent(ASSET_VERSION)}`
-          );
+          const res = await fetch(`/stickers.json?v=${encodeURIComponent(ASSET_VERSION)}`);
           const list = await res.json();
           stickersLoaded = true;
 
@@ -1315,13 +1233,7 @@
         const clickedUI = document.getElementById("ui").contains(e.target);
         const clickedPuff = e.target === puffEl;
 
-        if (
-          !isSticker &&
-          !clickedPanel &&
-          !clickedFilter &&
-          !clickedUI &&
-          !clickedPuff
-        ) {
+        if (!isSticker && !clickedPanel && !clickedFilter && !clickedUI && !clickedPuff) {
           if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
           selectedStickerEl = null;
           stickerRemove.disabled = true;
@@ -1373,10 +1285,10 @@
           y = adjustShadowsHighlightsLin(y, r.shadows, r.highlights);
 
           const y0 = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
-          const scale = y / y0;
-          rLin *= scale;
-          gLin *= scale;
-          bLin *= scale;
+          const sc = y / y0;
+          rLin *= sc;
+          gLin *= sc;
+          bLin *= sc;
 
           [rLin, gLin, bLin] = applySaturationLin(rLin, gLin, bLin, sat);
 
@@ -1427,12 +1339,7 @@
           const ctx = out.getContext("2d", { willReadFrequently: true });
 
           const camRect = cameraEl.getBoundingClientRect();
-          const cover = getCoverTransform(
-            out.width,
-            out.height,
-            camRect.width,
-            camRect.height
-          );
+          const cover = getCoverTransform(out.width, out.height, camRect.width, camRect.height);
 
           const mirrorOutput = shouldMirrorPreview();
 
@@ -1451,10 +1358,8 @@
           }
 
           function computeDrawRect(domRect, aspectW, aspectH) {
-            const centerX_screen =
-              domRect.left + domRect.width / 2 - camRect.left;
-            const centerY_screen =
-              domRect.top + domRect.height / 2 - camRect.top;
+            const centerX_screen = domRect.left + domRect.width / 2 - camRect.left;
+            const centerY_screen = domRect.top + domRect.height / 2 - camRect.top;
 
             const centerX_cam = (centerX_screen - cover.offsetX) / cover.scale;
             const centerY_cam = (centerY_screen - cover.offsetY) / cover.scale;
@@ -1462,10 +1367,7 @@
             const w_cam = domRect.width / cover.scale;
             const h_cam = domRect.height / cover.scale;
 
-            const ar =
-              aspectW && aspectH
-                ? aspectW / aspectH
-                : domRect.width / domRect.height;
+            const ar = aspectW && aspectH ? aspectW / aspectH : domRect.width / domRect.height;
 
             let drawW = w_cam;
             let drawH = drawW / ar;
@@ -1481,17 +1383,11 @@
           }
 
           const puffRect = puffEl.getBoundingClientRect();
-          const puffDraw = computeDrawRect(
-            puffRect,
-            puffEl.videoWidth,
-            puffEl.videoHeight
-          );
+          const puffDraw = computeDrawRect(puffRect, puffEl.videoWidth, puffEl.videoHeight);
 
           ctx.save();
           ctx.translate(mirrorX(puffDraw.centerX_cam), puffDraw.centerY_cam);
-          const puffRotation = mirrorOutput
-            ? -puffState.rotation
-            : puffState.rotation;
+          const puffRotation = mirrorOutput ? -puffState.rotation : puffState.rotation;
           ctx.rotate((puffRotation * Math.PI) / 180);
           ctx.drawImage(
             puffEl,
@@ -1545,9 +1441,7 @@
         } catch (err) {
           console.error(err);
           win.document.write(
-            `<h3>Capture Error</h3><pre style="white-space:pre-wrap">${String(
-              err
-            )}</pre>`
+            `<h3>Capture Error</h3><pre style="white-space:pre-wrap">${String(err)}</pre>`
           );
           win.document.close();
           alert("Capture failed. Try again.");
