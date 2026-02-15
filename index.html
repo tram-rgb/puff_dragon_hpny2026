@@ -120,10 +120,8 @@
         min-width: 76px;
       }
 
-      /* Start AR color */
       #start {
         background: #fa213f;
-        color: #fff;
       }
 
       button.secondary {
@@ -134,7 +132,6 @@
         opacity: 0.5;
       }
 
-      /* Puff It! button color */
       #capture {
         background: #fff100;
         color: #060d3d;
@@ -209,6 +206,14 @@
         color: rgba(255, 255, 255, 0.95);
         font: 800 12px system-ui;
         text-align: left;
+      }
+
+      .filterItem .sub {
+        display: block;
+        margin-top: 4px;
+        opacity: 0.78;
+        font: 700 10px system-ui;
+        line-height: 1.1;
       }
 
       .filterItem.active {
@@ -333,79 +338,383 @@
       /* =========================
          CACHE BUSTING
       ========================= */
-      const ASSET_VERSION = "24";
+      const ASSET_VERSION = "25";
 
-      /* =========================
-         FILTERS (Foodie-like / soft film vibes)
-         Note: CSS filters are an approximation (no true "highlights/shadows"),
-               but these match the vibe of your reference images: creamy, film,
-               glowy, gentle contrast.
-      ========================= */
+      /* =========================================================
+         FOODIE-LIKE FILTER RECIPES
+         - These are "recipe params" (like your screenshots).
+         - Live preview uses a light CSS approximation (fast).
+         - Capture uses real pixel processing for much closer result.
+      ========================================================= */
+
+      // clamp helpers
+      const clamp01 = (v) => Math.max(0, Math.min(1, v));
+      const clamp255 = (v) => Math.max(0, Math.min(255, v));
+
+      function srgbToLin(c) {
+        c /= 255;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      }
+      function linToSrgb(c) {
+        c = clamp01(c);
+        const v =
+          c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+        return clamp255(v * 255);
+      }
+      function lumaLin(rLin, gLin, bLin) {
+        return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
+      }
+
+      // apply saturation around luma (linear space)
+      function applySaturationLin(r, g, b, sat) {
+        const y = lumaLin(r, g, b);
+        // sat: 1 = same, >1 more, <1 less
+        return [
+          y + (r - y) * sat,
+          y + (g - y) * sat,
+          y + (b - y) * sat,
+        ];
+      }
+
+      // tone helpers: highlights/shadows control (very lightweight curve)
+      function adjustShadowsHighlightsLin(y, shadows, highlights) {
+        // shadows/highlights in [-1..+1] range
+        // shadows: lift/darken shadows mainly under ~0.4
+        // highlights: recover/dim highlights mainly above ~0.6
+        let out = y;
+
+        // shadows
+        if (shadows !== 0) {
+          const t = clamp01((0.45 - y) / 0.45); // 1 in darkest, 0 at 0.45
+          out += shadows * t * 0.35; // strength
+        }
+
+        // highlights
+        if (highlights !== 0) {
+          const t = clamp01((y - 0.55) / 0.45); // 0 at 0.55, 1 at 1
+          out += highlights * t * 0.35;
+        }
+
+        return clamp01(out);
+      }
+
+      // brilliance = midtone contrast boost (like local contrast)
+      function applyBrillianceLin(y, brilliance) {
+        // brilliance in [-1..+1]
+        if (brilliance === 0) return y;
+        // S-curve around midtones
+        const k = brilliance * 0.55;
+        // smoothstep-ish
+        const s = y * y * (3 - 2 * y);
+        return clamp01(y + (s - y) * k);
+      }
+
+      // fade = lift blacks slightly
+      function applyFadeLin(y, fade) {
+        // fade in [0..1]
+        if (!fade) return y;
+        const lift = fade * 0.10;
+        return clamp01(y * (1 - fade * 0.15) + lift);
+      }
+
+      // warmth = warm/cool color bias in linear space
+      function applyWarmthLin(r, g, b, warmth) {
+        // warmth in [-1..+1]
+        if (!warmth) return [r, g, b];
+        const w = warmth * 0.10;
+        // warm: increase red, slightly decrease blue
+        return [r * (1 + w), g, b * (1 - w)];
+      }
+
+      // simple unsharp mask (for capture only)
+      function unsharpMask(imageData, amount = 0.35, radius = 1) {
+        // radius=1 small blur (box blur)
+        const { width: w, height: h, data } = imageData;
+        const src = new Uint8ClampedArray(data); // copy
+        const idx = (x, y) => (y * w + x) * 4;
+
+        // box blur 3x3
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let r = 0,
+              g = 0,
+              b = 0,
+              a = 0,
+              n = 0;
+            for (let dy = -radius; dy <= radius; dy++) {
+              const yy = y + dy;
+              if (yy < 0 || yy >= h) continue;
+              for (let dx = -radius; dx <= radius; dx++) {
+                const xx = x + dx;
+                if (xx < 0 || xx >= w) continue;
+                const p = idx(xx, yy);
+                r += src[p];
+                g += src[p + 1];
+                b += src[p + 2];
+                a += src[p + 3];
+                n++;
+              }
+            }
+            const p = idx(x, y);
+            const br = r / n,
+              bg = g / n,
+              bb = b / n;
+
+            // original
+            const or = src[p],
+              og = src[p + 1],
+              ob = src[p + 2];
+
+            // sharpened = original + amount*(original - blurred)
+            data[p] = clamp255(or + amount * (or - br));
+            data[p + 1] = clamp255(og + amount * (og - bg));
+            data[p + 2] = clamp255(ob + amount * (ob - bb));
+            data[p + 3] = src[p + 3];
+          }
+        }
+        return imageData;
+      }
+
+      // tiny noise reduction (capture only): super light blur on chroma
+      function noiseReduceLight(imageData, strength = 0.15) {
+        if (!strength) return imageData;
+        const { width: w, height: h, data } = imageData;
+        const src = new Uint8ClampedArray(data);
+        const idx = (x, y) => (y * w + x) * 4;
+
+        // 3x3 blur blended by strength
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let r = 0,
+              g = 0,
+              b = 0,
+              n = 0;
+            for (let dy = -1; dy <= 1; dy++) {
+              const yy = y + dy;
+              if (yy < 0 || yy >= h) continue;
+              for (let dx = -1; dx <= 1; dx++) {
+                const xx = x + dx;
+                if (xx < 0 || xx >= w) continue;
+                const p = idx(xx, yy);
+                r += src[p];
+                g += src[p + 1];
+                b += src[p + 2];
+                n++;
+              }
+            }
+            const p = idx(x, y);
+            const br = r / n,
+              bg = g / n,
+              bb = b / n;
+
+            data[p] = clamp255(src[p] * (1 - strength) + br * strength);
+            data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
+            data[p + 2] = clamp255(src[p + 2] * (1 - strength) + bb * strength);
+          }
+        }
+        return imageData;
+      }
+
+      // Convert “recipe numbers” (like +22 / -44 etc) to a recipe object.
+      // We keep the same style, but normalize internally.
+      function recipe(params) {
+        return {
+          // roughly match app units:
+          exposure: (params.exposure || 0) / 100, // -1..+1
+          brilliance: (params.brilliance || 0) / 100,
+          highlights: (params.highlights || 0) / 100,
+          shadows: (params.shadows || 0) / 100,
+          brightness: (params.brightness || 0) / 100,
+          contrast: (params.contrast || 0) / 100,
+          saturation: (params.saturation || 0) / 100,
+          warmth: (params.warmth || 0) / 100,
+          fade: (params.fade || 0) / 100,
+          sharpness: (params.sharpness || 0) / 100,
+          noiseReduce: (params.noiseReduce || 0) / 100,
+        };
+      }
+
+      // Foodie-style filter list (based on your screenshots vibe).
+      // NOTE: exact numeric recipes from screenshots vary per template,
+      // so these are tuned to *match the same look* (creamy, film, glow).
       const FILTERS = [
-        { id: "none", name: "None", css: "none" },
+        { id: "none", name: "None", recipe: recipe({}) },
 
-        // Like "camera roll glowy filter"
+        // 35mm / motion blur look: cool + lower contrast + slightly desat
         {
-          id: "glow",
-          name: "Glow",
-          css: "brightness(1.12) contrast(1.05) saturate(1.18) sepia(0.08)",
+          id: "35mm04",
+          name: "35mm 04",
+          recipe: recipe({
+            exposure: -5,
+            brilliance: -10,
+            highlights: -30,
+            shadows: +18,
+            brightness: -10,
+            contrast: -8,
+            saturation: -6,
+            warmth: -6,
+            fade: +12,
+            sharpness: -5,
+            noiseReduce: +8,
+          }),
         },
 
-        // Soft pale + creamy highlights
+        // VI4: warm + soft + creamy skin
         {
-          id: "cream",
-          name: "Cream",
-          css: "brightness(1.10) contrast(0.96) saturate(1.10) sepia(0.14)",
+          id: "vi4",
+          name: "VI4",
+          recipe: recipe({
+            exposure: +10,
+            brilliance: +18,
+            highlights: -35,
+            shadows: +14,
+            brightness: +6,
+            contrast: -6,
+            saturation: +10,
+            warmth: +10,
+            fade: +10,
+            sharpness: +6,
+            noiseReduce: +10,
+          }),
         },
 
-        // Warm golden (sunset / film)
+        // CM1: clean warm portrait
         {
-          id: "golden",
-          name: "Golden",
-          css: "brightness(1.08) contrast(1.02) saturate(1.12) sepia(0.18) hue-rotate(-10deg)",
+          id: "cm1",
+          name: "CM1",
+          recipe: recipe({
+            exposure: +8,
+            brilliance: +22,
+            highlights: -25,
+            shadows: +12,
+            brightness: +4,
+            contrast: -4,
+            saturation: +12,
+            warmth: +6,
+            fade: +6,
+            sharpness: +10,
+            noiseReduce: +8,
+          }),
         },
 
-        // Dusty + slightly green-ish (film / indoor mirror vibe)
+        // Sapa: airy + cool + soft fade
         {
-          id: "dustyfilm",
-          name: "Dusty Film",
-          css: "brightness(1.03) contrast(0.92) saturate(0.96) sepia(0.14) hue-rotate(-8deg)",
+          id: "sapa",
+          name: "Sapa",
+          recipe: recipe({
+            exposure: +12,
+            brilliance: +10,
+            highlights: -22,
+            shadows: +18,
+            brightness: +8,
+            contrast: -10,
+            saturation: +6,
+            warmth: -10,
+            fade: +16,
+            sharpness: +6,
+            noiseReduce: +10,
+          }),
         },
 
-        // Cool soft fade (outdoor train station vibe)
+        // Salt: bright sunlight + glow + warm
         {
-          id: "coolfade",
-          name: "Cool Fade",
-          css: "brightness(1.06) contrast(0.95) saturate(0.98) hue-rotate(10deg)",
+          id: "salt",
+          name: "Salt",
+          recipe: recipe({
+            exposure: +18,
+            brilliance: +18,
+            highlights: -40,
+            shadows: +10,
+            brightness: +10,
+            contrast: -8,
+            saturation: +14,
+            warmth: +14,
+            fade: +8,
+            sharpness: +8,
+            noiseReduce: +8,
+          }),
         },
 
-        // Stronger "vintage" but still subtle
+        // IN2: green-ish film / station look
         {
-          id: "vintage",
-          name: "Vintage",
-          css: "brightness(1.04) contrast(1.00) saturate(1.02) sepia(0.22)",
+          id: "in2",
+          name: "IN2",
+          recipe: recipe({
+            exposure: +10,
+            brilliance: +8,
+            highlights: -30,
+            shadows: +16,
+            brightness: +4,
+            contrast: -12,
+            saturation: -4,
+            warmth: -8,
+            fade: +18,
+            sharpness: +6,
+            noiseReduce: +12,
+          }),
         },
 
-        // Clean bright skin / light beauty
+        // FL2: bright + clean + soft
         {
-          id: "clean",
-          name: "Clean",
-          css: "brightness(1.09) contrast(1.03) saturate(1.06)",
+          id: "fl2",
+          name: "FL2",
+          recipe: recipe({
+            exposure: +14,
+            brilliance: +14,
+            highlights: -28,
+            shadows: +10,
+            brightness: +8,
+            contrast: -6,
+            saturation: +10,
+            warmth: +8,
+            fade: +10,
+            sharpness: +8,
+            noiseReduce: +10,
+          }),
         },
 
-        // Black & white film
+        // B&W film
         {
           id: "bwfilm",
           name: "B&W Film",
-          css: "grayscale(1) contrast(1.14) brightness(1.05)",
+          recipe: recipe({
+            exposure: +6,
+            brilliance: +10,
+            highlights: -20,
+            shadows: +10,
+            brightness: +4,
+            contrast: +10,
+            saturation: -100,
+            warmth: 0,
+            fade: +8,
+            sharpness: +10,
+            noiseReduce: +10,
+          }),
         },
       ];
 
+      // current filter selection
       let currentFilterId = "none";
-      let currentFilterCss = "none";
+      let currentRecipe = FILTERS[0].recipe;
 
-      function applyCameraFilter() {
-        cameraEl.style.filter = currentFilterCss;
+      // fast preview approximation (CSS)
+      function recipeToPreviewCss(r) {
+        // brightness: combine exposure + brightness
+        const bright = 1 + r.exposure * 0.55 + r.brightness * 0.35;
+        const cont = 1 + r.contrast * 0.6 + r.brilliance * 0.25;
+        const sat = 1 + r.saturation * 0.75;
+        const hue = r.warmth * -18; // negative warms (orange-ish)
+        const sep = clamp01(r.warmth * 0.35 + 0.05);
+        // fade can't be done properly in CSS, but slight contrast reduction helps already
+        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(
+          3
+        )}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(
+          3
+        )}) hue-rotate(${hue.toFixed(1)}deg)`;
+      }
+
+      function applyCameraFilterPreview() {
+        cameraEl.style.filter = recipeToPreviewCss(currentRecipe);
       }
 
       function openFilterPanel() {
@@ -424,11 +733,24 @@
           b.className =
             "filterItem" + (f.id === currentFilterId ? " active" : "");
           b.type = "button";
-          b.textContent = f.name;
+
+          // tiny “recipe line” (like your screenshots)
+          const r = f.recipe;
+          const recLine =
+            f.id === "none"
+              ? "no recipe"
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(
+                  r.highlights * 100
+                )} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(
+                  r.saturation * 100
+                )}`;
+
+          b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
+
           b.addEventListener("click", () => {
             currentFilterId = f.id;
-            currentFilterCss = f.css;
-            applyCameraFilter();
+            currentRecipe = f.recipe;
+            applyCameraFilterPreview();
             renderFilters();
             closeFilterPanel();
           });
@@ -562,7 +884,7 @@
         filterBtn.disabled = false;
 
         applyMirrorToPreview();
-        applyCameraFilter();
+        applyCameraFilterPreview();
 
         startBtn.textContent = "AR Running";
         startBtn.disabled = true;
@@ -910,10 +1232,7 @@
       });
 
       /* =========================
-         CAPTURE
-         - Mirror output follows mirror settings (WYSIWYG)
-         - Filter applies to camera background only
-         - FIX: invert overlay rotation when mirrored (no sticker flip)
+         CAPTURE HELPERS
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
@@ -932,6 +1251,95 @@
         return { scale, drawW, drawH, offsetX, offsetY };
       }
 
+      /* =========================================================
+         APPLY RECIPE TO IMAGE DATA (CAPTURE-ONLY, more accurate)
+      ========================================================= */
+      function applyRecipeToImageData(imageData, r) {
+        const d = imageData.data;
+
+        const sat = 1 + r.saturation * 0.9;
+        const exposure = r.exposure; // linear gain via pow2-ish
+        const exposureGain = Math.pow(2, exposure); // nice exposure behavior
+        const brightnessGain = 1 + r.brightness * 0.35;
+        const contrastGain = 1 + r.contrast * 0.6;
+
+        for (let i = 0; i < d.length; i += 4) {
+          const R = d[i],
+            G = d[i + 1],
+            B = d[i + 2];
+
+          // to linear
+          let rLin = srgbToLin(R);
+          let gLin = srgbToLin(G);
+          let bLin = srgbToLin(B);
+
+          // warmth
+          [rLin, gLin, bLin] = applyWarmthLin(rLin, gLin, bLin, r.warmth);
+
+          // exposure + brightness
+          rLin *= exposureGain * brightnessGain;
+          gLin *= exposureGain * brightnessGain;
+          bLin *= exposureGain * brightnessGain;
+
+          // luma for tone ops
+          let y = lumaLin(rLin, gLin, bLin);
+
+          // brilliance
+          y = applyBrillianceLin(y, r.brilliance);
+
+          // highlights/shadows
+          y = adjustShadowsHighlightsLin(y, r.shadows, r.highlights);
+
+          // reconstruct by scaling towards new luma (preserve chroma)
+          const y0 = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
+          const scale = y / y0;
+          rLin *= scale;
+          gLin *= scale;
+          bLin *= scale;
+
+          // saturation
+          [rLin, gLin, bLin] = applySaturationLin(rLin, gLin, bLin, sat);
+
+          // contrast in linear around 0.5 (approx)
+          const pivot = 0.18; // film-ish mid gray in linear
+          rLin = (rLin - pivot) * contrastGain + pivot;
+          gLin = (gLin - pivot) * contrastGain + pivot;
+          bLin = (bLin - pivot) * contrastGain + pivot;
+
+          // fade
+          const yFade = applyFadeLin(lumaLin(rLin, gLin, bLin), r.fade);
+          const yNow = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
+          const s2 = yFade / yNow;
+          rLin *= s2;
+          gLin *= s2;
+          bLin *= s2;
+
+          // back to sRGB
+          d[i] = linToSrgb(rLin);
+          d[i + 1] = linToSrgb(gLin);
+          d[i + 2] = linToSrgb(bLin);
+          // alpha stays
+        }
+
+        // noise reduce then sharpness (capture only)
+        if (r.noiseReduce > 0.01) {
+          noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
+        }
+        if (r.sharpness > 0.01) {
+          // sharpness: amount up to ~0.55
+          unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
+        }
+
+        return imageData;
+      }
+
+      /* =========================
+         CAPTURE
+         - Background is mirrored if mirror enabled
+         - Filter recipe applied to background only (pixel accurate)
+         - Overlays drawn after, not filtered
+         - FIX: invert overlay rotation when mirrored (no sticker flip)
+      ========================= */
       captureBtn.addEventListener("click", () => {
         const win = window.open("about:blank", "_blank");
         if (!win) {
@@ -949,7 +1357,7 @@
           const out = document.createElement("canvas");
           out.width = cameraEl.videoWidth;
           out.height = cameraEl.videoHeight;
-          const ctx = out.getContext("2d");
+          const ctx = out.getContext("2d", { willReadFrequently: true });
 
           const camRect = cameraEl.getBoundingClientRect();
           const cover = getCoverTransform(
@@ -961,9 +1369,8 @@
 
           const mirrorOutput = shouldMirrorPreview();
 
-          // 1) Draw camera with filter + mirror (WYSIWYG)
+          // 1) Draw camera (with mirror) WITHOUT css filter (we'll do recipe pixels)
           ctx.save();
-          ctx.filter = currentFilterCss || "none";
           if (mirrorOutput) {
             ctx.translate(out.width, 0);
             ctx.scale(-1, 1);
@@ -971,8 +1378,12 @@
           ctx.drawImage(cameraEl, 0, 0, out.width, out.height);
           ctx.restore();
 
-          // Overlays should have no filter
-          ctx.filter = "none";
+          // 2) Apply recipe pixels to background ONLY
+          if (currentFilterId !== "none") {
+            const imgData = ctx.getImageData(0, 0, out.width, out.height);
+            applyRecipeToImageData(imgData, currentRecipe);
+            ctx.putImageData(imgData, 0, 0);
+          }
 
           function computeDrawRect(domRect, aspectW, aspectH) {
             const centerX_screen =
@@ -1000,12 +1411,11 @@
             return { centerX_cam, centerY_cam, drawW, drawH };
           }
 
-          // Mirror ONLY the X position for overlays when output is mirrored
           function mirrorX(xCam) {
             return mirrorOutput ? out.width - xCam : xCam;
           }
 
-          // 2) Puff (FIXED: invert rotation when mirrored)
+          // 3) Puff overlay (invert rotation when mirrored)
           const puffRect = puffEl.getBoundingClientRect();
           const puffDraw = computeDrawRect(
             puffRect,
@@ -1015,13 +1425,10 @@
 
           ctx.save();
           ctx.translate(mirrorX(puffDraw.centerX_cam), puffDraw.centerY_cam);
-
           const puffRotation = mirrorOutput
             ? -puffState.rotation
             : puffState.rotation;
-
           ctx.rotate((puffRotation * Math.PI) / 180);
-
           ctx.drawImage(
             puffEl,
             -puffDraw.drawW / 2,
@@ -1031,7 +1438,7 @@
           );
           ctx.restore();
 
-          // 3) Stickers (FIXED: invert rotation when mirrored)
+          // 4) Stickers overlay (invert rotation when mirrored)
           for (const [el, st] of stickerStates.entries()) {
             if (!el.complete || !el.naturalWidth) continue;
 
@@ -1040,15 +1447,13 @@
 
             ctx.save();
             ctx.translate(mirrorX(d.centerX_cam), d.centerY_cam);
-
             const stickerRotation = mirrorOutput ? -st.rotation : st.rotation;
             ctx.rotate((stickerRotation * Math.PI) / 180);
-
             ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
             ctx.restore();
           }
 
-          // 4) Export
+          // 5) Export
           out.toBlob((blob) => {
             if (!blob) {
               win.document.write("<h3>Capture failed</h3>");
@@ -1087,6 +1492,11 @@
           alert("Capture failed. Try again.");
         }
       });
+
+      /* =========================
+         IMPORTANT: apply initial preview filter
+      ========================= */
+      applyCameraFilterPreview();
     </script>
   </body>
 </html>
