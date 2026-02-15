@@ -112,19 +112,43 @@
       const captureBtn = document.getElementById("capture");
 
       /* =========================
-         RANDOM 2 VIDEOS
-         ✅ Apple Safari/iOS: .mov (HEVC + ALPHA)
-         ✅ Chrome/Android: .webm (VP9 + ALPHA)
-         IMPORTANT: bump ASSET_VERSION after replacing files (Safari cache)
+         CACHE BUSTING
+         IMPORTANT: bump this every time you upload/replace videos
       ========================= */
-      const ASSET_VERSION = "v21"; // bump to v21, v22... whenever you re-upload videos
+      const ASSET_VERSION = "20"; // change to "21", "22", etc.
 
       const puffBases = ["puff", "puff2"];
       const chosenBase =
         puffBases[Math.floor(Math.random() * puffBases.length)];
 
-      function isApple() {
-        return /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+      function isAppleSafari() {
+        const ua = navigator.userAgent;
+        const isIOS =
+          /iPad|iPhone|iPod/.test(ua) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        const isSafari =
+          /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox/.test(ua);
+        return isIOS || isSafari; // treat iOS + Mac Safari the same
+      }
+
+      function setPuffSource(base) {
+        const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
+
+        // Apple Safari: use .mov (best chance of real alpha)
+        if (isAppleSafari()) {
+          puffEl.innerHTML = `
+            <source src="${base}.mov?${v}" type='video/quicktime; codecs="hvc1"'>
+            <source src="${base}.mp4?${v}" type='video/mp4; codecs="hvc1"'>
+          `;
+        } else {
+          // Chrome/Android: webm alpha
+          puffEl.innerHTML = `
+            <source src="${base}.webm?${v}" type='video/webm; codecs="vp09.00.10.08"'>
+            <source src="${base}.webm?${v}" type="video/webm">
+          `;
+        }
+
+        puffEl.load();
       }
 
       puffEl.setAttribute("playsinline", "");
@@ -132,17 +156,7 @@
       puffEl.muted = true;
       puffEl.crossOrigin = "anonymous";
 
-      // ✅ LOAD MOV ON SAFARI / WEBM ON OTHERS
-      if (isApple()) {
-        puffEl.innerHTML = `
-          <source src="${chosenBase}.mov?${ASSET_VERSION}" type="video/quicktime">
-        `;
-      } else {
-        puffEl.innerHTML = `
-          <source src="${chosenBase}.webm?${ASSET_VERSION}" type="video/webm">
-        `;
-      }
-      puffEl.load();
+      setPuffSource(chosenBase);
 
       /* =========================
          CAMERA
@@ -150,10 +164,9 @@
       let currentFacingMode = "environment";
       let stream;
 
-      function waitLoadedMetadata(videoEl, timeoutMs = 4000) {
+      function waitLoadedMetadata(videoEl, timeoutMs = 6000) {
         return new Promise((resolve, reject) => {
-          if (videoEl.readyState >= 1 && videoEl.videoWidth > 0)
-            return resolve();
+          if (videoEl.readyState >= 1 && videoEl.videoWidth > 0) return resolve();
           const t = setTimeout(() => {
             cleanup();
             reject(new Error("metadata timeout"));
@@ -192,6 +205,7 @@
         await waitLoadedMetadata(cameraEl).catch(() => {});
         await cameraEl.play().catch(() => {});
 
+        // try to play puff
         await waitLoadedMetadata(puffEl).catch(() => {});
         await puffEl.play().catch(() => {});
 
@@ -206,9 +220,7 @@
           await startCamera();
         } catch (e) {
           console.error(e);
-          alert(
-            "Could not access camera. Please allow permission and use HTTPS."
-          );
+          alert("Could not access camera. Please allow permission and use HTTPS.");
         }
       });
 
@@ -360,7 +372,7 @@
       });
 
       /* =========================
-         CAPTURE NAMING HELPERS
+         CAPTURE
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
@@ -370,9 +382,6 @@
         return `Puff Dragon_HPNY2026_${num}.png`;
       }
 
-      /* =========================
-         CAPTURE -> OPEN RESULT IN NEW TAB (FIX ASPECT RATIO)
-      ========================= */
       function getCoverTransform(srcW, srcH, dstW, dstH) {
         const scale = Math.max(dstW / srcW, dstH / srcH);
         const drawW = srcW * scale;
@@ -464,10 +473,6 @@
                 >
                   Download (${filename})
                 </a>
-                <div style="color:#fff;font:14px system-ui;opacity:.8;text-align:center;max-width:520px;line-height:1.4">
-                  Tip: The filename is reliable when clicking <b>Download</b>.
-                  If you long-press/save the image on mobile, the browser may choose a different name.
-                </div>
               </div>
             `);
 
