@@ -37,6 +37,8 @@
         touch-action: none;
         transform: translate(-50%, -50%) scale(1.55);
         transform-origin: center;
+        background: transparent;
+        will-change: transform;
       }
 
       #ui {
@@ -84,10 +86,12 @@
 
   <body>
     <video id="camera" autoplay playsinline muted></video>
+
     <video
       id="puff"
       autoplay
       playsinline
+      webkit-playsinline
       muted
       loop
       preload="auto"
@@ -108,32 +112,36 @@
       const captureBtn = document.getElementById("capture");
 
       /* =========================
-         RANDOM 2 VIDEOS (KEEP .MOV + USE .MP4)
-         Priority order:
-           1) .mp4 (HEVC+alpha for iPhone Safari, best for web)
-           2) .mov (kept as backup as you requested)
-           3) .webm (VP9+alpha for Android/Chrome)
-         Files supported:
-           puff.mp4 / puff2.mp4
-           puff.mov / puff2.mov
-           puff.webm / puff2.webm
+         RANDOM 2 VIDEOS
+         ✅ Apple Safari/iOS: .mov (HEVC + ALPHA)
+         ✅ Chrome/Android: .webm (VP9 + ALPHA)
+         IMPORTANT: bump ASSET_VERSION after replacing files (Safari cache)
       ========================= */
+      const ASSET_VERSION = "v21"; // bump to v21, v22... whenever you re-upload videos
 
       const puffBases = ["puff", "puff2"];
       const chosenBase =
         puffBases[Math.floor(Math.random() * puffBases.length)];
 
+      function isApple() {
+        return /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+      }
+
       puffEl.setAttribute("playsinline", "");
+      puffEl.setAttribute("webkit-playsinline", "");
       puffEl.muted = true;
       puffEl.crossOrigin = "anonymous";
 
-      // Build <source> tags so each browser picks what it supports.
-      // IMPORTANT: put MP4 first so Safari chooses it reliably.
-      puffEl.innerHTML = `
-        <source src="${chosenBase}.mp4" type='video/mp4; codecs="hvc1"' />
-        <source src="${chosenBase}.mov" type="video/quicktime" />
-        <source src="${chosenBase}.webm" type='video/webm; codecs="vp9"' />
-      `;
+      // ✅ LOAD MOV ON SAFARI / WEBM ON OTHERS
+      if (isApple()) {
+        puffEl.innerHTML = `
+          <source src="${chosenBase}.mov?${ASSET_VERSION}" type="video/quicktime">
+        `;
+      } else {
+        puffEl.innerHTML = `
+          <source src="${chosenBase}.webm?${ASSET_VERSION}" type="video/webm">
+        `;
+      }
       puffEl.load();
 
       /* =========================
