@@ -111,8 +111,8 @@
       button {
         border: 0;
         border-radius: 10px;
-        padding: 8px 14px; /* smaller */
-        font-size: 14px; /* smaller */
+        padding: 8px 14px;
+        font-size: 14px;
         font-weight: 700;
         color: #fff;
         background: #e11d2e;
@@ -141,7 +141,7 @@
         min-width: 110px;
       }
 
-      /* Sticker + Filter panels */
+      /* Panels */
       #stickerPanel,
       #filterPanel {
         position: fixed;
@@ -258,7 +258,6 @@
 
     <div id="stickerLayer"></div>
 
-    <!-- UI: two rows -->
     <div id="ui">
       <div class="ui-row">
         <button id="start">Start AR</button>
@@ -335,38 +334,49 @@
       /* =========================
          CACHE BUSTING
       ========================= */
-      const ASSET_VERSION = "22";
+      const ASSET_VERSION = "23";
 
       /* =========================
-         FILTERS (camera background)
+         FILTERS (more Instagram-like: subtle)
       ========================= */
       const FILTERS = [
         { id: "none", name: "None", css: "none" },
+
+        // "White beauty" / bright & clean (subtle)
+        {
+          id: "beauty",
+          name: "Beauty (Clean)",
+          css: "brightness(1.08) contrast(1.03) saturate(1.06)",
+        },
+
+        // Warm, creamy (not too saturated)
         {
           id: "warm",
           name: "Warm",
-          css: "contrast(1.05) saturate(1.25) sepia(0.18)",
+          css: "brightness(1.06) contrast(1.03) saturate(1.07) sepia(0.10) hue-rotate(-6deg)",
         },
+
+        // Soft cream / faded highlight vibe
+        {
+          id: "cream",
+          name: "Cream",
+          css: "brightness(1.07) contrast(0.98) saturate(1.05) sepia(0.12)",
+        },
+
+        // Cool but subtle
         {
           id: "cool",
           name: "Cool",
-          css: "contrast(1.08) saturate(1.15) hue-rotate(185deg)",
+          css: "brightness(1.04) contrast(1.04) saturate(1.05) hue-rotate(8deg)",
         },
-        { id: "bw", name: "B&W", css: "grayscale(1) contrast(1.1)" },
+
+        { id: "bw", name: "B&W", css: "grayscale(1) contrast(1.08)" },
+
+        // Vintage subtle (less orange)
         {
           id: "vintage",
           name: "Vintage",
-          css: "sepia(0.45) contrast(1.05) saturate(1.1)",
-        },
-        {
-          id: "pink",
-          name: "Pink Pop",
-          css: "saturate(1.35) hue-rotate(330deg) contrast(1.05)",
-        },
-        {
-          id: "cyber",
-          name: "Cyber Blue",
-          css: "hue-rotate(210deg) saturate(1.4) contrast(1.08)",
+          css: "brightness(1.02) contrast(1.02) saturate(1.02) sepia(0.18)",
         },
       ];
 
@@ -585,14 +595,6 @@
         el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
       }
 
-      /**
-       * Desktop rotate improvements:
-       * - Alt + drag rotate
-       * - Shift + drag rotate
-       * - Right-click drag rotate
-       * Mobile:
-       * - two-finger rotate/scale
-       */
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
@@ -720,7 +722,6 @@
           gestureStart = null;
         });
 
-        // Desktop wheel zoom
         el.addEventListener(
           "wheel",
           (e) => {
@@ -865,6 +866,13 @@
         }
       }
 
+      stickerClose.addEventListener("click", closeStickerPanel);
+
+      filterBtn.addEventListener("click", () => {
+        if (filterBtn.disabled) return;
+        openFilterPanel();
+      });
+
       document.addEventListener("pointerdown", (e) => {
         const isSticker =
           e.target &&
@@ -893,6 +901,7 @@
          CAPTURE
          - Mirror output follows mirror settings (WYSIWYG)
          - Filter applies to camera background only
+         FIX: overlays (puff/stickers) should NOT be double-mirrored
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
@@ -979,6 +988,7 @@
             return { centerX_cam, centerY_cam, drawW, drawH };
           }
 
+          // Mirror ONLY the X position in camera space when background is mirrored
           function mirrorX(xCam) {
             return mirrorOutput ? out.width - xCam : xCam;
           }
@@ -993,9 +1003,8 @@
 
           ctx.save();
           ctx.translate(mirrorX(puffDraw.centerX_cam), puffDraw.centerY_cam);
-          const puffRot = mirrorOutput ? -puffState.rotation : puffState.rotation;
-          ctx.rotate((puffRot * Math.PI) / 180);
-          if (mirrorOutput) ctx.scale(-1, 1);
+          ctx.rotate((puffState.rotation * Math.PI) / 180);
+          // IMPORTANT: do NOT ctx.scale(-1,1) here (no double mirror)
           ctx.drawImage(
             puffEl,
             -puffDraw.drawW / 2,
@@ -1014,9 +1023,8 @@
 
             ctx.save();
             ctx.translate(mirrorX(d.centerX_cam), d.centerY_cam);
-            const rot = mirrorOutput ? -st.rotation : st.rotation;
-            ctx.rotate((rot * Math.PI) / 180);
-            if (mirrorOutput) ctx.scale(-1, 1);
+            ctx.rotate((st.rotation * Math.PI) / 180);
+            // IMPORTANT: do NOT ctx.scale(-1,1) here (no double mirror)
             ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
             ctx.restore();
           }
