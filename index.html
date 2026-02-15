@@ -26,6 +26,12 @@
         height: 100vh;
         object-fit: cover;
         z-index: 1;
+        transform-origin: center;
+      }
+
+      /* Mirror ONLY the live preview if needed */
+      #camera.mirror {
+        transform: scaleX(-1);
       }
 
       #puff {
@@ -41,10 +47,18 @@
         background: transparent;
         will-change: transform;
         z-index: 2;
+        user-select: none;
       }
 
-      /* Sticker overlay (PNG only) */
-      #sticker {
+      /* Stickers layer above puff */
+      #stickerLayer {
+        position: fixed;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+      }
+
+      .sticker {
         position: fixed;
         left: 50%;
         top: 40%;
@@ -52,12 +66,17 @@
         height: auto;
         pointer-events: auto;
         touch-action: none;
-        transform: translate(-50%, -50%) scale(1);
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
         transform-origin: center;
         background: transparent;
         will-change: transform;
-        z-index: 3;
-        display: none;
+        user-select: none;
+      }
+
+      .sticker.selected {
+        outline: 2px solid rgba(255, 255, 255, 0.6);
+        outline-offset: 6px;
+        border-radius: 14px;
       }
 
       #ui {
@@ -151,10 +170,35 @@
         max-height: 100%;
         display: block;
       }
+
+      /* Desktop hint */
+      #desktopHint {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 11;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.45);
+        color: rgba(255, 255, 255, 0.85);
+        font: 600 12px system-ui;
+        display: none;
+        user-select: none;
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        #desktopHint {
+          display: block;
+        }
+      }
     </style>
   </head>
 
   <body>
+    <div id="desktopHint">
+      Desktop: drag=move • wheel=zoom • Alt+drag=rotate • click=select
+    </div>
+
     <video id="camera" autoplay playsinline muted></video>
 
     <video
@@ -168,13 +212,13 @@
       crossorigin="anonymous"
     ></video>
 
-    <img id="sticker" alt="sticker" crossorigin="anonymous" />
+    <div id="stickerLayer"></div>
 
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="flip" class="secondary" disabled>Flip Camera</button>
+      <button id="mirror" class="secondary" disabled>Mirror: Auto</button>
 
-      <!-- Sticker button is LEFT of Puff It -->
       <button id="stickers" class="secondary" disabled>Sticker</button>
       <button id="capture" class="secondary" disabled>Puff It!</button>
     </div>
@@ -193,25 +237,34 @@
           gap: 10px;
           margin-top: 12px;
           justify-content: center;
+          flex-wrap: wrap;
         "
       >
-        <button id="stickerRemove" class="secondary">Remove sticker</button>
+        <button id="stickerRemove" class="secondary" disabled>
+          Remove selected sticker
+        </button>
+        <button id="stickerClear" class="secondary" disabled>
+          Clear all stickers
+        </button>
       </div>
     </div>
 
     <script>
       const cameraEl = document.getElementById("camera");
       const puffEl = document.getElementById("puff");
+      const stickerLayer = document.getElementById("stickerLayer");
+
       const startBtn = document.getElementById("start");
       const flipBtn = document.getElementById("flip");
+      const mirrorBtn = document.getElementById("mirror");
+      const stickersBtn = document.getElementById("stickers");
       const captureBtn = document.getElementById("capture");
 
-      const stickersBtn = document.getElementById("stickers");
-      const stickerEl = document.getElementById("sticker");
       const stickerPanel = document.getElementById("stickerPanel");
       const stickerGrid = document.getElementById("stickerGrid");
       const stickerClose = document.getElementById("stickerClose");
       const stickerRemove = document.getElementById("stickerRemove");
+      const stickerClear = document.getElementById("stickerClear");
 
       /* =========================
          CACHE BUSTING
@@ -219,7 +272,11 @@
       ========================= */
       const ASSET_VERSION = "21";
 
-      const puffBases = ["puff", "puff2"];
+      /* =========================
+         PUFF RANDOM (3 videos)
+         Put puff3.webm + puff3.mov into repo root.
+      ========================= */
+      const puffBases = ["puff", "puff2", "puff3"];
       const chosenBase =
         puffBases[Math.floor(Math.random() * puffBases.length)];
 
@@ -258,10 +315,26 @@
       setPuffSource(chosenBase);
 
       /* =========================
-         CAMERA
+         CAMERA + MIRROR
       ========================= */
       let currentFacingMode = "environment";
-      let stream;
+      let stream = null;
+
+      // Mirror mode: "auto" | "on" | "off" (preview only)
+      let mirrorMode = "auto";
+
+      function applyMirrorToPreview() {
+        const shouldMirror =
+          mirrorMode === "on" ||
+          (mirrorMode === "auto" && currentFacingMode === "user");
+        cameraEl.classList.toggle("mirror", shouldMirror);
+        mirrorBtn.textContent =
+          mirrorMode === "auto"
+            ? "Mirror: Auto"
+            : mirrorMode === "on"
+            ? "Mirror: On"
+            : "Mirror: Off";
+      }
 
       function waitLoadedMetadata(videoEl, timeoutMs = 6000) {
         return new Promise((resolve, reject) => {
@@ -285,6 +358,7 @@
       async function startCamera() {
         captureBtn.disabled = true;
         stickersBtn.disabled = true;
+        mirrorBtn.disabled = true;
 
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -311,6 +385,9 @@
         flipBtn.disabled = false;
         captureBtn.disabled = false;
         stickersBtn.disabled = false;
+        mirrorBtn.disabled = false;
+
+        applyMirrorToPreview();
 
         startBtn.textContent = "AR Running";
         startBtn.disabled = true;
@@ -337,124 +414,128 @@
         }
       });
 
+      mirrorBtn.addEventListener("click", () => {
+        mirrorMode =
+          mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
+        applyMirrorToPreview();
+      });
+
       /* =========================
-         gesture helpers
+         TRANSFORM HELPERS (shared)
       ========================= */
       function clamp(v, min, max) {
         return Math.max(min, Math.min(max, v));
       }
-      function getDistance(t0, t1) {
-        return Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+      function dist(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
       }
-      function getAngle(t0, t1) {
-        return (
-          (Math.atan2(t1.clientY - t0.clientY, t1.clientX - t0.clientX) * 180) /
-          Math.PI
-        );
+      function angleDeg(a, b) {
+        return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
       }
 
-      /* =========================
-         PUFF drag/pinch/rotate/inertia
-      ========================= */
-      let puffX = 50,
-        puffY = 72,
-        puffScale = 1.55,
-        puffRotation = 0;
-
-      function applyPuffTransform() {
-        puffEl.style.left = puffX + "%";
-        puffEl.style.top = puffY + "%";
-        puffEl.style.transform = `translate(-50%, -50%) scale(${puffScale}) rotate(${puffRotation}deg)`;
+      function applyTransform(el, state) {
+        el.style.left = state.x + "%";
+        el.style.top = state.y + "%";
+        el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
       }
-      applyPuffTransform();
 
-      let dragStart = null,
-        gestureStart = null;
-      let angularVelocity = 0,
-        lastAngle = null,
-        lastTime = null,
-        inertiaRAF = null;
+      function makeTransformable(el, state, onUpdate) {
+        const pointers = new Map();
+        let gestureStart = null;
+        let dragStart = null;
 
-      function stopInertia() {
-        if (inertiaRAF) cancelAnimationFrame(inertiaRAF);
-        inertiaRAF = null;
-      }
-      function startInertia() {
-        stopInertia();
-        let prev = performance.now();
-        function tick(now) {
-          const dt = (now - prev) / 1000;
-          prev = now;
-          puffRotation += angularVelocity * dt;
-          applyPuffTransform();
-          angularVelocity *= 0.92;
-          if (Math.abs(angularVelocity) < 5) return;
+        let inertiaRAF = null;
+        let angularVelocity = 0;
+        let lastAngle = null;
+        let lastTime = null;
+
+        function stopInertia() {
+          if (inertiaRAF) cancelAnimationFrame(inertiaRAF);
+          inertiaRAF = null;
+        }
+        function startInertia() {
+          stopInertia();
+          let prev = performance.now();
+          function tick(now) {
+            const dt = (now - prev) / 1000;
+            prev = now;
+            state.rotation += angularVelocity * dt;
+            onUpdate();
+            angularVelocity *= 0.92;
+            if (Math.abs(angularVelocity) < 5) return;
+            inertiaRAF = requestAnimationFrame(tick);
+          }
           inertiaRAF = requestAnimationFrame(tick);
         }
-        inertiaRAF = requestAnimationFrame(tick);
-      }
 
-      puffEl.addEventListener(
-        "touchstart",
-        (e) => {
+        el.addEventListener("pointerdown", (e) => {
           e.preventDefault();
+          el.setPointerCapture?.(e.pointerId);
           stopInertia();
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-          if (e.touches.length === 1) {
-            const t = e.touches[0];
+          if (pointers.size === 1) {
             dragStart = {
-              x: t.clientX,
-              y: t.clientY,
-              puffX,
-              puffY,
+              x: e.clientX,
+              y: e.clientY,
+              baseX: state.x,
+              baseY: state.y,
               w: innerWidth,
               h: innerHeight,
+              rotating: !!e.altKey,
+              baseRotation: state.rotation,
             };
             gestureStart = null;
-          }
-
-          if (e.touches.length === 2) {
-            const angle = getAngle(e.touches[0], e.touches[1]);
+            lastAngle = null;
+            lastTime = null;
+          } else if (pointers.size === 2) {
+            const pts = Array.from(pointers.values());
+            const a = pts[0],
+              b = pts[1];
+            const ang = angleDeg(a, b);
             gestureStart = {
-              distance: getDistance(e.touches[0], e.touches[1]),
-              angle,
-              scale: puffScale,
-              rotation: puffRotation,
+              distance: dist(a, b),
+              angle: ang,
+              scale: state.scale,
+              rotation: state.rotation,
             };
-            lastAngle = angle;
+            lastAngle = ang;
             lastTime = performance.now();
             dragStart = null;
           }
-        },
-        { passive: false }
-      );
+        });
 
-      puffEl.addEventListener(
-        "touchmove",
-        (e) => {
-          e.preventDefault();
+        el.addEventListener("pointermove", (e) => {
+          if (!pointers.has(e.pointerId)) return;
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-          if (e.touches.length === 1 && dragStart) {
-            const t = e.touches[0];
-            const dx = ((t.clientX - dragStart.x) / dragStart.w) * 100;
-            const dy = ((t.clientY - dragStart.y) / dragStart.h) * 100;
-            puffX = clamp(dragStart.puffX + dx, 0, 100);
-            puffY = clamp(dragStart.puffY + dy, 0, 100);
-            applyPuffTransform();
+          if (pointers.size === 1 && dragStart) {
+            const dx = ((e.clientX - dragStart.x) / dragStart.w) * 100;
+            const dy = ((e.clientY - dragStart.y) / dragStart.h) * 100;
+
+            if (dragStart.rotating) {
+              state.rotation = dragStart.baseRotation + dx * 3.0;
+            } else {
+              state.x = clamp(dragStart.baseX + dx, 0, 100);
+              state.y = clamp(dragStart.baseY + dy, 0, 100);
+            }
+            onUpdate();
           }
 
-          if (e.touches.length === 2 && gestureStart) {
-            const t0 = e.touches[0],
-              t1 = e.touches[1];
-            const newDistance = getDistance(t0, t1);
-            const newAngle = getAngle(t0, t1);
+          if (pointers.size === 2 && gestureStart) {
+            const pts = Array.from(pointers.values());
+            const a = pts[0],
+              b = pts[1];
 
-            puffScale = clamp(
+            const newDistance = dist(a, b);
+            const newAngle = angleDeg(a, b);
+
+            state.scale = clamp(
               gestureStart.scale * (newDistance / gestureStart.distance),
-              0.9,
-              4
+              0.2,
+              6
             );
-            puffRotation =
+            state.rotation =
               gestureStart.rotation + (newAngle - gestureStart.angle);
 
             const now = performance.now();
@@ -463,22 +544,88 @@
             lastAngle = newAngle;
             lastTime = now;
 
-            applyPuffTransform();
+            onUpdate();
           }
-        },
-        { passive: false }
-      );
+        });
 
-      puffEl.addEventListener("touchend", () => {
-        if (Math.abs(angularVelocity) > 30) startInertia();
-        dragStart = null;
-        gestureStart = null;
-      });
+        el.addEventListener("pointerup", () => {
+          pointers.clear();
+          dragStart = null;
+          gestureStart = null;
+          if (Math.abs(angularVelocity) > 30) startInertia();
+        });
+
+        el.addEventListener("pointercancel", () => {
+          pointers.clear();
+          dragStart = null;
+          gestureStart = null;
+        });
+
+        el.addEventListener(
+          "wheel",
+          (e) => {
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.92 : 1.08;
+            state.scale = clamp(state.scale * factor, 0.2, 6);
+            onUpdate();
+          },
+          { passive: false }
+        );
+      }
 
       /* =========================
-         STICKERS (PNG only)
+         PUFF transform
+      ========================= */
+      const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
+      function updatePuff() {
+        applyTransform(puffEl, puffState);
+      }
+      updatePuff();
+      makeTransformable(puffEl, puffState, updatePuff);
+
+      /* =========================
+         MULTI-STICKERS
       ========================= */
       let stickersLoaded = false;
+      const stickerStates = new Map(); // el -> state
+      let selectedStickerEl = null;
+
+      function setSelectedSticker(el) {
+        if (selectedStickerEl && selectedStickerEl !== el) {
+          selectedStickerEl.classList.remove("selected");
+        }
+        selectedStickerEl = el;
+        if (selectedStickerEl) selectedStickerEl.classList.add("selected");
+
+        stickerRemove.disabled = !selectedStickerEl;
+        stickerClear.disabled = stickerStates.size === 0;
+      }
+
+      function createSticker(src) {
+        const el = document.createElement("img");
+        el.className = "sticker";
+        el.alt = "sticker";
+        el.crossOrigin = "anonymous";
+        el.src = src;
+        el.style.pointerEvents = "auto";
+        stickerLayer.appendChild(el);
+
+        const state = { x: 50, y: 40, scale: 1.0, rotation: 0 };
+        stickerStates.set(el, state);
+
+        function update() {
+          applyTransform(el, state);
+        }
+        update();
+
+        el.addEventListener("pointerdown", () => setSelectedSticker(el), true);
+        el.addEventListener("click", () => setSelectedSticker(el));
+
+        makeTransformable(el, state, update);
+
+        setSelectedSticker(el);
+        stickerClear.disabled = stickerStates.size === 0;
+      }
 
       function openStickerPanel() {
         stickerPanel.classList.add("open");
@@ -499,9 +646,22 @@
       stickerClose.addEventListener("click", closeStickerPanel);
 
       stickerRemove.addEventListener("click", () => {
-        stickerEl.style.display = "none";
-        stickerEl.src = "";
-        closeStickerPanel();
+        if (!selectedStickerEl) return;
+        stickerStates.delete(selectedStickerEl);
+        selectedStickerEl.remove();
+        selectedStickerEl = null;
+
+        const last = Array.from(stickerStates.keys()).pop() || null;
+        setSelectedSticker(last);
+
+        stickerClear.disabled = stickerStates.size === 0;
+      });
+
+      stickerClear.addEventListener("click", () => {
+        for (const el of stickerStates.keys()) el.remove();
+        stickerStates.clear();
+        setSelectedSticker(null);
+        stickerClear.disabled = true;
       });
 
       async function loadStickers() {
@@ -523,8 +683,6 @@
             const img = document.createElement("img");
             img.loading = "lazy";
             img.alt = item.name || item.id || "sticker";
-
-            // handles spaces in filenames
             const encodedSrc = encodeURI(item.src);
             img.src = `${encodedSrc}?v=${encodeURIComponent(ASSET_VERSION)}`;
             img.crossOrigin = "anonymous";
@@ -532,16 +690,8 @@
             cell.appendChild(img);
 
             cell.addEventListener("click", () => {
-              stickerEl.crossOrigin = "anonymous";
-              stickerEl.src = img.src;
-              stickerEl.style.display = "block";
-
-              stickerX = 50;
-              stickerY = 40;
-              stickerScale = 1.0;
-              stickerRotation = 0;
-              applyStickerTransform();
-
+              // Add NEW sticker each time
+              createSticker(img.src);
               closeStickerPanel();
             });
 
@@ -551,135 +701,29 @@
           console.error(e);
           stickerGrid.innerHTML =
             `<div style="color:#fff;font:500 14px system-ui;opacity:.9">
-              Could not load stickers.json. Check that /stickers.json exists at repo root.
+              Could not load stickers.json. Check /stickers.json at repo root.
             </div>`;
         }
       }
 
-      /* sticker gestures (same idea as puff) */
-      let stickerX = 50,
-        stickerY = 40,
-        stickerScale = 1.0,
-        stickerRotation = 0;
+      // Click empty area to deselect sticker
+      document.addEventListener("pointerdown", (e) => {
+        const isSticker =
+          e.target && e.target.classList && e.target.classList.contains("sticker");
+        const clickedPanel = stickerPanel.contains(e.target);
+        const clickedUI = document.getElementById("ui").contains(e.target);
+        const clickedPuff = e.target === puffEl;
 
-      function applyStickerTransform() {
-        stickerEl.style.left = stickerX + "%";
-        stickerEl.style.top = stickerY + "%";
-        stickerEl.style.transform = `translate(-50%, -50%) scale(${stickerScale}) rotate(${stickerRotation}deg)`;
-      }
-      applyStickerTransform();
-
-      let stickerDragStart = null,
-        stickerGestureStart = null;
-
-      let stickerAngularVelocity = 0,
-        stickerLastAngle = null,
-        stickerLastTime = null,
-        stickerInertiaRAF = null;
-
-      function stopStickerInertia() {
-        if (stickerInertiaRAF) cancelAnimationFrame(stickerInertiaRAF);
-        stickerInertiaRAF = null;
-      }
-
-      function startStickerInertia() {
-        stopStickerInertia();
-        let prev = performance.now();
-        function tick(now) {
-          const dt = (now - prev) / 1000;
-          prev = now;
-          stickerRotation += stickerAngularVelocity * dt;
-          applyStickerTransform();
-          stickerAngularVelocity *= 0.92;
-          if (Math.abs(stickerAngularVelocity) < 5) return;
-          stickerInertiaRAF = requestAnimationFrame(tick);
+        if (!isSticker && !clickedPanel && !clickedUI && !clickedPuff) {
+          if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
+          selectedStickerEl = null;
+          stickerRemove.disabled = true;
+          stickerClear.disabled = stickerStates.size === 0;
         }
-        stickerInertiaRAF = requestAnimationFrame(tick);
-      }
-
-      stickerEl.addEventListener(
-        "touchstart",
-        (e) => {
-          e.preventDefault();
-          stopStickerInertia();
-
-          if (e.touches.length === 1) {
-            const t = e.touches[0];
-            stickerDragStart = {
-              x: t.clientX,
-              y: t.clientY,
-              stickerX,
-              stickerY,
-              w: innerWidth,
-              h: innerHeight,
-            };
-            stickerGestureStart = null;
-          }
-
-          if (e.touches.length === 2) {
-            const angle = getAngle(e.touches[0], e.touches[1]);
-            stickerGestureStart = {
-              distance: getDistance(e.touches[0], e.touches[1]),
-              angle,
-              scale: stickerScale,
-              rotation: stickerRotation,
-            };
-            stickerLastAngle = angle;
-            stickerLastTime = performance.now();
-            stickerDragStart = null;
-          }
-        },
-        { passive: false }
-      );
-
-      stickerEl.addEventListener(
-        "touchmove",
-        (e) => {
-          e.preventDefault();
-
-          if (e.touches.length === 1 && stickerDragStart) {
-            const t = e.touches[0];
-            const dx = ((t.clientX - stickerDragStart.x) / stickerDragStart.w) * 100;
-            const dy = ((t.clientY - stickerDragStart.y) / stickerDragStart.h) * 100;
-            stickerX = clamp(stickerDragStart.stickerX + dx, 0, 100);
-            stickerY = clamp(stickerDragStart.stickerY + dy, 0, 100);
-            applyStickerTransform();
-          }
-
-          if (e.touches.length === 2 && stickerGestureStart) {
-            const t0 = e.touches[0],
-              t1 = e.touches[1];
-            const newDistance = getDistance(t0, t1);
-            const newAngle = getAngle(t0, t1);
-
-            stickerScale = clamp(
-              stickerGestureStart.scale * (newDistance / stickerGestureStart.distance),
-              0.2,
-              6
-            );
-            stickerRotation =
-              stickerGestureStart.rotation + (newAngle - stickerGestureStart.angle);
-
-            const now = performance.now();
-            const dt = (now - stickerLastTime) / 1000;
-            if (dt > 0) stickerAngularVelocity = (newAngle - stickerLastAngle) / dt;
-            stickerLastAngle = newAngle;
-            stickerLastTime = now;
-
-            applyStickerTransform();
-          }
-        },
-        { passive: false }
-      );
-
-      stickerEl.addEventListener("touchend", () => {
-        if (Math.abs(stickerAngularVelocity) > 30) startStickerInertia();
-        stickerDragStart = null;
-        stickerGestureStart = null;
       });
 
       /* =========================
-         CAPTURE
+         CAPTURE (FINAL IMAGE IS NOT MIRRORED)
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
@@ -717,8 +761,6 @@
           out.height = cameraEl.videoHeight;
           const ctx = out.getContext("2d");
 
-          ctx.drawImage(cameraEl, 0, 0, out.width, out.height);
-
           const camRect = cameraEl.getBoundingClientRect();
           const cover = getCoverTransform(
             out.width,
@@ -727,72 +769,61 @@
             camRect.height
           );
 
-          // draw puff
-          const puffRect = puffEl.getBoundingClientRect();
-          const puffCenterX_screen =
-            puffRect.left + puffRect.width / 2 - camRect.left;
-          const puffCenterY_screen =
-            puffRect.top + puffRect.height / 2 - camRect.top;
+          // IMPORTANT: Always draw camera NOT mirrored (final saved image normal)
+          ctx.drawImage(cameraEl, 0, 0, out.width, out.height);
 
-          const puffCenterX_cam =
-            (puffCenterX_screen - cover.offsetX) / cover.scale;
-          const puffCenterY_cam =
-            (puffCenterY_screen - cover.offsetY) / cover.scale;
+          function computeDrawRect(domRect, aspectW, aspectH) {
+            const centerX_screen = domRect.left + domRect.width / 2 - camRect.left;
+            const centerY_screen = domRect.top + domRect.height / 2 - camRect.top;
 
-          const puffW_cam = puffRect.width / cover.scale;
-          const puffH_cam = puffRect.height / cover.scale;
+            const centerX_cam = (centerX_screen - cover.offsetX) / cover.scale;
+            const centerY_cam = (centerY_screen - cover.offsetY) / cover.scale;
 
-          const puffAR =
-            puffEl.videoWidth && puffEl.videoHeight
-              ? puffEl.videoWidth / puffEl.videoHeight
-              : puffRect.width / puffRect.height;
+            const w_cam = domRect.width / cover.scale;
+            const h_cam = domRect.height / cover.scale;
 
-          let drawW = puffW_cam;
-          let drawH = drawW / puffAR;
-          if (drawH > puffH_cam) {
-            drawH = puffH_cam;
-            drawW = drawH * puffAR;
+            const ar = aspectW && aspectH ? aspectW / aspectH : domRect.width / domRect.height;
+
+            let drawW = w_cam;
+            let drawH = drawW / ar;
+            if (drawH > h_cam) {
+              drawH = h_cam;
+              drawW = drawH * ar;
+            }
+            return { centerX_cam, centerY_cam, drawW, drawH };
           }
 
+          // Draw puff
+          const puffRect = puffEl.getBoundingClientRect();
+          const puffDraw = computeDrawRect(
+            puffRect,
+            puffEl.videoWidth,
+            puffEl.videoHeight
+          );
+
           ctx.save();
-          ctx.translate(puffCenterX_cam, puffCenterY_cam);
-          ctx.rotate((puffRotation * Math.PI) / 180);
-          ctx.drawImage(puffEl, -drawW / 2, -drawH / 2, drawW, drawH);
+          ctx.translate(puffDraw.centerX_cam, puffDraw.centerY_cam);
+          ctx.rotate((puffState.rotation * Math.PI) / 180);
+          ctx.drawImage(
+            puffEl,
+            -puffDraw.drawW / 2,
+            -puffDraw.drawH / 2,
+            puffDraw.drawW,
+            puffDraw.drawH
+          );
           ctx.restore();
 
-          // draw sticker (optional)
-          if (stickerEl.style.display !== "none" && stickerEl.src) {
-            const stickerRect = stickerEl.getBoundingClientRect();
+          // Draw all stickers
+          for (const [el, st] of stickerStates.entries()) {
+            if (!el.complete || !el.naturalWidth) continue;
 
-            const stickerCenterX_screen =
-              stickerRect.left + stickerRect.width / 2 - camRect.left;
-            const stickerCenterY_screen =
-              stickerRect.top + stickerRect.height / 2 - camRect.top;
-
-            const stickerCenterX_cam =
-              (stickerCenterX_screen - cover.offsetX) / cover.scale;
-            const stickerCenterY_cam =
-              (stickerCenterY_screen - cover.offsetY) / cover.scale;
-
-            const stickerW_cam = stickerRect.width / cover.scale;
-            const stickerH_cam = stickerRect.height / cover.scale;
-
-            const stickerAR =
-              stickerEl.naturalWidth && stickerEl.naturalHeight
-                ? stickerEl.naturalWidth / stickerEl.naturalHeight
-                : stickerRect.width / stickerRect.height;
-
-            let sDrawW = stickerW_cam;
-            let sDrawH = sDrawW / stickerAR;
-            if (sDrawH > stickerH_cam) {
-              sDrawH = stickerH_cam;
-              sDrawW = sDrawH * stickerAR;
-            }
+            const r = el.getBoundingClientRect();
+            const d = computeDrawRect(r, el.naturalWidth, el.naturalHeight);
 
             ctx.save();
-            ctx.translate(stickerCenterX_cam, stickerCenterY_cam);
-            ctx.rotate((stickerRotation * Math.PI) / 180);
-            ctx.drawImage(stickerEl, -sDrawW / 2, -sDrawH / 2, sDrawW, sDrawH);
+            ctx.translate(d.centerX_cam, d.centerY_cam);
+            ctx.rotate((st.rotation * Math.PI) / 180);
+            ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
             ctx.restore();
           }
 
