@@ -19,6 +19,57 @@
         touch-action: none;
       }
 
+      .hidden {
+        display: none !important;
+      }
+
+      /* =========================
+         INTRO OVERLAY
+      ========================= */
+      #introOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #fff; /* white background */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #introVideo {
+        position: absolute;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover; /* full screen */
+        background: #fff;
+      }
+
+      #exploreBtn {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        border: 0;
+        border-radius: 12px;
+        padding: 14px 22px;
+        font-size: 16px;
+        font-weight: 900;
+        letter-spacing: 0.2px;
+        color: #fff;
+        background: #fa213f;
+        cursor: pointer;
+        z-index: 2;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      }
+
+      #exploreBtn:active {
+        transform: translate(-50%, -50%) scale(0.98);
+      }
+
+      /* =========================
+         MAIN APP
+      ========================= */
       #camera {
         position: fixed;
         inset: 0;
@@ -155,12 +206,10 @@
         border-top-left-radius: 18px;
         border-top-right-radius: 18px;
 
-        /* ✅ NEW: make panels not exceed screen height */
         max-height: min(78vh, 560px);
         display: flex;
         flex-direction: column;
 
-        /* ✅ iOS scrolling */
         -webkit-overflow-scrolling: touch;
       }
 
@@ -169,7 +218,6 @@
         transform: translateY(0);
       }
 
-      /* ✅ NEW: sticky header so "Close" always visible */
       #stickerPanelHeader,
       #filterPanelHeader {
         position: sticky;
@@ -186,11 +234,10 @@
         padding-bottom: 8px;
       }
 
-      /* ✅ NEW: scroll area inside the panel */
       .panelBody {
         overflow-y: auto;
         flex: 1;
-        padding-right: 2px; /* avoid scroll bar overlay */
+        padding-right: 2px;
       }
 
       #stickerGrid {
@@ -244,7 +291,6 @@
         outline-offset: 2px;
       }
 
-      /* ✅ NEW: actions area sticks to bottom */
       .panelFooter {
         position: sticky;
         bottom: 0;
@@ -278,84 +324,164 @@
   </head>
 
   <body>
-    <div id="desktopHint">
-      Desktop: drag=move • wheel=zoom • Alt/Shift/right-drag=rotate • click=select
+    <!-- =========================
+         INTRO (shows first)
+    ========================= -->
+    <div id="introOverlay">
+      <video
+        id="introVideo"
+        autoplay
+        playsinline
+        webkit-playsinline
+        muted
+        preload="auto"
+      ></video>
+      <button id="exploreBtn" class="hidden" type="button">Explore</button>
     </div>
 
-    <video id="camera" autoplay playsinline muted></video>
-
-    <video
-      id="puff"
-      autoplay
-      playsinline
-      webkit-playsinline
-      muted
-      loop
-      preload="auto"
-      crossorigin="anonymous"
-    ></video>
-
-    <div id="stickerLayer"></div>
-
-    <div id="ui">
-      <div class="ui-row">
-        <button id="start">Start AR</button>
-        <button id="flip" class="secondary" disabled>Flip Camera</button>
-        <button id="mirror" class="secondary" disabled>Mirror: Auto</button>
+    <!-- =========================
+         MAIN APP (hidden until Explore)
+    ========================= -->
+    <div id="app" class="hidden">
+      <div id="desktopHint">
+        Desktop: drag=move • wheel=zoom • Alt/Shift/right-drag=rotate • click=select
       </div>
 
-      <div class="ui-row">
-        <button id="stickers" class="secondary" disabled>Sticker</button>
-        <button id="filterBtn" class="secondary" disabled>Filter</button>
-        <button id="capture" disabled>Puff It!</button>
+      <video id="camera" autoplay playsinline muted></video>
+
+      <video
+        id="puff"
+        autoplay
+        playsinline
+        webkit-playsinline
+        muted
+        loop
+        preload="auto"
+        crossorigin="anonymous"
+      ></video>
+
+      <div id="stickerLayer"></div>
+
+      <div id="ui">
+        <div class="ui-row">
+          <button id="start">Start AR</button>
+          <button id="flip" class="secondary" disabled>Flip Camera</button>
+          <button id="mirror" class="secondary" disabled>Mirror: Auto</button>
+        </div>
+
+        <div class="ui-row">
+          <button id="stickers" class="secondary" disabled>Sticker</button>
+          <button id="filterBtn" class="secondary" disabled>Filter</button>
+          <button id="capture" disabled>Puff It!</button>
+        </div>
       </div>
-    </div>
 
-    <!-- Sticker panel -->
-    <div id="stickerPanel" aria-hidden="true">
-      <div id="stickerPanelHeader">
-        <div style="color:#fff;font:800 14px system-ui">Choose a sticker</div>
-        <button id="stickerClose" class="secondary">Close</button>
-      </div>
+      <!-- Sticker panel -->
+      <div id="stickerPanel" aria-hidden="true">
+        <div id="stickerPanelHeader">
+          <div style="color:#fff;font:800 14px system-ui">Choose a sticker</div>
+          <button id="stickerClose" class="secondary">Close</button>
+        </div>
 
-      <!-- ✅ NEW: scrollable body -->
-      <div class="panelBody">
-        <div id="stickerGrid"></div>
+        <div class="panelBody">
+          <div id="stickerGrid"></div>
 
-        <div class="panelFooter">
-          <div
-            style="
-              display: flex;
-              gap: 8px;
-              justify-content: center;
-              flex-wrap: wrap;
-            "
-          >
-            <button id="stickerRemove" class="secondary" disabled>
-              Remove selected
-            </button>
-            <button id="stickerClear" class="secondary" disabled>
-              Clear all
-            </button>
+          <div class="panelFooter">
+            <div
+              style="
+                display: flex;
+                gap: 8px;
+                justify-content: center;
+                flex-wrap: wrap;
+              "
+            >
+              <button id="stickerRemove" class="secondary" disabled>
+                Remove selected
+              </button>
+              <button id="stickerClear" class="secondary" disabled>
+                Clear all
+              </button>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Filter panel -->
+      <div id="filterPanel" aria-hidden="true">
+        <div id="filterPanelHeader">
+          <div style="color:#fff;font:800 14px system-ui">Choose a filter</div>
+          <button id="filterClose" class="secondary">Close</button>
+        </div>
+
+        <div class="panelBody">
+          <div id="filterList"></div>
         </div>
       </div>
     </div>
 
-    <!-- Filter panel -->
-    <div id="filterPanel" aria-hidden="true">
-      <div id="filterPanelHeader">
-        <div style="color:#fff;font:800 14px system-ui">Choose a filter</div>
-        <button id="filterClose" class="secondary">Close</button>
-      </div>
-
-      <!-- ✅ NEW: scrollable body -->
-      <div class="panelBody">
-        <div id="filterList"></div>
-      </div>
-    </div>
-
     <script>
+      /* =========================
+         CACHE BUSTING
+      ========================= */
+      const ASSET_VERSION = "26";
+
+      /* =========================
+         INTRO LOGIC
+      ========================= */
+      const introOverlay = document.getElementById("introOverlay");
+      const introVideo = document.getElementById("introVideo");
+      const exploreBtn = document.getElementById("exploreBtn");
+      const app = document.getElementById("app");
+
+      // Load intro.mp4 (same folder as index.html)
+      introVideo.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
+
+      // Requirement:
+      // - intro plays once
+      // - after 1 round, show Explore button
+      // - then video keeps looping until Explore is clicked
+      let introLoopStarted = false;
+
+      introVideo.addEventListener("ended", async () => {
+        // First time it ends -> show Explore, then loop forever
+        if (!introLoopStarted) {
+          introLoopStarted = true;
+          exploreBtn.classList.remove("hidden");
+
+          // Start looping from now on
+          introVideo.loop = true;
+          try {
+            introVideo.currentTime = 0;
+            await introVideo.play();
+          } catch (_) {}
+        }
+      });
+
+      // In case autoplay is blocked on some devices (rare when muted),
+      // we still try play on first user interaction.
+      const tryPlayIntro = async () => {
+        try {
+          await introVideo.play();
+        } catch (_) {}
+        window.removeEventListener("pointerdown", tryPlayIntro, true);
+      };
+      window.addEventListener("pointerdown", tryPlayIntro, true);
+
+      exploreBtn.addEventListener("click", async () => {
+        // Hide intro overlay, show app
+        introOverlay.classList.add("hidden");
+        app.classList.remove("hidden");
+
+        // Make sure puff video starts once app is visible
+        try {
+          const puffEl = document.getElementById("puff");
+          await puffEl.play();
+        } catch (_) {}
+      });
+
+      /* =========================
+         MAIN APP CODE (your original)
+      ========================= */
       const cameraEl = document.getElementById("camera");
       const puffEl = document.getElementById("puff");
       const stickerLayer = document.getElementById("stickerLayer");
@@ -377,15 +503,9 @@
       const stickerRemove = document.getElementById("stickerRemove");
       const stickerClear = document.getElementById("stickerClear");
 
-      /* =========================
-         CACHE BUSTING
-      ========================= */
-      const ASSET_VERSION = "26";
-
       /* =========================================================
          FOODIE-LIKE FILTER RECIPES
       ========================================================= */
-
       const clamp01 = (v) => Math.max(0, Math.min(1, v));
       const clamp255 = (v) => Math.max(0, Math.min(255, v));
 
@@ -1210,7 +1330,7 @@
       });
 
       /* =========================
-         CAPTURE HELPERS + FILTER APPLY (same as before)
+         CAPTURE HELPERS + FILTER APPLY
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
