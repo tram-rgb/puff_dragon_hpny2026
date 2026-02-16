@@ -103,7 +103,6 @@
         z-index: 1;
         transform-origin: center;
       }
-
       #camera.mirror {
         transform: scaleX(-1);
       }
@@ -117,13 +116,11 @@
         display: none;
         background: #000;
       }
-
       #cameraFx.mirror {
         transform: scaleX(-1);
         transform-origin: center;
       }
 
-      /* Puff overlay (ONLY ONE, always the same element) */
       #puff {
         position: fixed;
         left: 50%;
@@ -175,6 +172,7 @@
         pointer-events: none;
       }
 
+      /* IMPORTANT: do NOT force color here (was overriding chosen color) */
       .textItem {
         position: fixed;
         left: 50%;
@@ -189,7 +187,6 @@
         border-radius: 12px;
         background: rgba(0, 0, 0, 0.18);
         backdrop-filter: blur(6px);
-        color: #fff;
         font-family: "BeautifulFreak", system-ui;
         font-size: 44px;
         line-height: 1;
@@ -255,23 +252,21 @@
 
       button:disabled {
         opacity: 0.5;
-        cursor: not-allowed;
+        cursor: default;
       }
 
       #capture {
         background: #fff100;
         color: #060d3d;
         font-weight: 900;
-        min-width: 86px;
+        min-width: 90px;
       }
 
       #boothBtn {
         min-width: 96px;
       }
 
-      /* =========================
-         PANELS
-      ========================= */
+      /* Panels */
       #stickerPanel,
       #filterPanel,
       #boothPanel,
@@ -338,6 +333,7 @@
         align-items: center;
         justify-content: center;
         aspect-ratio: 1 / 1;
+        cursor: pointer;
       }
 
       .stickerItem img {
@@ -360,6 +356,7 @@
         color: rgba(255, 255, 255, 0.95);
         font: 900 12px system-ui;
         text-align: left;
+        cursor: pointer;
       }
 
       .filterItem .sub {
@@ -423,248 +420,24 @@
         padding: 10px 8px;
       }
 
-      /* =========================
-         CAPTURED PANEL (scroll list + visible cue button)
-      ========================= */
-      #capturedDock {
+      #poseHint {
         position: fixed;
-        top: calc(10px + env(safe-area-inset-top));
-        right: calc(10px + env(safe-area-inset-right));
-        width: min(44vw, 360px);
-        height: min(72vh, 720px);
-        z-index: 30;
-        display: none; /* shown only when photobooth ON */
-        border-radius: 18px;
-        background: rgba(0, 0, 0, 0.45);
-        backdrop-filter: blur(10px);
-        overflow: hidden;
-        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-      }
-
-      #capturedDockHeader {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      }
-
-      #capturedDockHeader .title {
-        color: rgba(255, 255, 255, 0.92);
-        font: 900 14px system-ui;
-      }
-
-      #capturedClear {
-        border-radius: 999px;
-        padding: 7px 11px;
-        min-width: unset;
-      }
-
-      #capturedList {
-        height: calc(100% - 52px - 62px);
-        overflow-y: auto;
-        padding: 10px;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-        -webkit-overflow-scrolling: touch;
-      }
-
-      .capThumb {
-        position: relative;
-        border-radius: 14px;
-        overflow: hidden;
-        background: rgba(255, 255, 255, 0.06);
-        aspect-ratio: 4 / 3;
-        cursor: pointer;
-        user-select: none;
-      }
-
-      .capThumb img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
-
-      .capBadge {
-        position: absolute;
-        top: 8px;
-        left: 8px;
-        width: 26px;
-        height: 26px;
-        border-radius: 999px;
-        background: rgba(0, 0, 0, 0.55);
-        color: rgba(255, 255, 255, 0.92);
-        font: 900 12px system-ui;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      #cueBar {
-        height: 62px;
-        padding: 10px 12px;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        background: rgba(0, 0, 0, 0.25);
-      }
-
-      #cueBtn {
-        flex: 1;
-        border-radius: 12px;
-        background: #fff100;
-        color: #060d3d;
-        font: 900 12px system-ui;
-        padding: 12px 12px;
-        min-width: unset;
-      }
-
-      /* =========================
-         STRIP BUILDER (NOT full screen)
-      ========================= */
-      #builderOverlay {
-        position: fixed;
-        inset: 0;
-        z-index: 40;
-        display: none;
-        background: rgba(0, 0, 0, 0.55);
-        backdrop-filter: blur(10px);
-      }
-
-      #builderCard {
-        position: absolute;
         left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: min(92vw, 1080px);
-        height: min(82vh, 760px);
-        background: rgba(15, 15, 15, 0.72);
-        border: 1px solid rgba(255, 255, 255, 0.10);
-        border-radius: 18px;
-        overflow: hidden;
-        display: grid;
-        grid-template-columns: 1.35fr 0.65fr;
-      }
-
-      #builderLeft {
-        padding: 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      #builderTopbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 10px;
-      }
-
-      #builderTitle {
-        color: rgba(255, 255, 255, 0.92);
-        font: 900 14px system-ui;
-      }
-
-      #builderActions {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
-
-      #builderDone,
-      #builderClose {
+        top: calc(12px + env(safe-area-inset-top));
+        transform: translateX(-50%);
+        z-index: 50;
+        padding: 10px 12px;
         border-radius: 999px;
-        padding: 8px 12px;
-        min-width: unset;
-      }
-
-      #builderDone {
-        background: #fff100;
-        color: #060d3d;
-      }
-
-      /* Preview area: keeps real strip aspect; no rounded “ugly” outlines */
-      #stripPreviewWrap {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 8px;
-        overflow: hidden;
-      }
-
-      #stripPreview {
-        width: min(100%, 720px);
-        height: auto;
-        max-height: 100%;
-        aspect-ratio: 2 / 6; /* default 3-vertical */
-        background: transparent;
-      }
-
-      /* Right controls */
-      #builderRight {
-        border-left: 1px solid rgba(255, 255, 255, 0.10);
-        padding: 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      #builderRightHeader {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      #builderRightHeader .t {
+        background: rgba(0, 0, 0, 0.52);
         color: rgba(255, 255, 255, 0.92);
-        font: 900 14px system-ui;
+        font: 900 12px system-ui;
+        display: none;
+        user-select: none;
+        pointer-events: none;
+        text-align: center;
+        max-width: min(92vw, 420px);
       }
 
-      #builderHelp {
-        color: rgba(255, 255, 255, 0.70);
-        font: 700 11px system-ui;
-        line-height: 1.35;
-      }
-
-      #assignGrid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-        overflow-y: auto;
-        flex: 1;
-        padding-right: 2px;
-      }
-
-      .assignThumb {
-        border-radius: 14px;
-        overflow: hidden;
-        aspect-ratio: 4 / 3;
-        background: rgba(255, 255, 255, 0.06);
-        cursor: pointer;
-        position: relative;
-      }
-      .assignThumb img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
-
-      .groupLabel {
-        color: rgba(255, 255, 255, 0.78);
-        font: 800 11px system-ui;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-top: 6px;
-      }
-
-      /* =========================
-         Desktop hint
-      ========================= */
       #desktopHint {
         position: fixed;
         top: 10px;
@@ -684,13 +457,225 @@
           display: block;
         }
       }
+
+      /* =========================
+         CAPTURED DOCK (MOVEABLE + SCROLL LIST)
+      ========================= */
+      #capturedDock {
+        position: fixed;
+        top: calc(10px + env(safe-area-inset-top));
+        left: calc(10px + env(safe-area-inset-left));
+        width: min(44vw, 360px);
+        height: min(72vh, 720px);
+        z-index: 30;
+        display: none;
+        border-radius: 18px;
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+        touch-action: none;
+      }
+
+      #capturedDockHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        cursor: grab;
+        user-select: none;
+      }
+
+      #capturedDockHeader:active {
+        cursor: grabbing;
+      }
+
+      #capturedDockTitle {
+        color: rgba(255, 255, 255, 0.92);
+        font: 900 14px system-ui;
+      }
+
+      #capturedDockBody {
+        height: calc(100% - 50px);
+        overflow: auto;
+        padding: 10px;
+      }
+
+      #capturedList {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .capThumb {
+        width: 100%;
+        border-radius: 14px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      .capThumb img {
+        width: 100%;
+        display: block;
+      }
+
+      .capThumbMeta {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        color: rgba(255, 255, 255, 0.8);
+        font: 800 11px system-ui;
+      }
+
+      #cueBtn {
+        width: 100%;
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: #fff100;
+        color: #060d3d;
+        font: 900 12px system-ui;
+        margin-top: 10px;
+      }
+
+      /* =========================
+         STRIP BUILDER (NOT FULLSCREEN)
+      ========================= */
+      #stripModal {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        display: none;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(8px);
+      }
+
+      #stripModal.open {
+        display: block;
+      }
+
+      #stripCard {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: min(92vw, 980px);
+        height: min(82vh, 720px);
+        border-radius: 22px;
+        background: rgba(0, 0, 0, 0.60);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 1fr min(340px, 36vw);
+      }
+
+      #stripLeft {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      #stripTopbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #stripTitle {
+        color: rgba(255, 255, 255, 0.92);
+        font: 900 14px system-ui;
+      }
+
+      #stripActions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      #stripActions button {
+        min-width: 72px;
+        padding: 7px 10px;
+        border-radius: 10px;
+        font-size: 11px;
+      }
+
+      #stripPreviewWrap {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+      }
+
+      /* IMPORTANT: preview respects exact strip ratio */
+      #stripPreview {
+        width: min(62vh, 560px);
+        height: auto;
+        max-height: 100%;
+        image-rendering: auto;
+        background: transparent;
+        touch-action: none;
+      }
+
+      #stripRight {
+        border-left: 1px solid rgba(255, 255, 255, 0.10);
+        padding: 14px;
+        overflow: auto;
+      }
+
+      #stripRight h3 {
+        margin: 0 0 8px;
+        color: rgba(255, 255, 255, 0.92);
+        font: 900 14px system-ui;
+      }
+
+      #stripRight .sub {
+        color: rgba(255, 255, 255, 0.70);
+        font: 800 11px system-ui;
+        line-height: 1.35;
+        margin-bottom: 10px;
+      }
+
+      #stripThumbGrid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .stripThumbPick {
+        border-radius: 14px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        cursor: pointer;
+      }
+
+      .stripThumbPick img {
+        width: 100%;
+        display: block;
+      }
+
+      .stripThumbPick .lab {
+        padding: 7px 8px;
+        color: rgba(255, 255, 255, 0.75);
+        font: 800 10px system-ui;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
     </style>
   </head>
 
   <body>
-    <!-- =========================
-         INTRO
-    ========================= -->
+    <!-- ========================= INTRO ========================= -->
     <div id="introOverlay">
       <video
         id="introVideo"
@@ -722,13 +707,13 @@
       <button id="exploreBtn" class="hidden" type="button">Explore</button>
     </div>
 
-    <!-- =========================
-         MAIN APP
-    ========================= -->
+    <!-- ========================= MAIN APP ========================= -->
     <div id="app" class="hidden">
       <div id="desktopHint">
         Desktop: drag=move • wheel=zoom • Alt/Shift/right-drag=rotate • click=select
       </div>
+
+      <div id="poseHint"></div>
 
       <video id="camera" autoplay playsinline muted></video>
       <canvas id="cameraFx"></canvas>
@@ -747,20 +732,6 @@
       <div id="stickerLayer"></div>
       <div id="textLayer"></div>
 
-      <!-- Captured dock (photobooth ON only) -->
-      <div id="capturedDock" aria-hidden="true">
-        <div id="capturedDockHeader">
-          <div class="title">Captured</div>
-          <button id="capturedClear" class="secondary" type="button">
-            Clear
-          </button>
-        </div>
-        <div id="capturedList"></div>
-        <div id="cueBar">
-          <button id="cueBtn" type="button">Visuals, cue!</button>
-        </div>
-      </div>
-
       <div id="ui">
         <div class="ui-row">
           <button id="start">Start AR</button>
@@ -771,9 +742,26 @@
         <div class="ui-row">
           <button id="filterBtn" class="secondary" disabled>Filter</button>
           <button id="boothBtn" class="secondary" disabled>Photobooth: Off</button>
+
+          <!-- IMPORTANT: enabled in BOTH modes -->
           <button id="stickers" class="secondary" disabled>Sticker</button>
           <button id="textBtn" class="secondary" disabled>Text</button>
+
           <button id="capture" disabled>Puff It</button>
+        </div>
+      </div>
+
+      <!-- Captured dock -->
+      <div id="capturedDock" aria-hidden="true">
+        <div id="capturedDockHeader">
+          <div id="capturedDockTitle">Captured</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button id="clearCaptured" class="secondary" style="min-width:64px;">Clear</button>
+          </div>
+        </div>
+        <div id="capturedDockBody">
+          <div id="capturedList"></div>
+          <button id="cueBtn" type="button">Visuals, cue!</button>
         </div>
       </div>
 
@@ -787,13 +775,11 @@
         <div class="panelBody">
           <div id="stickerGrid"></div>
 
-          <div class="panelFooter" style="margin-top:12px;">
-            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-              <button id="stickerRemove" class="secondary" disabled>
-                Remove selected
-              </button>
-              <button id="stickerClear" class="secondary" disabled>Clear all</button>
-            </div>
+          <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button id="stickerRemove" class="secondary" disabled>
+              Remove selected
+            </button>
+            <button id="stickerClear" class="secondary" disabled>Clear all</button>
           </div>
         </div>
       </div>
@@ -830,14 +816,6 @@
             <div class="fieldLabel">Text size</div>
             <input id="textSize" type="range" min="18" max="120" value="44" />
           </div>
-
-          <div style="margin-top:12px;">
-            <div
-              style="color:rgba(255,255,255,0.82);font:700 12px system-ui;line-height:1.35;text-align:center;"
-            >
-              Tip: Drag/Pinch/Rotate texts on screen.
-            </div>
-          </div>
         </div>
       </div>
 
@@ -853,7 +831,7 @@
         </div>
       </div>
 
-      <!-- Booth panel (only toggles ON/OFF + explain flow) -->
+      <!-- Booth panel (just toggles ON/OFF here) -->
       <div id="boothPanel" aria-hidden="true">
         <div id="boothPanelHeader">
           <div style="color:#fff;font:900 14px system-ui">Photobooth</div>
@@ -862,22 +840,24 @@
 
         <div class="panelBody">
           <div
-            style="color:rgba(255,255,255,0.86);font:800 12px system-ui;line-height:1.45;text-align:center;"
+            style="color:rgba(255,255,255,0.85);font:700 12px system-ui;line-height:1.4;text-align:center;"
           >
-            Photobooth ON = capture many images → press <b>Visuals, cue!</b> to build a strip (choose layout/color and export).
+            When Photobooth is ON, captures are collected.
+            Press <b>Visuals, cue!</b> to build a strip.
           </div>
         </div>
       </div>
 
-      <!-- Strip Builder -->
-      <div id="builderOverlay" aria-hidden="true">
-        <div id="builderCard" role="dialog" aria-modal="true">
-          <div id="builderLeft">
-            <div id="builderTopbar">
-              <div id="builderTitle">Strip Builder</div>
-              <div id="builderActions">
-                <button id="builderDone" type="button">Export strip PNG</button>
-                <button id="builderClose" class="secondary" type="button">Close</button>
+      <!-- Strip builder modal -->
+      <div id="stripModal" aria-hidden="true">
+        <div id="stripCard">
+          <div id="stripLeft">
+            <div id="stripTopbar">
+              <div id="stripTitle">Strip Builder</div>
+              <div id="stripActions">
+                <button id="stripStickerBtn" class="secondary" type="button">Sticker</button>
+                <button id="stripTextBtn" class="secondary" type="button">Text</button>
+                <button id="stripDoneBtn" class="secondary" type="button">Done</button>
               </div>
             </div>
 
@@ -886,25 +866,28 @@
             </div>
           </div>
 
-          <div id="builderRight">
-            <div id="builderRightHeader">
-              <div class="t">Frames</div>
-              <button id="builderClose2" class="secondary" type="button">Close</button>
+          <div id="stripRight">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <h3 style="margin:0;">Frames</h3>
+              <button id="stripCloseBtn" class="secondary" type="button">Close</button>
             </div>
 
-            <div class="groupLabel">Layout</div>
+            <div class="fieldLabel">Layout</div>
             <div class="boothRow" id="layoutRow"></div>
 
-            <div class="groupLabel">Frame color</div>
+            <div class="fieldLabel">Frame color</div>
             <div class="boothRow" id="colorRow"></div>
 
-            <div id="builderHelp">
-              Tap a panel in the preview to select it, then tap an image thumbnail to assign.
-              (Builder does not add Puff/stickers/text again — it uses exactly what was captured.)
+            <div class="sub">
+              Tap a panel in preview to select it, then tap an image to assign.
+              (No extra Puff inside builder.)
             </div>
 
-            <div class="groupLabel">Captured</div>
-            <div id="assignGrid"></div>
+            <div id="stripThumbGrid"></div>
+
+            <button id="exportStripBtn" type="button" style="width:100%;margin-top:12px;background:#fff100;color:#060d3d;font:900 12px system-ui;border-radius:12px;padding:10px 12px;">
+              Export strip PNG
+            </button>
           </div>
         </div>
       </div>
@@ -914,7 +897,7 @@
       /* =========================
          CACHE BUSTING
       ========================= */
-      const ASSET_VERSION = "final-2026-02-16-1";
+      const ASSET_VERSION = "29";
 
       /* =========================
          COLORS / LOGOS
@@ -947,17 +930,13 @@
       /* =========================
          FONT LOADING
       ========================= */
-      let BEAUTIFUL_FREAK_READY = false;
       (async () => {
         try {
           const ff = new FontFace("BeautifulFreak", "url(BeautifulFreak.otf)");
           await ff.load();
           document.fonts.add(ff);
           await document.fonts.ready;
-          BEAUTIFUL_FREAK_READY = true;
-        } catch (_) {
-          BEAUTIFUL_FREAK_READY = false;
-        }
+        } catch (_) {}
       })();
 
       /* =========================
@@ -1000,22 +979,28 @@
       const textColorSelect = document.getElementById("textColor");
       const textSizeRange = document.getElementById("textSize");
 
+      const poseHint = document.getElementById("poseHint");
+
+      /* Captured */
       const capturedDock = document.getElementById("capturedDock");
       const capturedList = document.getElementById("capturedList");
-      const capturedClearBtn = document.getElementById("capturedClear");
+      const clearCapturedBtn = document.getElementById("clearCaptured");
       const cueBtn = document.getElementById("cueBtn");
 
-      const builderOverlay = document.getElementById("builderOverlay");
-      const builderClose = document.getElementById("builderClose");
-      const builderClose2 = document.getElementById("builderClose2");
-      const builderDone = document.getElementById("builderDone");
+      /* Strip builder */
+      const stripModal = document.getElementById("stripModal");
       const stripPreview = document.getElementById("stripPreview");
+      const stripCloseBtn = document.getElementById("stripCloseBtn");
+      const stripDoneBtn = document.getElementById("stripDoneBtn");
+      const exportStripBtn = document.getElementById("exportStripBtn");
+      const stripThumbGrid = document.getElementById("stripThumbGrid");
       const layoutRow = document.getElementById("layoutRow");
       const colorRow = document.getElementById("colorRow");
-      const assignGrid = document.getElementById("assignGrid");
+      const stripStickerBtn = document.getElementById("stripStickerBtn");
+      const stripTextBtn = document.getElementById("stripTextBtn");
 
       /* =========================
-         INTRO LOGIC
+         INTRO
       ========================= */
       const introOverlay = document.getElementById("introOverlay");
       const introVideo = document.getElementById("introVideo");
@@ -1061,7 +1046,7 @@
       exploreBtn.addEventListener("click", closeIntro);
 
       /* =========================
-         FILTER PIPELINE (same as final)
+         FILTER PIPELINE (unchanged)
       ========================= */
       const clamp01 = (v) => Math.max(0, Math.min(1, v));
       const clamp255 = (v) => Math.max(0, Math.min(255, v));
@@ -1072,7 +1057,8 @@
       }
       function linToSrgb(c) {
         c = clamp01(c);
-        const v = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+        const v =
+          c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
         return clamp255(v * 255);
       }
       function lumaLin(rLin, gLin, bLin) {
@@ -1134,7 +1120,6 @@
             }
             const p = idx(x, y);
             const br = r / n, bg = g / n, bb = b / n;
-
             data[p] = clamp255(src[p] + amount * (src[p] - br));
             data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
             data[p + 2] = clamp255(src[p + 2] + amount * (src[p + 2] - bb));
@@ -1167,7 +1152,6 @@
             }
             const p = idx(x, y);
             const br = r / n, bg = g / n, bb = b / n;
-
             data[p] = clamp255(src[p] * (1 - strength) + br * strength);
             data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
             data[p + 2] = clamp255(src[p + 2] * (1 - strength) + bb * strength);
@@ -1198,72 +1182,67 @@
           id: "35mm04",
           name: "35mm 04",
           recipe: recipe({
-            exposure: -5, brilliance: -10, highlights: -30, shadows: +18,
-            brightness: -10, contrast: -8, saturation: -6, warmth: -6,
-            fade: +12, sharpness: -5, noiseReduce: +8,
+            exposure: -5,
+            brilliance: -10,
+            highlights: -30,
+            shadows: +18,
+            brightness: -10,
+            contrast: -8,
+            saturation: -6,
+            warmth: -6,
+            fade: +12,
+            sharpness: -5,
+            noiseReduce: +8,
           }),
         },
         {
           id: "vi4",
           name: "VI4",
           recipe: recipe({
-            exposure: +10, brilliance: +18, highlights: -35, shadows: +14,
-            brightness: +6, contrast: -6, saturation: +10, warmth: +10,
-            fade: +10, sharpness: +6, noiseReduce: +10,
+            exposure: +10,
+            brilliance: +18,
+            highlights: -35,
+            shadows: +14,
+            brightness: +6,
+            contrast: -6,
+            saturation: +10,
+            warmth: +10,
+            fade: +10,
+            sharpness: +6,
+            noiseReduce: +10,
           }),
         },
         {
           id: "cm1",
           name: "CM1",
           recipe: recipe({
-            exposure: +8, brilliance: +22, highlights: -25, shadows: +12,
-            brightness: +4, contrast: -4, saturation: +12, warmth: +6,
-            fade: +6, sharpness: +10, noiseReduce: +8,
-          }),
-        },
-        {
-          id: "sapa",
-          name: "Sapa",
-          recipe: recipe({
-            exposure: +12, brilliance: +10, highlights: -22, shadows: +18,
-            brightness: +8, contrast: -10, saturation: +6, warmth: -10,
-            fade: +16, sharpness: +6, noiseReduce: +10,
-          }),
-        },
-        {
-          id: "salt",
-          name: "Salt",
-          recipe: recipe({
-            exposure: +18, brilliance: +18, highlights: -40, shadows: +10,
-            brightness: +10, contrast: -8, saturation: +14, warmth: +14,
-            fade: +8, sharpness: +8, noiseReduce: +8,
-          }),
-        },
-        {
-          id: "in2",
-          name: "IN2",
-          recipe: recipe({
-            exposure: +10, brilliance: +8, highlights: -30, shadows: +16,
-            brightness: +4, contrast: -12, saturation: -4, warmth: -8,
-            fade: +18, sharpness: +6, noiseReduce: +12,
-          }),
-        },
-        {
-          id: "fl2",
-          name: "FL2",
-          recipe: recipe({
-            exposure: +14, brilliance: +14, highlights: -28, shadows: +10,
-            brightness: +8, contrast: -6, saturation: +10, warmth: +8,
-            fade: +10, sharpness: +8, noiseReduce: +10,
+            exposure: +8,
+            brilliance: +22,
+            highlights: -25,
+            shadows: +12,
+            brightness: +4,
+            contrast: -4,
+            saturation: +12,
+            warmth: +6,
+            fade: +6,
+            sharpness: +10,
+            noiseReduce: +8,
           }),
         },
         {
           id: "bwfilm",
           name: "B&W Film",
           recipe: recipe({
-            exposure: +6, brilliance: +10, highlights: -20, shadows: +10,
-            brightness: +4, contrast: +10, saturation: -100, fade: +8,
-            sharpness: +10, noiseReduce: +10,
+            exposure: +6,
+            brilliance: +10,
+            highlights: -20,
+            shadows: +10,
+            brightness: +4,
+            contrast: +10,
+            saturation: -100,
+            fade: +8,
+            sharpness: +10,
+            noiseReduce: +10,
           }),
         },
       ];
@@ -1318,15 +1297,15 @@
           d[i + 2] = linToSrgb(bLin);
         }
 
-        if (r.noiseReduce > 0.01) noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
-        if (r.sharpness > 0.01) unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
+        if (r.noiseReduce > 0.01)
+          noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
+        if (r.sharpness > 0.01)
+          unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
 
         return imageData;
       }
 
-      /* =========================
-         Filter preview canvas
-      ========================= */
+      /* Filter preview */
       let fxRunning = false;
       let fxRaf = null;
       let fxLast = 0;
@@ -1405,16 +1384,19 @@
         filterListEl.innerHTML = "";
         FILTERS.forEach((f) => {
           const b = document.createElement("button");
-          b.className = "filterItem" + (f.id === currentFilterId ? " active" : "");
+          b.className =
+            "filterItem" + (f.id === currentFilterId ? " active" : "");
           b.type = "button";
 
           const r = f.recipe;
           const recLine =
             f.id === "none"
               ? "no recipe"
-              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(r.highlights * 100)} • sh ${Math.round(
-                  r.shadows * 100
-                )} • sat ${Math.round(r.saturation * 100)}`;
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(
+                  r.highlights * 100
+                )} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(
+                  r.saturation * 100
+                )}`;
 
           b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
 
@@ -1432,12 +1414,13 @@
       renderFilters();
 
       filterBtn.addEventListener("click", () => {
-        if (!filterBtn.disabled) openFilterPanel();
+        if (filterBtn.disabled) return;
+        openFilterPanel();
       });
       filterClose.addEventListener("click", closeFilterPanel);
 
       /* =========================
-         PUFF VIDEO SOURCE (3 variants)
+         PUFF VIDEO (random 3)
       ========================= */
       const puffBases = ["puff", "puff2", "puff3"];
       const chosenBase = puffBases[Math.floor(Math.random() * puffBases.length)];
@@ -1447,7 +1430,8 @@
         const isIOS =
           /iPad|iPhone|iPod/.test(ua) ||
           (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-        const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox/.test(ua);
+        const isSafari =
+          /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox/.test(ua);
         return isIOS || isSafari;
       }
 
@@ -1481,14 +1465,21 @@
       let mirrorMode = "auto";
 
       function shouldMirrorPreview() {
-        return mirrorMode === "on" || (mirrorMode === "auto" && currentFacingMode === "user");
+        return (
+          mirrorMode === "on" ||
+          (mirrorMode === "auto" && currentFacingMode === "user")
+        );
       }
 
       function applyMirrorToPreview() {
         cameraEl.classList.toggle("mirror", shouldMirrorPreview());
         cameraFx.classList.toggle("mirror", shouldMirrorPreview());
         mirrorBtn.textContent =
-          mirrorMode === "auto" ? "Mirror: Auto" : mirrorMode === "on" ? "Mirror: On" : "Mirror: Off";
+          mirrorMode === "auto"
+            ? "Mirror: Auto"
+            : mirrorMode === "on"
+            ? "Mirror: On"
+            : "Mirror: Off";
       }
 
       function waitLoadedMetadata(videoEl, timeoutMs = 6000) {
@@ -1546,7 +1537,7 @@
         mirrorBtn.disabled = false;
         filterBtn.disabled = false;
 
-        // stickers/text should work normally regardless photobooth mode
+        // enabled in BOTH modes (your request)
         stickersBtn.disabled = false;
         textBtn.disabled = false;
 
@@ -1567,7 +1558,8 @@
       });
 
       flipBtn.addEventListener("click", async () => {
-        currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+        currentFacingMode =
+          currentFacingMode === "environment" ? "user" : "environment";
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
         try {
@@ -1578,7 +1570,8 @@
       });
 
       mirrorBtn.addEventListener("click", () => {
-        mirrorMode = mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
+        mirrorMode =
+          mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
         applyMirrorToPreview();
       });
 
@@ -1588,7 +1581,6 @@
       function clamp(v, min, max) {
         return Math.max(min, Math.min(max, v));
       }
-
       function dist(a, b) {
         return Math.hypot(a.x - b.x, a.y - b.y);
       }
@@ -1631,10 +1623,12 @@
             gestureStart = null;
           } else if (pointers.size === 2) {
             const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
+            const a = pts[0],
+              b = pts[1];
+            const ang = angleDeg(a, b);
             gestureStart = {
               distance: dist(a, b),
-              angle: angleDeg(a, b),
+              angle: ang,
               scale: state.scale,
               rotation: state.rotation,
             };
@@ -1651,8 +1645,7 @@
             const dy = ((e.clientY - dragStart.y) / dragStart.h) * 100;
 
             if (dragStart.rotating) {
-              // fix “rotate too fast”: 1:1-ish mapping (gentler)
-              state.rotation = dragStart.baseRotation + dx * 1.1;
+              state.rotation = dragStart.baseRotation + dx * 2.2;
             } else {
               state.x = clamp(dragStart.baseX + dx, 0, 100);
               state.y = clamp(dragStart.baseY + dy, 0, 100);
@@ -1662,103 +1655,49 @@
 
           if (pointers.size === 2 && gestureStart) {
             const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
+            const a = pts[0],
+              b = pts[1];
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
-            const scaleFactor = newDistance / Math.max(1, gestureStart.distance);
 
-            state.scale = clamp(gestureStart.scale * scaleFactor, 0.25, 6);
-            state.rotation = gestureStart.rotation + (newAngle - gestureStart.angle);
+            const s = newDistance / Math.max(10, gestureStart.distance);
+            state.scale = clamp(gestureStart.scale * s, 0.2, 6);
+
+            const dAng = newAngle - gestureStart.angle;
+            state.rotation = gestureStart.rotation + dAng;
+
             onUpdate();
           }
         });
 
-        function endPointer(e) {
-          if (!pointers.has(e.pointerId)) return;
-          pointers.delete(e.pointerId);
+        const end = (e) => {
+          if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
           if (pointers.size < 2) gestureStart = null;
           if (pointers.size === 0) dragStart = null;
-        }
+        };
 
-        el.addEventListener("pointerup", endPointer);
-        el.addEventListener("pointercancel", endPointer);
-        el.addEventListener("pointerleave", endPointer);
+        el.addEventListener("pointerup", end);
+        el.addEventListener("pointercancel", end);
 
-        // desktop zoom
-        el.addEventListener(
-          "wheel",
-          (e) => {
-            if (e.ctrlKey) return; // let browser zoom
-            e.preventDefault();
-            const delta = -Math.sign(e.deltaY) * 0.06;
-            state.scale = clamp(state.scale * (1 + delta), 0.25, 6);
-            onUpdate();
-          },
-          { passive: false }
-        );
+        // desktop wheel zoom
+        el.addEventListener("wheel", (e) => {
+          if (e.ctrlKey) return;
+          e.preventDefault();
+          const delta = -Math.sign(e.deltaY) * 0.08;
+          state.scale = clamp(state.scale * (1 + delta), 0.2, 6);
+          onUpdate();
+        }, { passive: false });
       }
 
       /* =========================
-         SELECT / STATE for stickers + texts
+         MAKE PUFF MOVEABLE AGAIN
       ========================= */
-      let selectedStickerId = null;
-      let selectedTextId = null;
-
-      const stickersState = new Map(); // id -> { el, x,y,scale,rotation,src }
-      const textsState = new Map(); // id -> { el, x,y,scale,rotation,text,color,size }
-
-      function deselectAll() {
-        selectedStickerId = null;
-        selectedTextId = null;
-        [...stickerLayer.querySelectorAll(".sticker")].forEach((n) => n.classList.remove("selected"));
-        [...textLayer.querySelectorAll(".textItem")].forEach((n) => n.classList.remove("selected"));
-        stickerRemove.disabled = true;
-        removeTextBtn.disabled = true;
-
-        // important: do NOT reset text controls to white here.
-        syncTextControls();
+      const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
+      function applyPuffTransform() {
+        applyTransform(puffEl, puffState);
       }
-
-      function selectSticker(id) {
-        deselectAll();
-        selectedStickerId = id;
-        const s = stickersState.get(id);
-        if (s) s.el.classList.add("selected");
-        stickerRemove.disabled = !s;
-      }
-
-      function selectText(id) {
-        deselectAll();
-        selectedTextId = id;
-        const t = textsState.get(id);
-        if (t) t.el.classList.add("selected");
-        removeTextBtn.disabled = !t;
-        syncTextControls();
-      }
-
-      function syncTextControls() {
-        const t = selectedTextId ? textsState.get(selectedTextId) : null;
-        const has = !!t;
-        textContentInput.disabled = !has;
-        textColorSelect.disabled = !has;
-        textSizeRange.disabled = !has;
-        if (!t) {
-          textContentInput.value = "";
-          // keep select value as-is (don’t force white)
-          return;
-        }
-        textContentInput.value = t.text;
-        textColorSelect.value = t.color;
-        textSizeRange.value = String(t.size);
-      }
-
-      // click empty area to deselect
-      window.addEventListener("pointerdown", (e) => {
-        const hitSticker = e.target.classList?.contains("sticker");
-        const hitText = e.target.classList?.contains("textItem");
-        const hitUi = e.target.closest("#ui, #stickerPanel, #textPanel, #filterPanel, #boothPanel, #capturedDock, #builderOverlay");
-        if (!hitSticker && !hitText && !hitUi) deselectAll();
-      });
+      applyPuffTransform();
+      makeTransformable(puffEl, puffState, applyPuffTransform);
 
       /* =========================
          STICKERS
@@ -1774,6 +1713,9 @@
         "sticker-8.png",
       ];
 
+      let stickers = [];
+      let selectedStickerId = null;
+
       function openStickerPanel() {
         stickerPanel.classList.add("open");
         stickerPanel.setAttribute("aria-hidden", "false");
@@ -1783,6 +1725,15 @@
         stickerPanel.setAttribute("aria-hidden", "true");
       }
 
+      function selectSticker(id) {
+        selectedStickerId = id;
+        stickers.forEach((s) => {
+          s.el.classList.toggle("selected", s.id === id);
+        });
+        stickerRemove.disabled = !id;
+        stickerClear.disabled = stickers.length === 0;
+      }
+
       function renderStickerGrid() {
         stickerGrid.innerHTML = "";
         STICKERS.forEach((src) => {
@@ -1790,7 +1741,7 @@
           item.className = "stickerItem";
           const img = document.createElement("img");
           img.src = `${src}?v=${encodeURIComponent(ASSET_VERSION)}`;
-          img.alt = src;
+          img.alt = "Sticker";
           item.appendChild(img);
           item.addEventListener("click", () => addSticker(src));
           stickerGrid.appendChild(item);
@@ -1798,521 +1749,395 @@
       }
 
       function addSticker(src) {
-        const id = "s_" + Math.random().toString(36).slice(2, 9);
+        const id = "st" + Math.random().toString(16).slice(2);
         const img = document.createElement("img");
         img.className = "sticker";
         img.src = `${src}?v=${encodeURIComponent(ASSET_VERSION)}`;
-        img.alt = src;
-        img.draggable = false;
-
-        const state = { x: 50, y: 40, scale: 1, rotation: 0 };
-        stickersState.set(id, { el: img, ...state, src: img.src });
-
-        applyTransform(img, state);
-
-        img.addEventListener("pointerdown", () => selectSticker(id));
-        makeTransformable(img, state, () => {
-          applyTransform(img, state);
-          const s = stickersState.get(id);
-          if (s) Object.assign(s, state);
-        });
-
+        img.alt = "Sticker";
         stickerLayer.appendChild(img);
-        selectSticker(id);
 
-        stickerClear.disabled = stickersState.size === 0;
+        const st = { id, src, el: img, state: { x: 50, y: 40, scale: 1, rotation: 0 } };
+        stickers.push(st);
+
+        applyTransform(img, st.state);
+        makeTransformable(img, st.state, () => applyTransform(img, st.state));
+
+        img.addEventListener("pointerdown", () => selectSticker(id), { passive: true });
+
+        selectSticker(id);
       }
 
       stickerRemove.addEventListener("click", () => {
         if (!selectedStickerId) return;
-        const s = stickersState.get(selectedStickerId);
-        if (s) s.el.remove();
-        stickersState.delete(selectedStickerId);
+        const idx = stickers.findIndex((s) => s.id === selectedStickerId);
+        if (idx >= 0) {
+          stickers[idx].el.remove();
+          stickers.splice(idx, 1);
+        }
         selectedStickerId = null;
-        stickerRemove.disabled = true;
-        stickerClear.disabled = stickersState.size === 0;
+        selectSticker(null);
       });
 
       stickerClear.addEventListener("click", () => {
-        stickersState.forEach((s) => s.el.remove());
-        stickersState.clear();
+        stickers.forEach((s) => s.el.remove());
+        stickers = [];
         selectedStickerId = null;
-        stickerRemove.disabled = true;
-        stickerClear.disabled = true;
+        selectSticker(null);
       });
 
       stickersBtn.addEventListener("click", () => {
-        if (!stickersBtn.disabled) openStickerPanel();
+        if (stickersBtn.disabled) return;
+        openStickerPanel();
       });
       stickerClose.addEventListener("click", closeStickerPanel);
+      renderStickerGrid();
 
       /* =========================
-         TEXTS
+         TEXTS (color fix: store per item + never override)
       ========================= */
-      // populate color select
-      (function initTextColors() {
-        textColorSelect.innerHTML = "";
-        TEXT_COLORS.forEach((c) => {
-          const opt = document.createElement("option");
-          opt.value = c.hex;
-          opt.textContent = c.name;
-          textColorSelect.appendChild(opt);
-        });
-        // default selection to white (only initial)
-        textColorSelect.value = "#ffffff";
-      })();
+      TEXT_COLORS.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.hex;
+        opt.textContent = c.name;
+        textColorSelect.appendChild(opt);
+      });
+      textColorSelect.value = "#ffffff";
+
+      let texts = [];
+      let selectedTextId = null;
 
       function openTextPanel() {
         textPanel.classList.add("open");
         textPanel.setAttribute("aria-hidden", "false");
-        syncTextControls();
       }
       function closeTextPanel() {
         textPanel.classList.remove("open");
         textPanel.setAttribute("aria-hidden", "true");
       }
 
+      function selectText(id) {
+        selectedTextId = id;
+        texts.forEach((t) => t.el.classList.toggle("selected", t.id === id));
+        const t = texts.find((x) => x.id === id);
+
+        removeTextBtn.disabled = !t;
+        clearTextBtn.disabled = texts.length === 0;
+
+        if (!t) {
+          textContentInput.value = "";
+          return;
+        }
+        textContentInput.value = t.text;
+        textColorSelect.value = t.color;
+        textSizeRange.value = String(t.size);
+      }
+
       function addText() {
-        const id = "t_" + Math.random().toString(36).slice(2, 9);
+        const id = "tx" + Math.random().toString(16).slice(2);
         const div = document.createElement("div");
         div.className = "textItem";
         div.textContent = "Hello";
-        div.style.color = textColorSelect.value; // use currently selected color
-        div.style.fontSize = textSizeRange.value + "px";
-
-        const state = { x: 50, y: 30, scale: 1, rotation: 0 };
-        const data = {
-          el: div,
-          ...state,
-          text: div.textContent,
-          color: div.style.color,
-          size: parseInt(textSizeRange.value, 10),
-        };
-        textsState.set(id, data);
-
-        applyTransform(div, state);
-
-        div.addEventListener("pointerdown", () => selectText(id));
-        makeTransformable(div, state, () => {
-          applyTransform(div, state);
-          const t = textsState.get(id);
-          if (t) Object.assign(t, state);
-        });
-
         textLayer.appendChild(div);
-        selectText(id);
 
-        clearTextBtn.disabled = textsState.size === 0;
+        const t = {
+          id,
+          el: div,
+          text: "Hello",
+          color: textColorSelect.value || "#ffffff",
+          size: Number(textSizeRange.value || 44),
+          state: { x: 50, y: 30, scale: 1, rotation: 0 },
+        };
+        texts.push(t);
+
+        div.style.color = t.color;         // << APPLY COLOR HERE
+        div.style.fontSize = t.size + "px";
+        applyTransform(div, t.state);
+        makeTransformable(div, t.state, () => applyTransform(div, t.state));
+
+        div.addEventListener("pointerdown", () => selectText(id), { passive: true });
+
+        selectText(id);
       }
 
       addTextBtn.addEventListener("click", addText);
 
       removeTextBtn.addEventListener("click", () => {
         if (!selectedTextId) return;
-        const t = textsState.get(selectedTextId);
-        if (t) t.el.remove();
-        textsState.delete(selectedTextId);
-        selectedTextId = null;
-        removeTextBtn.disabled = true;
-        clearTextBtn.disabled = textsState.size === 0;
-        syncTextControls();
+        const idx = texts.findIndex((t) => t.id === selectedTextId);
+        if (idx >= 0) {
+          texts[idx].el.remove();
+          texts.splice(idx, 1);
+        }
+        selectText(null);
       });
 
       clearTextBtn.addEventListener("click", () => {
-        textsState.forEach((t) => t.el.remove());
-        textsState.clear();
-        selectedTextId = null;
-        removeTextBtn.disabled = true;
-        clearTextBtn.disabled = true;
-        syncTextControls();
+        texts.forEach((t) => t.el.remove());
+        texts = [];
+        selectText(null);
       });
 
       textContentInput.addEventListener("input", () => {
-        if (!selectedTextId) return;
-        const t = textsState.get(selectedTextId);
+        const t = texts.find((x) => x.id === selectedTextId);
         if (!t) return;
         t.text = textContentInput.value;
         t.el.textContent = t.text;
       });
 
       textColorSelect.addEventListener("change", () => {
-        if (!selectedTextId) return;
-        const t = textsState.get(selectedTextId);
+        const t = texts.find((x) => x.id === selectedTextId);
         if (!t) return;
         t.color = textColorSelect.value;
-        t.el.style.color = t.color; // FIX: persist chosen color, no auto revert
+        t.el.style.color = t.color;        // << DO NOT RESET ANYWHERE ELSE
       });
 
       textSizeRange.addEventListener("input", () => {
-        if (!selectedTextId) return;
-        const t = textsState.get(selectedTextId);
+        const t = texts.find((x) => x.id === selectedTextId);
         if (!t) return;
-        t.size = parseInt(textSizeRange.value, 10);
+        t.size = Number(textSizeRange.value);
         t.el.style.fontSize = t.size + "px";
       });
 
       textBtn.addEventListener("click", () => {
-        if (!textBtn.disabled) openTextPanel();
+        if (textBtn.disabled) return;
+        openTextPanel();
       });
       textClose.addEventListener("click", closeTextPanel);
 
       /* =========================
-         PANELS open/close
+         Photobooth ON/OFF (collection mode)
       ========================= */
-      function openBoothPanel() {
-        boothPanel.classList.add("open");
-        boothPanel.setAttribute("aria-hidden", "false");
-      }
-      function closeBoothPanel() {
-        boothPanel.classList.remove("open");
-        boothPanel.setAttribute("aria-hidden", "true");
-      }
-      boothClose.addEventListener("click", closeBoothPanel);
-
+      let photoboothOn = false;
       boothBtn.addEventListener("click", () => {
         if (boothBtn.disabled) return;
-        // quick toggle ON/OFF
         photoboothOn = !photoboothOn;
         boothBtn.textContent = photoboothOn ? "Photobooth: On" : "Photobooth: Off";
-        if (photoboothOn) {
-          capturedDock.style.display = "block";
-          capturedDock.setAttribute("aria-hidden", "false");
-          openBoothPanel();
-        } else {
-          capturedDock.style.display = "none";
-          capturedDock.setAttribute("aria-hidden", "true");
-          closeBoothPanel();
-          closeBuilder();
-        }
+
+        // show/hide captured dock
+        capturedDock.style.display = photoboothOn ? "block" : "none";
+        capturedDock.setAttribute("aria-hidden", photoboothOn ? "false" : "true");
       });
 
       /* =========================
-         CAPTURED STORAGE (Photobooth ON = store many)
+         CAPTURED DOCK DRAGGABLE
       ========================= */
-      let photoboothOn = false;
-      const captured = []; // { url, w, h }
+      (function makeCapturedDockDraggable() {
+        const header = document.getElementById("capturedDockHeader");
+        let dragging = false;
+        let startX = 0, startY = 0;
+        let startLeft = 0, startTop = 0;
+
+        const px = (n) => `${Math.round(n)}px`;
+
+        header.addEventListener("pointerdown", (e) => {
+          if (capturedDock.style.display === "none") return;
+          dragging = true;
+          header.setPointerCapture?.(e.pointerId);
+
+          const r = capturedDock.getBoundingClientRect();
+          startX = e.clientX;
+          startY = e.clientY;
+          startLeft = r.left;
+          startTop = r.top;
+
+          capturedDock.style.left = px(r.left);
+          capturedDock.style.top = px(r.top);
+          capturedDock.style.right = "auto";
+          capturedDock.style.bottom = "auto";
+        });
+
+        header.addEventListener("pointermove", (e) => {
+          if (!dragging) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+
+          const w = capturedDock.getBoundingClientRect().width;
+          const h = capturedDock.getBoundingClientRect().height;
+
+          const newLeft = Math.max(6, Math.min(innerWidth - w - 6, startLeft + dx));
+          const newTop = Math.max(6, Math.min(innerHeight - h - 6, startTop + dy));
+
+          capturedDock.style.left = px(newLeft);
+          capturedDock.style.top = px(newTop);
+        });
+
+        const end = () => (dragging = false);
+        header.addEventListener("pointerup", end);
+        header.addEventListener("pointercancel", end);
+      })();
+
+      /* =========================
+         CAPTURE LOGIC (one puff only: capture current scene once)
+      ========================= */
+      const captured = []; // { url, blob, w, h, ts }
 
       function renderCapturedDock() {
         capturedList.innerHTML = "";
-        captured.forEach((c, idx) => {
-          const card = document.createElement("div");
-          card.className = "capThumb";
-          const img = document.createElement("img");
-          img.src = c.url;
-          img.alt = "capture " + (idx + 1);
-          const badge = document.createElement("div");
-          badge.className = "capBadge";
-          badge.textContent = String(idx + 1);
-
-          card.appendChild(img);
-          card.appendChild(badge);
-          capturedList.appendChild(card);
-        });
-
+        for (let i = 0; i < captured.length; i++) {
+          const item = document.createElement("div");
+          item.className = "capThumb";
+          item.innerHTML = `
+            <img src="${captured[i].url}" alt="Captured ${i + 1}">
+            <div class="capThumbMeta">
+              <span>#${i + 1}</span>
+              <span>${new Date(captured[i].ts).toLocaleTimeString()}</span>
+            </div>
+          `;
+          capturedList.appendChild(item);
+        }
         cueBtn.disabled = captured.length === 0;
-        capturedClearBtn.disabled = captured.length === 0;
       }
 
-      capturedClearBtn.addEventListener("click", () => {
+      clearCapturedBtn.addEventListener("click", () => {
+        // revoke urls
         captured.forEach((c) => URL.revokeObjectURL(c.url));
         captured.length = 0;
         renderCapturedDock();
-        // also clear assignments in builder
-        stripState.assignments.fill(null);
-        drawStripPreview();
       });
 
       /* =========================
-         CAPTURE (bake camera + puff + stickers + texts)
+         FINAL RENDER (camera frame + overlays) to canvas
       ========================= */
-      function getPreviewSourceCanvas() {
-        // draw full-res camera frame to canvas (with filter) at capture time
-        const vw = cameraEl.videoWidth;
-        const vh = cameraEl.videoHeight;
-        if (!vw || !vh) return null;
+      function drawVideoCover(ctx, video, x, y, w, h, mirror) {
+        const vw = video.videoWidth || 1;
+        const vh = video.videoHeight || 1;
+        const s = Math.max(w / vw, h / vh);
+        const dw = vw * s;
+        const dh = vh * s;
+        const dx = x + (w - dw) / 2;
+        const dy = y + (h - dh) / 2;
 
-        const canvas = document.createElement("canvas");
-        canvas.width = vw;
-        canvas.height = vh;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
 
-        // mirror handling: if preview is mirrored, bake mirrored result to match what user sees
-        const mirrored = shouldMirrorPreview();
-        if (mirrored) {
-          ctx.translate(vw, 0);
+        if (mirror) {
+          ctx.translate(x + w, y);
           ctx.scale(-1, 1);
+          ctx.drawImage(video, dx - x, dy - y, dw, dh);
+        } else {
+          ctx.drawImage(video, dx, dy, dw, dh);
         }
-        ctx.drawImage(cameraEl, 0, 0, vw, vh);
+        ctx.restore();
+      }
 
-        // apply filter to capture
+      function drawImageWithTransform(ctx, img, state, baseW, baseH) {
+        const cx = (state.x / 100) * baseW;
+        const cy = (state.y / 100) * baseH;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate((state.rotation * Math.PI) / 180);
+        ctx.scale(state.scale, state.scale);
+
+        const w = img.naturalWidth || img.videoWidth || 1;
+        const h = img.naturalHeight || img.videoHeight || 1;
+
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      }
+
+      async function captureCurrentScene() {
+        if (!cameraEl.videoWidth || !cameraEl.videoHeight) return null;
+
+        const outW = 1440;
+        const outH = 1920;
+
+        const c = document.createElement("canvas");
+        c.width = outW;
+        c.height = outH;
+        const ctx = c.getContext("2d");
+
+        // camera + filter
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, outW, outH);
+
+        // draw camera
+        drawVideoCover(ctx, cameraEl, 0, 0, outW, outH, shouldMirrorPreview());
+
+        // apply filter to final (match preview)
         if (currentFilterId !== "none") {
-          const img = ctx.getImageData(0, 0, vw, vh);
+          const img = ctx.getImageData(0, 0, outW, outH);
           applyRecipeToImageData(img, currentRecipe);
           ctx.putImageData(img, 0, 0);
         }
 
-        // reset transform for overlays (so we can compute positions in screen space)
-        if (mirrored) {
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-        }
-        return canvas;
-      }
-
-      function getElementRectOnScreen(el) {
-        const r = el.getBoundingClientRect();
-        return r;
-      }
-
-      async function drawPuffFrameTo(ctx, outW, outH) {
-        // draw current puff video frame (no duplication; this is the ONLY puff)
-        if (!puffEl.videoWidth || !puffEl.videoHeight) return;
-        const puffRect = getElementRectOnScreen(puffEl);
-
-        // map from screen coords to capture canvas coords (camera cover)
-        // We captured camera at native video size; need mapping from screen -> video pixels.
-        // Use object-fit: cover mapping.
-        const map = screenToVideoMapper(outW, outH);
-        const dst = map.rectToVideoPixels(puffRect);
-
-        // draw puff video into those pixels
-        ctx.drawImage(puffEl, dst.x, dst.y, dst.w, dst.h);
-      }
-
-      function drawStickerTo(ctx, outW, outH, stickerEl) {
-        const r = getElementRectOnScreen(stickerEl);
-        const map = screenToVideoMapper(outW, outH);
-        const dst = map.rectToVideoPixels(r);
-        ctx.drawImage(stickerEl, dst.x, dst.y, dst.w, dst.h);
-      }
-
-      function drawTextTo(ctx, outW, outH, t) {
-        const r = getElementRectOnScreen(t.el);
-        const map = screenToVideoMapper(outW, outH);
-        const dst = map.rectToVideoPixels(r);
-
-        // approximate rotation/scale using stored state
-        ctx.save();
-        ctx.translate(dst.x + dst.w / 2, dst.y + dst.h / 2);
-        ctx.rotate((t.rotation * Math.PI) / 180);
-        ctx.scale(t.scale, t.scale);
-
-        // font size: based on element font-size but needs mapping to pixels
-        const sizePx = t.size * (map.videoScale); // scale by cover factor
-        ctx.font = `900 ${Math.max(10, sizePx)}px BeautifulFreak, system-ui`;
-        ctx.fillStyle = t.color || "#ffffff";
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-
-        // subtle bg like UI? (optional: keep clean; user didn’t ask for bg in export)
-        const text = (t.text || "").toString();
-        // multi-line support
-        const lines = text.split("\n");
-        const lh = Math.max(12, sizePx * 1.05);
-        const totalH = lh * lines.length;
-
-        // draw each line centered
-        lines.forEach((line, i) => {
-          const y = (i - (lines.length - 1) / 2) * lh;
-          ctx.fillText(line, 0, y);
-        });
-
-        ctx.restore();
-      }
-
-      function screenToVideoMapper(vw, vh) {
-        // screen -> camera video pixels mapping for object-fit: cover
-        const sw = innerWidth;
-        const sh = innerHeight;
-
-        const videoAspect = vw / vh;
-        const screenAspect = sw / sh;
-
-        let drawW, drawH, offX, offY;
-        if (screenAspect > videoAspect) {
-          // screen wider -> fit height, crop width
-          drawH = sh;
-          drawW = sh * videoAspect;
-          offX = (sw - drawW) / 2;
-          offY = 0;
-        } else {
-          // screen taller -> fit width, crop height
-          drawW = sw;
-          drawH = sw / videoAspect;
-          offX = 0;
-          offY = (sh - drawH) / 2;
-        }
-
-        const scaleX = vw / drawW;
-        const scaleY = vh / drawH;
-
-        return {
-          videoScale: (scaleX + scaleY) / 2,
-          rectToVideoPixels(rect) {
-            const x = (rect.left - offX) * scaleX;
-            const y = (rect.top - offY) * scaleY;
-            const w = rect.width * scaleX;
-            const h = rect.height * scaleY;
-            return { x, y, w, h };
-          },
-        };
-      }
-
-      async function captureNow() {
-        const base = getPreviewSourceCanvas();
-        if (!base) return;
-
-        const ctx = base.getContext("2d");
-
-        // overlays:
-        await drawPuffFrameTo(ctx, base.width, base.height);
+        // IMPORTANT: draw only ONE puff video (the live puffEl) as overlay
+        // scale puff video visually: we render it at its intrinsic size then state scale does the sizing
+        await puffEl.play().catch(() => {});
+        drawImageWithTransform(ctx, puffEl, puffState, outW, outH);
 
         // stickers
-        const stickerEls = [...stickerLayer.querySelectorAll(".sticker")];
-        for (const el of stickerEls) drawStickerTo(ctx, base.width, base.height, el);
+        for (const s of stickers) {
+          const img = s.el;
+          drawImageWithTransform(ctx, img, s.state, outW, outH);
+        }
 
         // texts
-        const ts = [...textsState.values()];
-        // ensure font is ready (best-effort)
-        if (BEAUTIFUL_FREAK_READY) {
-          // already ready
-        } else {
-          try { await document.fonts.ready; } catch (_) {}
+        for (const t of texts) {
+          ctx.save();
+          const cx = (t.state.x / 100) * outW;
+          const cy = (t.state.y / 100) * outH;
+          ctx.translate(cx, cy);
+          ctx.rotate((t.state.rotation * Math.PI) / 180);
+          ctx.scale(t.state.scale, t.state.scale);
+
+          ctx.font = `${t.size}px BeautifulFreak, system-ui`;
+          ctx.fillStyle = t.color;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(t.text || "", 0, 0);
+          ctx.restore();
         }
-        for (const t of ts) drawTextTo(ctx, base.width, base.height, t);
 
-        return new Promise((resolve) => {
-          base.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            resolve({ url, w: base.width, h: base.height });
-          }, "image/png", 0.92);
-        });
-      }
-
-      /* =========================
-         Photobooth ON/OFF: capture behavior
-         - OFF: just downloads single photo
-         - ON: stores into captured list
-      ========================= */
-      function downloadBlobUrl(url, filename) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        const blob = await new Promise((res) => c.toBlob(res, "image/png", 0.95));
+        if (!blob) return null;
+        const url = URL.createObjectURL(blob);
+        return { url, blob, w: outW, h: outH, ts: Date.now() };
       }
 
       captureBtn.addEventListener("click", async () => {
         if (captureBtn.disabled) return;
-        captureBtn.disabled = true;
-        try {
-          const res = await captureNow();
-          if (!res) return;
 
-          if (!photoboothOn) {
-            // normal mode: download immediately
-            downloadBlobUrl(res.url, `puff-${Date.now()}.png`);
-            // revoke later
-            setTimeout(() => URL.revokeObjectURL(res.url), 8000);
-          } else {
-            captured.unshift(res);
-            renderCapturedDock();
-            // also update builder thumb list (if open)
-            renderAssignGrid();
-          }
-        } catch (e) {
-          console.error(e);
-        } finally {
-          captureBtn.disabled = false;
-        }
+        const shot = await captureCurrentScene();
+        if (!shot) return;
+
+        // OFF: you can still capture just like before (but we store anyway for builder)
+        captured.unshift(shot);
+        renderCapturedDock();
       });
 
       /* =========================
-         BOOTH PANEL open/close
-      ========================= */
-      function openBoothPanelSoft() {
-        boothPanel.classList.add("open");
-        boothPanel.setAttribute("aria-hidden", "false");
-      }
-      boothBtn.addEventListener("contextmenu", (e) => e.preventDefault());
-
-      /* =========================
-         STICKER/TEXT/FILTER panel buttons
-      ========================= */
-      stickerClose.addEventListener("click", closeStickerPanel);
-      textClose.addEventListener("click", closeTextPanel);
-
-      /* =========================
-         FILTER UI
-      ========================= */
-      function openPanel(panel) {
-        panel.classList.add("open");
-        panel.setAttribute("aria-hidden", "false");
-      }
-      function closePanel(panel) {
-        panel.classList.remove("open");
-        panel.setAttribute("aria-hidden", "true");
-      }
-
-      /* =========================
-         Build UI actions
-      ========================= */
-      filterBtn.addEventListener("click", () => {
-        if (!filterBtn.disabled) openPanel(filterPanel);
-      });
-      filterClose.addEventListener("click", () => closePanel(filterPanel));
-
-      stickersBtn.addEventListener("click", () => {
-        if (!stickersBtn.disabled) openPanel(stickerPanel);
-      });
-
-      textBtn.addEventListener("click", () => {
-        if (!textBtn.disabled) {
-          openPanel(textPanel);
-          syncTextControls();
-        }
-      });
-
-      boothBtn.addEventListener("click", () => {
-        if (boothBtn.disabled) return;
-        // toggled above; also open explanation sheet
-        if (photoboothOn) openBoothPanelSoft();
-      });
-
-      /* =========================
-         Render sticker grid
-      ========================= */
-      renderStickerGrid();
-
-      /* =========================
-         STRIP BUILDER (common ratios + square outlines, no shadow, no numbering)
+         STRIP BUILDER (correct ratios, square outline, no shadow/no numbers)
       ========================= */
       const LAYOUTS = [
-        { id: "one", name: "1 Photo", slots: 1, aspectW: 2, aspectH: 6, grid: { cols: 1, rows: 1 } },
-        // common refs:
-        // 3 vertical = 6x2 (W:H = 2:6)
-        { id: "v3", name: "3 Vertical", slots: 3, aspectW: 2, aspectH: 6, grid: { cols: 1, rows: 3 } },
-        // 3 horizontal = 2x6 (W:H = 6:2)
-        { id: "h3", name: "3 Horizontal", slots: 3, aspectW: 6, aspectH: 2, grid: { cols: 3, rows: 1 } },
-        // 4 grid = 4x6 (W:H = 6:4)
-        { id: "g4", name: "4 Grid", slots: 4, aspectW: 6, aspectH: 4, grid: { cols: 2, rows: 2 } },
+        // refs:
+        // 3 vertical = 6x2 strip (W:H=2:6) => square cells
+        { id: "v3", name: "3 Vertical", slots: 3, stripW: 2, stripH: 6, cellAspect: 1, grid: { cols: 1, rows: 3 } },
+        // 3 horizontal = 2x6 strip (W:H=6:2) => square cells
+        { id: "h3", name: "3 Horizontal", slots: 3, stripW: 6, stripH: 2, cellAspect: 1, grid: { cols: 3, rows: 1 } },
+        // 4 poses = 4x6 (W:H=6:4). cells = 3x2 => 3/2
+        { id: "g4", name: "4 Grid", slots: 4, stripW: 6, stripH: 4, cellAspect: 3/2, grid: { cols: 2, rows: 2 } },
+        // optional single photo in a tall strip
+        { id: "one", name: "1 Photo", slots: 1, stripW: 2, stripH: 6, cellAspect: 1, grid: { cols: 1, rows: 1 } },
       ];
 
       const stripState = {
         layoutId: "v3",
-        frameHex: "#060d3d",
-        assignments: new Array(3).fill(null), // index -> captured index
+        frameHex: "#e8eef1", // prettier default than dark
+        assignments: [null, null, null],
         selectedPanel: 0,
       };
 
       function setLayout(layoutId) {
-        stripState.layoutId = layoutId;
-        const L = LAYOUTS.find((x) => x.id === layoutId);
+        const L = LAYOUTS.find((x) => x.id === layoutId) || LAYOUTS[0];
+        stripState.layoutId = L.id;
         stripState.assignments = new Array(L.slots).fill(null);
         stripState.selectedPanel = 0;
 
-        // set preview aspect ratio to match
-        stripPreview.style.aspectRatio = `${L.aspectW} / ${L.aspectH}`;
+        // keep canvas visually correct ratio
+        stripPreview.style.aspectRatio = `${L.stripW} / ${L.stripH}`;
         drawStripPreview();
         renderLayoutPills();
       }
@@ -2325,12 +2150,12 @@
 
       function renderLayoutPills() {
         layoutRow.innerHTML = "";
-        LAYOUTS.forEach((l) => {
+        LAYOUTS.forEach((L) => {
           const b = document.createElement("button");
-          b.className = "pill" + (stripState.layoutId === l.id ? " active" : "");
+          b.className = "pill" + (L.id === stripState.layoutId ? " active" : "");
           b.type = "button";
-          b.textContent = l.name;
-          b.addEventListener("click", () => setLayout(l.id));
+          b.textContent = L.name;
+          b.addEventListener("click", () => setLayout(L.id));
           layoutRow.appendChild(b);
         });
       }
@@ -2339,7 +2164,7 @@
         colorRow.innerHTML = "";
         BOOTH_COLORS.forEach((c) => {
           const b = document.createElement("button");
-          b.className = "pill" + (stripState.frameHex.toLowerCase() === c.hex.toLowerCase() ? " active" : "");
+          b.className = "pill" + (c.hex === stripState.frameHex ? " active" : "");
           b.type = "button";
           b.textContent = c.name;
           b.addEventListener("click", () => setFrameColor(c.hex));
@@ -2347,68 +2172,35 @@
         });
       }
 
-      function renderAssignGrid() {
-        assignGrid.innerHTML = "";
+      function renderStripThumbs() {
+        stripThumbGrid.innerHTML = "";
         captured.forEach((c, idx) => {
-          const d = document.createElement("div");
-          d.className = "assignThumb";
-          const img = document.createElement("img");
-          img.src = c.url;
-          img.alt = "cap " + (idx + 1);
-          d.appendChild(img);
-          d.addEventListener("click", () => {
-            if (stripState.selectedPanel == null) return;
-            stripState.assignments[stripState.selectedPanel] = idx;
+          const cell = document.createElement("div");
+          cell.className = "stripThumbPick";
+          cell.innerHTML = `
+            <img src="${c.url}" alt="cap ${idx+1}">
+            <div class="lab"><span>#${idx+1}</span><span>tap</span></div>
+          `;
+          cell.addEventListener("click", () => {
+            const p = stripState.selectedPanel;
+            const L = LAYOUTS.find((x) => x.id === stripState.layoutId) || LAYOUTS[0];
+            if (p < 0 || p >= L.slots) return;
+            stripState.assignments[p] = idx;
             drawStripPreview();
           });
-          assignGrid.appendChild(d);
+          stripThumbGrid.appendChild(cell);
         });
       }
 
-      function openBuilder() {
-        if (captured.length === 0) return;
-        builderOverlay.style.display = "block";
-        builderOverlay.setAttribute("aria-hidden", "false");
-
-        // init pills if first time
-        renderLayoutPills();
-        renderColorPills();
-        renderAssignGrid();
-
-        // ensure aspect
-        const L = LAYOUTS.find((x) => x.id === stripState.layoutId) || LAYOUTS[1];
-        stripPreview.style.aspectRatio = `${L.aspectW} / ${L.aspectH}`;
-
-        drawStripPreview();
-      }
-
-      function closeBuilder() {
-        builderOverlay.style.display = "none";
-        builderOverlay.setAttribute("aria-hidden", "true");
-      }
-
-      builderClose.addEventListener("click", closeBuilder);
-      builderClose2.addEventListener("click", closeBuilder);
-
-      cueBtn.addEventListener("click", openBuilder);
-
-      /* =========================
-         Draw strip preview (square outlines, spacing filled with frame color)
-      ========================= */
       function drawStripPreview() {
-        const L = LAYOUTS.find((x) => x.id === stripState.layoutId) || LAYOUTS[1];
+        const L = LAYOUTS.find((x) => x.id === stripState.layoutId) || LAYOUTS[0];
 
-        // Choose preview resolution (not huge). Keep consistent aspect.
+        // internal render resolution
         const base = 1200;
-        const aspect = L.aspectW / L.aspectH;
+        const stripAspect = L.stripW / L.stripH;
         let cw, ch;
-        if (aspect >= 1) {
-          cw = base;
-          ch = Math.round(base / aspect);
-        } else {
-          ch = base;
-          cw = Math.round(base * aspect);
-        }
+        if (stripAspect >= 1) { cw = base; ch = Math.round(base / stripAspect); }
+        else { ch = base; cw = Math.round(base * stripAspect); }
 
         stripPreview.width = cw;
         stripPreview.height = ch;
@@ -2416,127 +2208,147 @@
         const ctx = stripPreview.getContext("2d");
         ctx.clearRect(0, 0, cw, ch);
 
-        // frame background
+        // whole background = frame color (so margins/gaps are NOT black)
         ctx.fillStyle = stripState.frameHex;
         ctx.fillRect(0, 0, cw, ch);
 
-        // margins & gaps (in frame color anyway)
-        const margin = Math.round(Math.min(cw, ch) * 0.08);
-        const gap = Math.round(Math.min(cw, ch) * 0.055);
+        // margins + gaps
+        const margin = Math.round(Math.min(cw, ch) * 0.06);
+        const gap = Math.round(Math.min(cw, ch) * 0.04);
 
-        // logo at top (small)
-        const logoYPad = Math.round(margin * 0.35);
-        const logoH = Math.round(Math.min(cw, ch) * 0.06);
+        // logo top area (small)
+        const topBar = Math.round(Math.min(cw, ch) * 0.11);
+        const logoH = Math.round(Math.min(cw, ch) * 0.055);
         const logoW = Math.round(logoH * 3.2);
+        const logoY = margin + Math.round((topBar - logoH) / 2);
 
-        // reserve top brand bar only for layouts that are strips (v3/h3/g4/one)
-        const topBar = Math.round(logoH + logoYPad * 2);
-
-        // panels area
         const panelsX = margin;
         const panelsY = margin + topBar;
         const panelsW = cw - margin * 2;
         const panelsH = ch - panelsY - margin;
 
-        // draw logo
+        // square outline, no shadow, no numbers
+        ctx.lineWidth = Math.max(2, Math.round(Math.min(cw, ch) * 0.003));
+        const isLight = ["#ffffff", "#e8eef1"].includes(stripState.frameHex.toLowerCase());
+        const outline = isLight ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.70)";
+        const outlineSel = isLight ? "rgba(0,0,0,0.90)" : "rgba(255,255,255,0.95)";
+
+        // logo
         const logoImg = new Image();
         logoImg.onload = () => {
-          ctx.save();
-          ctx.globalAlpha = 1;
-          ctx.drawImage(logoImg, Math.round((cw - logoW) / 2), margin + logoYPad, logoW, logoH);
-          ctx.restore();
-
+          ctx.drawImage(logoImg, Math.round((cw - logoW) / 2), logoY, logoW, logoH);
           drawPanels();
         };
         logoImg.onerror = () => drawPanels();
         logoImg.src = `${logoForBg(stripState.frameHex)}?v=${encodeURIComponent(ASSET_VERSION)}`;
 
+        function fitAspect(cellW, cellH, aspect) {
+          const cellAspect = cellW / cellH;
+          if (cellAspect > aspect) {
+            const h = cellH;
+            const w = Math.round(h * aspect);
+            return { w, h, ox: Math.round((cellW - w) / 2), oy: 0 };
+          } else {
+            const w = cellW;
+            const h = Math.round(w / aspect);
+            return { w, h, ox: 0, oy: Math.round((cellH - h) / 2) };
+          }
+        }
+
         function drawPanels() {
           const cols = L.grid.cols;
           const rows = L.grid.rows;
 
-          const cellW = Math.floor((panelsW - gap * (cols - 1)) / cols);
-          const cellH = Math.floor((panelsH - gap * (rows - 1)) / rows);
-
-          // Square outlines (no curves), no shadow, no numbers
-          ctx.lineWidth = Math.max(2, Math.round(Math.min(cw, ch) * 0.003));
-          // outline color: subtle contrast
-          ctx.strokeStyle =
-            stripState.frameHex.toLowerCase() === "#ffffff" || stripState.frameHex.toLowerCase() === "#e8eef1"
-              ? "rgba(0,0,0,0.35)"
-              : "rgba(255,255,255,0.55)";
-
-          // selected panel highlight for preview only
-          const selStroke =
-            stripState.frameHex.toLowerCase() === "#ffffff" || stripState.frameHex.toLowerCase() === "#e8eef1"
-              ? "rgba(0,0,0,0.65)"
-              : "rgba(255,255,255,0.85)";
+          const gridCellW = Math.floor((panelsW - gap * (cols - 1)) / cols);
+          const gridCellH = Math.floor((panelsH - gap * (rows - 1)) / rows);
 
           for (let i = 0; i < L.slots; i++) {
             const r = Math.floor(i / cols);
             const c = i % cols;
 
-            const x = panelsX + c * (cellW + gap);
-            const y = panelsY + r * (cellH + gap);
+            const cellX = panelsX + c * (gridCellW + gap);
+            const cellY = panelsY + r * (gridCellH + gap);
 
-            // panel outline
-            ctx.strokeStyle = i === stripState.selectedPanel ? selStroke : ctx.strokeStyle;
-            ctx.strokeRect(x, y, cellW, cellH);
+            const fit = fitAspect(gridCellW, gridCellH, L.cellAspect);
+            const x = cellX + fit.ox;
+            const y = cellY + fit.oy;
+            const w = fit.w;
+            const h = fit.h;
 
-            // image if assigned
+            ctx.strokeStyle = i === stripState.selectedPanel ? outlineSel : outline;
+            ctx.strokeRect(x, y, w, h);
+
             const capIdx = stripState.assignments[i];
             if (capIdx != null && captured[capIdx]) {
               const img = new Image();
               img.onload = () => {
-                // cover fit inside cell (no rounding)
                 const iw = img.naturalWidth || 1;
                 const ih = img.naturalHeight || 1;
-                const s = Math.max(cellW / iw, cellH / ih);
+                const s = Math.max(w / iw, h / ih);
                 const dw = iw * s;
                 const dh = ih * s;
-                const dx = x + (cellW - dw) / 2;
-                const dy = y + (cellH - dh) / 2;
+                const dx = x + (w - dw) / 2;
+                const dy = y + (h - dh) / 2;
 
                 ctx.save();
                 ctx.beginPath();
-                ctx.rect(x, y, cellW, cellH);
+                ctx.rect(x, y, w, h);
                 ctx.clip();
                 ctx.drawImage(img, dx, dy, dw, dh);
                 ctx.restore();
 
-                // redraw outline on top
-                ctx.save();
-                ctx.strokeStyle = i === stripState.selectedPanel ? selStroke : (ctx.strokeStyle);
-                ctx.strokeRect(x, y, cellW, cellH);
-                ctx.restore();
+                ctx.strokeStyle = i === stripState.selectedPanel ? outlineSel : outline;
+                ctx.strokeRect(x, y, w, h);
               };
               img.src = captured[capIdx].url;
             }
-
-            // clickable regions: store for hit test
           }
 
-          // build hit map for selecting panel
-          stripPreview._hit = { L, margin, topBar, panelsX, panelsY, panelsW, panelsH, gap, cellW, cellH };
+          // store hit map
+          stripPreview._hit = { L, panelsX, panelsY, panelsW, panelsH, gap };
         }
       }
 
       stripPreview.addEventListener("pointerdown", (e) => {
         const hit = stripPreview._hit;
         if (!hit) return;
+
         const rect = stripPreview.getBoundingClientRect();
         const px = ((e.clientX - rect.left) / rect.width) * stripPreview.width;
         const py = ((e.clientY - rect.top) / rect.height) * stripPreview.height;
 
-        const { L, panelsX, panelsY, gap, cellW, cellH } = hit;
+        const { L, panelsX, panelsY, panelsW, panelsH, gap } = hit;
         const cols = L.grid.cols;
+
+        const gridCellW = Math.floor((panelsW - gap * (cols - 1)) / cols);
+        const gridCellH = Math.floor((panelsH - gap * (L.grid.rows - 1)) / L.grid.rows);
+
+        function fitAspect(cellW, cellH, aspect) {
+          const cellAspect = cellW / cellH;
+          if (cellAspect > aspect) {
+            const h = cellH;
+            const w = Math.round(h * aspect);
+            return { w, h, ox: Math.round((cellW - w) / 2), oy: 0 };
+          } else {
+            const w = cellW;
+            const h = Math.round(w / aspect);
+            return { w, h, ox: 0, oy: Math.round((cellH - h) / 2) };
+          }
+        }
 
         for (let i = 0; i < L.slots; i++) {
           const r = Math.floor(i / cols);
           const c = i % cols;
-          const x = panelsX + c * (cellW + gap);
-          const y = panelsY + r * (cellH + gap);
-          if (px >= x && px <= x + cellW && py >= y && py <= y + cellH) {
+          const cellX = panelsX + c * (gridCellW + gap);
+          const cellY = panelsY + r * (gridCellH + gap);
+
+          const fit = fitAspect(gridCellW, gridCellH, L.cellAspect);
+          const x = cellX + fit.ox;
+          const y = cellY + fit.oy;
+          const w = fit.w;
+          const h = fit.h;
+
+          if (px >= x && px <= x + w && py >= y && py <= y + h) {
             stripState.selectedPanel = i;
             drawStripPreview();
             break;
@@ -2544,19 +2356,13 @@
         }
       });
 
-      /* =========================
-         Export strip PNG (exact “common size” proportions)
-      ========================= */
       async function exportStripPng() {
-        const L = LAYOUTS.find((x) => x.id === stripState.layoutId) || LAYOUTS[1];
+        const L = LAYOUTS.find((x) => x.id === stripState.layoutId) || LAYOUTS[0];
 
-        // choose export pixel size that respects the reference ratios:
-        // v3/one: 2:6 => 1200 x 3600
-        // h3: 6:2 => 3600 x 1200
-        // g4: 6:4 => 3000 x 2000
-        let outW = 1200, outH = 3600;
-        if (L.id === "h3") { outW = 3600; outH = 1200; }
-        if (L.id === "g4") { outW = 3000; outH = 2000; }
+        // exact ratios based on your refs:
+        let outW = 1200, outH = 3600;   // 2x6
+        if (L.id === "h3") { outW = 3600; outH = 1200; } // 6x2
+        if (L.id === "g4") { outW = 3000; outH = 2000; } // 6x4
         if (L.id === "one") { outW = 1200; outH = 3600; }
 
         const canvas = document.createElement("canvas");
@@ -2567,14 +2373,13 @@
         ctx.fillStyle = stripState.frameHex;
         ctx.fillRect(0, 0, outW, outH);
 
-        const margin = Math.round(Math.min(outW, outH) * 0.08);
-        const gap = Math.round(Math.min(outW, outH) * 0.055);
+        const margin = Math.round(Math.min(outW, outH) * 0.06);
+        const gap = Math.round(Math.min(outW, outH) * 0.04);
 
-        // logo
-        const logoYPad = Math.round(margin * 0.35);
-        const logoH = Math.round(Math.min(outW, outH) * 0.06);
+        const topBar = Math.round(Math.min(outW, outH) * 0.11);
+        const logoH = Math.round(Math.min(outW, outH) * 0.055);
         const logoW = Math.round(logoH * 3.2);
-        const topBar = Math.round(logoH + logoYPad * 2);
+        const logoY = margin + Math.round((topBar - logoH) / 2);
 
         const panelsX = margin;
         const panelsY = margin + topBar;
@@ -2584,35 +2389,52 @@
         const cols = L.grid.cols;
         const rows = L.grid.rows;
 
-        const cellW = Math.floor((panelsW - gap * (cols - 1)) / cols);
-        const cellH = Math.floor((panelsH - gap * (rows - 1)) / rows);
+        const gridCellW = Math.floor((panelsW - gap * (cols - 1)) / cols);
+        const gridCellH = Math.floor((panelsH - gap * (rows - 1)) / rows);
 
-        // outline
+        const isLight = ["#ffffff", "#e8eef1"].includes(stripState.frameHex.toLowerCase());
+        const outline = isLight ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.70)";
         ctx.lineWidth = Math.max(3, Math.round(Math.min(outW, outH) * 0.003));
-        ctx.strokeStyle =
-          stripState.frameHex.toLowerCase() === "#ffffff" || stripState.frameHex.toLowerCase() === "#e8eef1"
-            ? "rgba(0,0,0,0.35)"
-            : "rgba(255,255,255,0.55)";
+        ctx.strokeStyle = outline;
 
-        // draw logo
+        function fitAspect(cellW, cellH, aspect) {
+          const cellAspect = cellW / cellH;
+          if (cellAspect > aspect) {
+            const h = cellH;
+            const w = Math.round(h * aspect);
+            return { w, h, ox: Math.round((cellW - w) / 2), oy: 0 };
+          } else {
+            const w = cellW;
+            const h = Math.round(w / aspect);
+            return { w, h, ox: 0, oy: Math.round((cellH - h) / 2) };
+          }
+        }
+
+        // logo
+        const logoSrc = `${logoForBg(stripState.frameHex)}?v=${encodeURIComponent(ASSET_VERSION)}`;
         await new Promise((resolve) => {
           const img = new Image();
           img.onload = () => {
-            ctx.drawImage(img, Math.round((outW - logoW) / 2), margin + logoYPad, logoW, logoH);
+            ctx.drawImage(img, Math.round((outW - logoW) / 2), logoY, logoW, logoH);
             resolve();
           };
-          img.onerror = () => resolve();
-          img.src = `${logoForBg(stripState.frameHex)}?v=${encodeURIComponent(ASSET_VERSION)}`;
+          img.onerror = resolve;
+          img.src = logoSrc;
         });
 
-        // draw panels + assigned images
         for (let i = 0; i < L.slots; i++) {
-          const rr = Math.floor(i / cols);
-          const cc = i % cols;
-          const x = panelsX + cc * (cellW + gap);
-          const y = panelsY + rr * (cellH + gap);
+          const r = Math.floor(i / cols);
+          const c = i % cols;
 
-          // image
+          const cellX = panelsX + c * (gridCellW + gap);
+          const cellY = panelsY + r * (gridCellH + gap);
+
+          const fit = fitAspect(gridCellW, gridCellH, L.cellAspect);
+          const x = cellX + fit.ox;
+          const y = cellY + fit.oy;
+          const w = fit.w;
+          const h = fit.h;
+
           const capIdx = stripState.assignments[i];
           if (capIdx != null && captured[capIdx]) {
             await new Promise((resolve) => {
@@ -2620,102 +2442,115 @@
               img.onload = () => {
                 const iw = img.naturalWidth || 1;
                 const ih = img.naturalHeight || 1;
-                const s = Math.max(cellW / iw, cellH / ih);
+                const s = Math.max(w / iw, h / ih);
                 const dw = iw * s;
                 const dh = ih * s;
-                const dx = x + (cellW - dw) / 2;
-                const dy = y + (cellH - dh) / 2;
+                const dx = x + (w - dw) / 2;
+                const dy = y + (h - dh) / 2;
 
                 ctx.save();
                 ctx.beginPath();
-                ctx.rect(x, y, cellW, cellH);
+                ctx.rect(x, y, w, h);
                 ctx.clip();
                 ctx.drawImage(img, dx, dy, dw, dh);
                 ctx.restore();
                 resolve();
               };
-              img.onerror = () => resolve();
+              img.onerror = resolve;
               img.src = captured[capIdx].url;
             });
           }
 
-          // outline (square)
-          ctx.strokeRect(x, y, cellW, cellH);
+          ctx.strokeRect(x, y, w, h);
         }
 
-        return new Promise((resolve) => {
-          canvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            resolve(url);
-          }, "image/png", 0.92);
-        });
+        const blob = await new Promise((res) => canvas.toBlob(res, "image/png", 0.95));
+        if (!blob) return;
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `puff-strip-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
       }
 
-      builderDone.addEventListener("click", async () => {
+      exportStripBtn.addEventListener("click", exportStripPng);
+
+      function openStripBuilder() {
         if (captured.length === 0) return;
-        builderDone.disabled = true;
-        try {
-          const url = await exportStripPng();
-          downloadBlobUrl(url, `puff-strip-${Date.now()}.png`);
-          setTimeout(() => URL.revokeObjectURL(url), 12000);
-        } catch (e) {
-          console.error(e);
-        } finally {
-          builderDone.disabled = false;
-        }
-      });
+        stripModal.classList.add("open");
+        stripModal.setAttribute("aria-hidden", "false");
 
-      /* =========================
-         Init builder defaults
-      ========================= */
-      setLayout("v3");
-      setFrameColor("#060d3d");
+        renderLayoutPills();
+        renderColorPills();
+        renderStripThumbs();
 
-      /* =========================
-         Open booth panel button
-      ========================= */
-      boothPanel.addEventListener("click", (e) => {
-        // tap outside? no-op
-      });
-
-      /* =========================
-         Set sticker/text/filter buttons after AR starts
-      ========================= */
-      function enableUiAfterStart() {
-        filterBtn.disabled = false;
-        boothBtn.disabled = false;
-        stickersBtn.disabled = false;
-        textBtn.disabled = false;
-        captureBtn.disabled = false;
+        // ensure preview uses correct ratio
+        const L = LAYOUTS.find((x) => x.id === stripState.layoutId) || LAYOUTS[0];
+        stripPreview.style.aspectRatio = `${L.stripW} / ${L.stripH}`;
+        drawStripPreview();
       }
 
+      function closeStripBuilder() {
+        stripModal.classList.remove("open");
+        stripModal.setAttribute("aria-hidden", "true");
+      }
+
+      cueBtn.addEventListener("click", openStripBuilder);
+      stripCloseBtn.addEventListener("click", closeStripBuilder);
+      stripDoneBtn.addEventListener("click", closeStripBuilder);
+
+      // builder does NOT add extra puff; Sticker/Text buttons just open same panels
+      stripStickerBtn.addEventListener("click", openStickerPanel);
+      stripTextBtn.addEventListener("click", openTextPanel);
+
       /* =========================
-         Start AR triggers
+         Filter / Photobooth panels open/close
       ========================= */
-      startBtn.addEventListener("click", async () => {
-        try {
-          await startCamera();
-          enableUiAfterStart();
-        } catch (e) {
-          console.error(e);
-        }
+      function openBoothPanel() {
+        boothPanel.classList.add("open");
+        boothPanel.setAttribute("aria-hidden", "false");
+      }
+      function closeBoothPanel() {
+        boothPanel.classList.remove("open");
+        boothPanel.setAttribute("aria-hidden", "true");
+      }
+
+      // optional: long press booth to open info panel
+      boothBtn.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        openBoothPanel();
       });
+      boothClose.addEventListener("click", closeBoothPanel);
 
       /* =========================
-         Sticker/Text panel close
+         Enable Sticker/Text when AR starts
       ========================= */
-      stickerClose.addEventListener("click", () => closePanel(stickerPanel));
-      textClose.addEventListener("click", () => closePanel(textPanel));
+      // already enabled inside startCamera()
 
       /* =========================
-         Booth panel close
+         INIT
       ========================= */
-      boothClose.addEventListener("click", () => closePanel(boothPanel));
+      // stickers/text start disabled until camera started
+      stickersBtn.disabled = true;
+      textBtn.disabled = true;
+
+      // filter/photobooth disabled until start
+      filterBtn.disabled = true;
+      boothBtn.disabled = true;
 
       /* =========================
-         Render initial captured dock
+         Buttons wiring
       ========================= */
-      renderCapturedDock();
+      stickersBtn.addEventListener("click", openStickerPanel);
+      textBtn.addEventListener("click", openTextPanel);
+
+      /* =========================
+         Start AR button already wired
+      ========================= */
     </script>
   </body>
 </html>
