@@ -50,7 +50,7 @@
         object-fit: contain;
         background: #fff;
         display: block;
-        pointer-events: none; /* ✅ allow tapping close button */
+        pointer-events: none;
       }
 
       #introClosePuff {
@@ -1461,7 +1461,7 @@
 
         await waitLoadedMetadata(puffEl).catch(() => {});
         await puffEl.play().catch(() => {});
-        setPuffAspectFromVideo(); // ✅ refresh if needed
+        setPuffAspectFromVideo();
 
         flipBtn.disabled = false;
         captureBtn.disabled = false;
@@ -1506,7 +1506,6 @@
 
       /* =========================
          PUFF TRANSFORM (desktop + mobile)
-         ✅ improved desktop drag/scale reliability
       ========================= */
       function enableTouchDragPinch(el, state, onUpdate) {
         let mode = null;
@@ -1518,7 +1517,10 @@
           (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 
         function toPct(dxPx, dyPx) {
-          return { dx: (dxPx / innerWidth) * 100, dy: (dyPx / innerHeight) * 100 };
+          return {
+            dx: (dxPx / innerWidth) * 100,
+            dy: (dyPx / innerHeight) * 100,
+          };
         }
 
         function onTouchStart(e) {
@@ -1584,14 +1586,20 @@
           if (e.button !== 0) return;
           e.preventDefault();
           mouseDown = true;
-          mouseStart = { x: e.clientX, y: e.clientY, baseX: state.x, baseY: state.y };
+          mouseStart = {
+            x: e.clientX,
+            y: e.clientY,
+            baseX: state.x,
+            baseY: state.y,
+          };
           window.addEventListener("mousemove", onMouseMove, { passive: false });
           window.addEventListener("mouseup", onMouseUp, { passive: false });
         }
         function onMouseMove(e) {
           if (!mouseDown || !mouseStart) return;
           e.preventDefault();
-          const { dx, dy } = toPct(e.clientX - mouseStart.x, e.clientY - mouseStart.y);
+          const dx = ((e.clientX - mouseStart.x) / innerWidth) * 100;
+          const dy = ((e.clientY - mouseStart.y) / innerHeight) * 100;
           state.x = clamp(mouseStart.baseX + dx, 0, 100);
           state.y = clamp(mouseStart.baseY + dy, 0, 100);
           onUpdate();
@@ -1902,6 +1910,10 @@
 
       /* =========================
          CAPTURE (viewport accurate)
+         ✅ UPDATED: Mirror ON export matches preview 1:1
+         - Preview mirrors ONLY the camera element.
+         - Therefore capture mirrors ONLY the camera draw,
+           NOT puff/stickers positions (no x-flip, no rotation flip).
       ========================= */
       function applyRecipeToImageData(imageData, r) {
         const d = imageData.data;
@@ -1973,7 +1985,7 @@
         out.height = H;
         const ctx = out.getContext("2d", { willReadFrequently: true });
 
-        const mirrorOutput = shouldMirrorPreview();
+        const mirrorCameraOnly = shouldMirrorPreview(); // ✅ mirror camera only
         const camSrcW = cameraEl.videoWidth;
         const camSrcH = cameraEl.videoHeight;
         const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
@@ -1985,11 +1997,10 @@
           const h = rect.height * dpr;
           return { x, y, w, h };
         };
-        const mirrorX = (x, w) => (mirrorOutput ? W - (x + w) : x);
 
-        // camera base
+        // camera base (mirrored when needed)
         ctx.save();
-        if (mirrorOutput) {
+        if (mirrorCameraOnly) {
           ctx.translate(W, 0);
           ctx.scale(-1, 1);
         }
@@ -2013,16 +2024,13 @@
           ctx.putImageData(imgData, 0, 0);
         }
 
-        // puff (uses element rect => never distorted if CSS is locked)
+        // puff (NOT mirrored, matches preview)
         const puffRect = rectToCanvas(puffEl.getBoundingClientRect());
         ctx.save();
-        const px = mirrorX(puffRect.x, puffRect.w) + puffRect.w / 2;
+        const px = puffRect.x + puffRect.w / 2;
         const py = puffRect.y + puffRect.h / 2;
         ctx.translate(px, py);
-        const puffRot =
-          (mirrorOutput ? -puffState.rotation : puffState.rotation) *
-          (Math.PI / 180);
-        ctx.rotate(puffRot);
+        ctx.rotate((puffState.rotation * Math.PI) / 180);
         ctx.drawImage(
           puffEl,
           -puffRect.w / 2,
@@ -2032,17 +2040,15 @@
         );
         ctx.restore();
 
-        // stickers
+        // stickers (NOT mirrored, matches preview)
         for (const [el, st] of stickerStates.entries()) {
           if (!el.complete || !el.naturalWidth) continue;
           const r = rectToCanvas(el.getBoundingClientRect());
           ctx.save();
-          const sx = mirrorX(r.x, r.w) + r.w / 2;
+          const sx = r.x + r.w / 2;
           const sy = r.y + r.h / 2;
           ctx.translate(sx, sy);
-          const rot =
-            (mirrorOutput ? -st.rotation : st.rotation) * (Math.PI / 180);
-          ctx.rotate(rot);
+          ctx.rotate((st.rotation * Math.PI) / 180);
           ctx.drawImage(el, -r.w / 2, -r.h / 2, r.w, r.h);
           ctx.restore();
         }
