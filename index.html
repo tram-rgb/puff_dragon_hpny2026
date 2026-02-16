@@ -776,6 +776,14 @@
             </div>
 
             <div class="ctrlGroup">
+              <div class="ctrlTitle">Image fit</div>
+              <div class="pillRow" id="fitModeRow"></div>
+              <div class="hint" style="margin-top:8px">
+                Smart = mostly full image (contain), but auto fills when aspect is close.
+              </div>
+            </div>
+
+            <div class="ctrlGroup">
               <div class="ctrlTitle">Layout</div>
               <div class="pillRow" id="layoutRow"></div>
             </div>
@@ -1987,6 +1995,7 @@
 
       const frameColorRow = document.getElementById("frameColorRow");
       const layoutRow = document.getElementById("layoutRow");
+      const fitModeRow = document.getElementById("fitModeRow");
       const slotRow = document.getElementById("slotRow");
       const photoPickGrid = document.getElementById("photoPickGrid");
       const exportStripBtn = document.getElementById("exportStripBtn");
@@ -2020,8 +2029,11 @@
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        slotToCapture: [], // slot index -> capturedItems index (or -1)
+        fitMode: "smart", // "contain" | "smart" | "cover"
+        slotToCapture: [],
       };
+
+
 
       let activeSlot = 0;
 
@@ -2102,6 +2114,24 @@
           layoutRow.appendChild(p);
         });
 
+          // fit modes
+        fitModeRow.innerHTML = "";
+        [
+          { id: "contain", label: "Contain (no crop)" },
+          { id: "smart", label: "Smart (recommended)" },
+          { id: "cover", label: "Cover (fill slot)" },
+        ].forEach((m) => {
+          const p = document.createElement("div");
+          p.className = "pill" + (builderState.fitMode === m.id ? " active" : "");
+          p.textContent = m.label;
+          p.addEventListener("click", async () => {
+            builderState.fitMode = m.id;
+            renderBuilderUI();
+            await drawStrip();
+          });
+          fitModeRow.appendChild(p);
+        });
+
         slotRow.innerHTML = "";
         const nSlots = slotsNeeded();
         for (let i = 0; i < nSlots; i++) {
@@ -2156,20 +2186,47 @@
         builderOverlay.setAttribute("aria-hidden", "true");
       }
 
-      function drawContain(ctx, img, rx, ry, rw, rh) {
+     function drawCover(ctx, img, rx, ry, rw, rh) {
   const iw = img.naturalWidth || img.width;
   const ih = img.naturalHeight || img.height;
   if (!iw || !ih) return;
 
-  const s = Math.min(rw / iw, rh / ih); // 👈 CHANGE: use MIN instead of MAX
+  const s = Math.max(rw / iw, rh / ih);
   const dw = iw * s;
   const dh = ih * s;
-
   const dx = rx + (rw - dw) / 2;
   const dy = ry + (rh - dh) / 2;
-
   ctx.drawImage(img, dx, dy, dw, dh);
 }
+
+  function drawContain(ctx, img, rx, ry, rw, rh) {
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+  
+    const s = Math.min(rw / iw, rh / ih); // ✅ no crop
+    const dw = iw * s;
+    const dh = ih * s;
+    const dx = rx + (rw - dw) / 2;
+    const dy = ry + (rh - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+  
+  function drawSmart(ctx, img, rx, ry, rw, rh) {
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+  
+    const imgAR = iw / ih;
+    const slotAR = rw / rh;
+  
+    // if aspect ratios are close -> cover looks better; otherwise contain
+    const ratio = imgAR / slotAR;
+    const closeEnough = ratio > 0.82 && ratio < 1.22; // tweakable threshold
+  
+    if (closeEnough) drawCover(ctx, img, rx, ry, rw, rh);
+    else drawContain(ctx, img, rx, ry, rw, rh);
+  }    
 
       }
 
@@ -2340,8 +2397,12 @@
         stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
 
         if (img) {
-          drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
-}
+          const mode = builderState.fitMode || "smart";
+          if (mode === "contain") drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+          else if (mode === "cover") drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+          else drawSmart(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+        }
+
 
           }
         }
