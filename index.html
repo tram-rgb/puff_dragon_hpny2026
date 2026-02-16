@@ -351,7 +351,7 @@
       }
 
       /* =========================
-         CAPTURED PANEL (movable, scrollable)
+         CAPTURED PANEL
       ========================= */
       #capturedPanel {
         position: fixed;
@@ -405,7 +405,6 @@
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
-        align-content: start;
       }
 
       .capThumb {
@@ -414,35 +413,12 @@
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: rgba(255, 255, 255, 0.06);
         aspect-ratio: 4 / 3;
-        position: relative;
-        cursor: pointer;
       }
       .capThumb img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         display: block;
-      }
-      .capThumb.selected {
-        outline: 2px solid rgba(255, 255, 255, 0.85);
-        outline-offset: 2px;
-      }
-      .capThumb .badge {
-        position: absolute;
-        top: 6px;
-        left: 6px;
-        min-width: 18px;
-        height: 18px;
-        padding: 0 6px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font: 900 11px system-ui;
-        background: rgba(0, 0, 0, 0.55);
-        color: #fff;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        pointer-events: none;
       }
 
       #capturedFooter {
@@ -491,49 +467,41 @@
         gap: 12px;
       }
 
+      /* Mobile: preview bigger than controls + preview scrollable */
       @media (max-width: 860px) {
-        /* Mobile: stage on top, controls bottom; BOTH visible */
         #builderShell {
           grid-template-columns: 1fr;
-          grid-template-rows: 58vh 1fr;
-          height: 100%;
-        }
-        #builderStageWrap {
-          height: 100%;
-        }
-        #builderControls {
+          grid-template-rows: 1.55fr 0.45fr;
           height: 100%;
         }
       }
 
       #builderStageWrap {
         border-radius: 16px;
-        overflow: hidden;
+        overflow: auto; /* scroll to see full strip */
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: rgba(0, 0, 0, 0.25);
         display: flex;
-        align-items: center;
+        align-items: flex-start; /* start so scroll feels natural */
         justify-content: center;
         padding: 12px;
-        min-height: 220px;
+        -webkit-overflow-scrolling: touch;
       }
 
       #builderStage {
         position: relative;
         width: min(520px, 92vw);
-        height: min(620px, 62vh);
+        height: auto;
         background: transparent;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
-        touch-action: none;
       }
 
       #stripCanvas {
         max-width: 100%;
-        max-height: 100%;
+        height: auto;
         image-rendering: auto;
-        border-radius: 0;
         background: transparent;
       }
 
@@ -544,7 +512,7 @@
         background: rgba(0, 0, 0, 0.35);
         display: flex;
         flex-direction: column;
-        min-height: 180px;
+        min-height: 0;
       }
 
       #builderTopbar {
@@ -574,8 +542,8 @@
         overflow: auto;
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        -webkit-overflow-scrolling: touch;
+        gap: 10px;
+        min-height: 0;
       }
 
       .ctrlGroup {
@@ -612,27 +580,35 @@
         outline-offset: 1px;
       }
 
-      .row {
-        display: flex;
+      /* Photo picker in builder */
+      #photoPicker {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
+      }
+      @media (max-width: 860px) {
+        #photoPicker {
+          grid-template-columns: repeat(8, minmax(0, 1fr));
+        }
       }
 
-      input[type="text"] {
-        width: 100%;
-        box-sizing: border-box;
-        padding: 10px 10px;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        background: rgba(0, 0, 0, 0.35);
-        color: #fff;
-        font: 800 13px system-ui;
-        outline: none;
+      .pickThumb {
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        aspect-ratio: 1 / 1;
+        cursor: pointer;
       }
-
-      input[type="range"] {
+      .pickThumb img {
         width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .pickThumb.active {
+        outline: 2px solid rgba(255, 255, 255, 0.75);
+        outline-offset: 2px;
       }
 
       #exportStripBtn {
@@ -809,37 +785,17 @@
             </div>
 
             <div class="ctrlGroup">
-              <div class="ctrlTitle">Text</div>
-              <div class="row">
-                <button id="addTextBtn" type="button" class="secondary" style="min-width:unset">
-                  + Add text
-                </button>
-                <button id="deleteTextBtn" type="button" class="secondary" style="min-width:unset" disabled>
-                  Delete selected
-                </button>
+              <div class="ctrlTitle">Choose photos</div>
+              <div class="hint" style="margin-bottom:8px">
+                Tap a thumbnail, then tap a panel on the strip to assign.
               </div>
-              <div style="height:8px"></div>
-
-              <input id="textInput" type="text" placeholder="Type your text…" disabled />
-
-              <div style="height:10px"></div>
-
-              <div class="ctrlTitle" style="margin-bottom:6px">Text color</div>
-              <div class="pillRow" id="textColorRow"></div>
-
-              <div style="height:10px"></div>
-
-              <div class="ctrlTitle" style="margin-bottom:6px">Font size</div>
-              <input id="fontSizeRange" type="range" min="18" max="110" value="56" disabled />
-              <div class="hint" style="margin-top:8px">
-                Tip: drag text on the strip • pinch to scale • two-finger rotate.
-              </div>
+              <div id="photoPicker"></div>
             </div>
 
             <div class="ctrlGroup">
               <button id="exportStripBtn" type="button">Export strip PNG</button>
               <div class="hint" style="margin-top:8px">
-                Uses selected captured photos (tap thumbnails to select).
+                Uses selected photos only (stickers remain only at capture time).
               </div>
             </div>
           </div>
@@ -854,52 +810,47 @@
       const ASSET_VERSION = "27";
 
       /* =========================
-         SMALL HELPERS
-      ========================= */
-      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-      const qs = (id) => document.getElementById(id);
-
-      /* =========================
          MAIN APP ELEMENTS
       ========================= */
-      const cameraEl = qs("camera");
-      const puffEl = qs("puff");
-      const stickerLayer = qs("stickerLayer");
+      const cameraEl = document.getElementById("camera");
+      const puffEl = document.getElementById("puff");
+      const stickerLayer = document.getElementById("stickerLayer");
 
-      const startBtn = qs("start");
-      const flipBtn = qs("flip");
-      const mirrorBtn = qs("mirror");
-      const stickersBtn = qs("stickers");
-      const captureBtn = qs("capture");
-      const photoboothToggleBtn = qs("photoboothToggle");
+      const startBtn = document.getElementById("start");
+      const flipBtn = document.getElementById("flip");
+      const mirrorBtn = document.getElementById("mirror");
+      const stickersBtn = document.getElementById("stickers");
+      const captureBtn = document.getElementById("capture");
+      const photoboothToggleBtn = document.getElementById("photoboothToggle");
 
-      const filterBtn = qs("filterBtn");
-      const filterPanel = qs("filterPanel");
-      const filterClose = qs("filterClose");
-      const filterListEl = qs("filterList");
+      const filterBtn = document.getElementById("filterBtn");
+      const filterPanel = document.getElementById("filterPanel");
+      const filterClose = document.getElementById("filterClose");
+      const filterListEl = document.getElementById("filterList");
 
-      const stickerPanel = qs("stickerPanel");
-      const stickerGrid = qs("stickerGrid");
-      const stickerClose = qs("stickerClose");
-      const stickerRemove = qs("stickerRemove");
-      const stickerClear = qs("stickerClear");
+      const stickerPanel = document.getElementById("stickerPanel");
+      const stickerGrid = document.getElementById("stickerGrid");
+      const stickerClose = document.getElementById("stickerClose");
+      const stickerRemove = document.getElementById("stickerRemove");
+      const stickerClear = document.getElementById("stickerClear");
 
       /* =========================
          INTRO
       ========================= */
-      const introOverlay = qs("introOverlay");
-      const introVideo = qs("introVideo");
-      const exploreBtn = qs("exploreBtn");
-      const closePuff = qs("introClosePuff");
-      const app = qs("app");
-      const introMp4 = qs("introMp4");
-      const introWebm = qs("introWebm");
+      const introOverlay = document.getElementById("introOverlay");
+      const introVideo = document.getElementById("introVideo");
+      const exploreBtn = document.getElementById("exploreBtn");
+      const closePuff = document.getElementById("introClosePuff");
+      const app = document.getElementById("app");
+      const introMp4 = document.getElementById("introMp4");
+      const introWebm = document.getElementById("introWebm");
 
       introMp4.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
       introWebm.src = `intro.webm?v=${encodeURIComponent(ASSET_VERSION)}`;
       introVideo.load();
 
       let introLoopStarted = false;
+
       introVideo.addEventListener("ended", async () => {
         if (!introLoopStarted) {
           introLoopStarted = true;
@@ -938,16 +889,19 @@
       }
       function linToSrgb(c) {
         c = clamp01(c);
-        const v = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+        const v =
+          c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
         return clamp255(v * 255);
       }
       function lumaLin(rLin, gLin, bLin) {
         return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
       }
+
       function applySaturationLin(r, g, b, sat) {
         const y = lumaLin(r, g, b);
         return [y + (r - y) * sat, y + (g - y) * sat, y + (b - y) * sat];
       }
+
       function adjustShadowsHighlightsLin(y, shadows, highlights) {
         let out = y;
         if (shadows !== 0) {
@@ -960,17 +914,20 @@
         }
         return clamp01(out);
       }
+
       function applyBrillianceLin(y, brilliance) {
         if (brilliance === 0) return y;
         const k = brilliance * 0.55;
         const s = y * y * (3 - 2 * y);
         return clamp01(y + (s - y) * k);
       }
+
       function applyFadeLin(y, fade) {
         if (!fade) return y;
         const lift = fade * 0.10;
         return clamp01(y * (1 - fade * 0.15) + lift);
       }
+
       function applyWarmthLin(r, g, b, warmth) {
         if (!warmth) return [r, g, b];
         const w = warmth * 0.10;
@@ -1143,7 +1100,11 @@
         const sat = 1 + r.saturation * 0.75;
         const hue = r.warmth * -18;
         const sep = clamp01(r.warmth * 0.35 + 0.05);
-        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(3)}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(3)}) hue-rotate(${hue.toFixed(1)}deg)`;
+        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(
+          3
+        )}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(
+          3
+        )}) hue-rotate(${hue.toFixed(1)}deg)`;
       }
 
       function applyCameraFilterPreview() {
@@ -1170,7 +1131,11 @@
           const recLine =
             f.id === "none"
               ? "no recipe"
-              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(r.highlights * 100)} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(r.saturation * 100)}`;
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(
+                  r.highlights * 100
+                )} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(
+                  r.saturation * 100
+                )}`;
 
           b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
 
@@ -1193,10 +1158,11 @@
       filterClose.addEventListener("click", closeFilterPanel);
 
       /* =========================
-         PUFF RANDOM
+         PUFF RANDOM (weighted: puff more frequent)
       ========================= */
-      const puffBases = ["puff", "puff2", "puff3"];
-      const chosenBase = puffBases[Math.floor(Math.random() * puffBases.length)];
+      const puffBasesWeighted = ["puff","puff","puff","puff","puff2","puff3"];
+      const chosenBase =
+        puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
 
       function isAppleSafari() {
         const ua = navigator.userAgent;
@@ -1238,13 +1204,20 @@
       let mirrorMode = "auto";
 
       function shouldMirrorPreview() {
-        return mirrorMode === "on" || (mirrorMode === "auto" && currentFacingMode === "user");
+        return (
+          mirrorMode === "on" ||
+          (mirrorMode === "auto" && currentFacingMode === "user")
+        );
       }
 
       function applyMirrorToPreview() {
         cameraEl.classList.toggle("mirror", shouldMirrorPreview());
         mirrorBtn.textContent =
-          mirrorMode === "auto" ? "Mirror: Auto" : mirrorMode === "on" ? "Mirror: On" : "Mirror: Off";
+          mirrorMode === "auto"
+            ? "Mirror: Auto"
+            : mirrorMode === "on"
+            ? "Mirror: On"
+            : "Mirror: Off";
       }
 
       function waitLoadedMetadata(videoEl, timeoutMs = 6000) {
@@ -1319,7 +1292,8 @@
       });
 
       flipBtn.addEventListener("click", async () => {
-        currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+        currentFacingMode =
+          currentFacingMode === "environment" ? "user" : "environment";
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
         try { await startCamera(); } catch (e) { console.error(e); }
@@ -1333,6 +1307,7 @@
       /* =========================
          TRANSFORM HELPERS
       ========================= */
+      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
       const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
       const angleDeg = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 
@@ -1342,7 +1317,7 @@
         el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
       }
 
-      // Touch-first drag/pinch/rotate (Puff + Stickers) — 2-finger rotate
+      // Touch-first drag/pinch for Puff (2 fingers rotate included)
       function enableTouchDragPinch(el, state, onUpdate) {
         let mode = null;
         let start = null;
@@ -1403,7 +1378,7 @@
           }
         }
 
-        // Mouse fallback + wheel zoom
+        // Mouse fallback
         let mouseDown = false;
         let mouseStart = null;
 
@@ -1428,6 +1403,7 @@
           window.removeEventListener("mousemove", onMouseMove);
           window.removeEventListener("mouseup", onMouseUp);
         }
+
         function onWheel(e) {
           e.preventDefault();
           const delta = -Math.sign(e.deltaY) * 0.08;
@@ -1441,6 +1417,143 @@
         el.addEventListener("touchcancel", onTouchEnd, { passive: false });
         el.addEventListener("mousedown", onMouseDown, { passive: false });
         el.addEventListener("wheel", onWheel, { passive: false });
+      }
+
+      // Pointer-based (stickers): already supports 2-finger rotate on touch devices
+      function makeTransformable(el, state, onUpdate) {
+        const pointers = new Map();
+        let gestureStart = null;
+        let dragStart = null;
+
+        let inertiaRAF = null;
+        let angularVelocity = 0;
+        let lastAngle = null;
+        let lastTime = null;
+
+        function stopInertia() {
+          if (inertiaRAF) cancelAnimationFrame(inertiaRAF);
+          inertiaRAF = null;
+        }
+        function startInertia() {
+          stopInertia();
+          let prev = performance.now();
+          function tick(now) {
+            const dt = (now - prev) / 1000;
+            prev = now;
+            state.rotation += angularVelocity * dt;
+            onUpdate();
+            angularVelocity *= 0.92;
+            if (Math.abs(angularVelocity) < 5) return;
+            inertiaRAF = requestAnimationFrame(tick);
+          }
+          inertiaRAF = requestAnimationFrame(tick);
+        }
+
+        el.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        el.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          el.setPointerCapture?.(e.pointerId);
+          stopInertia();
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+          const isRightButtonRotate =
+            e.pointerType === "mouse" && (e.buttons === 2 || e.button === 2);
+
+          if (pointers.size === 1) {
+            dragStart = {
+              x: e.clientX,
+              y: e.clientY,
+              baseX: state.x,
+              baseY: state.y,
+              w: innerWidth,
+              h: innerHeight,
+              rotating: !!e.altKey || !!e.shiftKey || isRightButtonRotate,
+              baseRotation: state.rotation,
+            };
+            gestureStart = null;
+            lastAngle = null;
+            lastTime = null;
+          } else if (pointers.size === 2) {
+            const pts = Array.from(pointers.values());
+            const a = pts[0], b = pts[1];
+            const ang = angleDeg(a, b);
+            gestureStart = {
+              distance: dist(a, b),
+              angle: ang,
+              scale: state.scale,
+              rotation: state.rotation,
+            };
+            lastAngle = ang;
+            lastTime = performance.now();
+            dragStart = null;
+          }
+        });
+
+        el.addEventListener("pointermove", (e) => {
+          if (!pointers.has(e.pointerId)) return;
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+          if (pointers.size === 1 && dragStart) {
+            const dx = ((e.clientX - dragStart.x) / dragStart.w) * 100;
+            const dy = ((e.clientY - dragStart.y) / dragStart.h) * 100;
+
+            if (dragStart.rotating) {
+              state.rotation = dragStart.baseRotation + dx * 3.0;
+            } else {
+              state.x = clamp(dragStart.baseX + dx, 0, 100);
+              state.y = clamp(dragStart.baseY + dy, 0, 100);
+            }
+            onUpdate();
+          }
+
+          if (pointers.size === 2 && gestureStart) {
+            const pts = Array.from(pointers.values());
+            const a = pts[0], b = pts[1];
+            const newDistance = dist(a, b);
+            const newAngle = angleDeg(a, b);
+
+            state.scale = clamp(
+              gestureStart.scale * (newDistance / gestureStart.distance),
+              0.2,
+              6
+            );
+            state.rotation =
+              gestureStart.rotation + (newAngle - gestureStart.angle);
+
+            const now = performance.now();
+            const dt = (now - lastTime) / 1000;
+            if (dt > 0) angularVelocity = (newAngle - lastAngle) / dt;
+            lastAngle = newAngle;
+            lastTime = now;
+
+            onUpdate();
+          }
+        });
+
+        el.addEventListener("pointerup", () => {
+          pointers.clear();
+          dragStart = null;
+          gestureStart = null;
+          if (Math.abs(angularVelocity) > 30) startInertia();
+        });
+
+        el.addEventListener("pointercancel", () => {
+          pointers.clear();
+          dragStart = null;
+          gestureStart = null;
+        });
+
+        el.addEventListener(
+          "wheel",
+          (e) => {
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.92 : 1.08;
+            state.scale = clamp(state.scale * factor, 0.2, 6);
+            onUpdate();
+          },
+          { passive: false }
+        );
       }
 
       /* =========================
@@ -1486,9 +1599,7 @@
 
         el.addEventListener("pointerdown", () => setSelectedSticker(el), true);
         el.addEventListener("click", () => setSelectedSticker(el));
-
-        // IMPORTANT: 2-finger rotate on mobile
-        enableTouchDragPinch(el, state, update);
+        makeTransformable(el, state, update);
 
         setSelectedSticker(el);
         stickerClear.disabled = stickerStates.size === 0;
@@ -1569,10 +1680,13 @@
       }
 
       document.addEventListener("pointerdown", (e) => {
-        const isSticker = e.target && e.target.classList && e.target.classList.contains("sticker");
+        const isSticker =
+          e.target &&
+          e.target.classList &&
+          e.target.classList.contains("sticker");
         const clickedPanel = stickerPanel.contains(e.target);
         const clickedFilter = filterPanel.contains(e.target);
-        const clickedUI = qs("ui").contains(e.target);
+        const clickedUI = document.getElementById("ui").contains(e.target);
         const clickedPuff = e.target === puffEl;
 
         if (!isSticker && !clickedPanel && !clickedFilter && !clickedUI && !clickedPuff) {
@@ -1585,7 +1699,6 @@
 
       /* =========================
          CAPTURE HELPERS
-         Fix: make capture match what user sees on screen (no weird zoom on mobile)
       ========================= */
       function getCoverTransform(srcW, srcH, dstW, dstH) {
         const scale = Math.max(dstW / srcW, dstH / srcH);
@@ -1649,14 +1762,25 @@
         return imageData;
       }
 
-      // screen-space rect -> output-canvas rect (DPR-scaled)
-      function rectToCanvasRect(domRect, camRect, dpr) {
-        return {
-          cx: (domRect.left - camRect.left + domRect.width / 2) * dpr,
-          cy: (domRect.top - camRect.top + domRect.height / 2) * dpr,
-          w: domRect.width * dpr,
-          h: domRect.height * dpr,
-        };
+      function computeDrawRect(domRect, camRect, cover, aspectW, aspectH) {
+        const centerX_screen = domRect.left + domRect.width / 2 - camRect.left;
+        const centerY_screen = domRect.top + domRect.height / 2 - camRect.top;
+
+        const centerX_cam = (centerX_screen - cover.offsetX) / cover.scale;
+        const centerY_cam = (centerY_screen - cover.offsetY) / cover.scale;
+
+        const w_cam = domRect.width / cover.scale;
+        const h_cam = domRect.height / cover.scale;
+
+        const ar = aspectW && aspectH ? aspectW / aspectH : domRect.width / domRect.height;
+
+        let drawW = w_cam;
+        let drawH = drawW / ar;
+        if (drawH > h_cam) {
+          drawH = h_cam;
+          drawW = drawH * ar;
+        }
+        return { centerX_cam, centerY_cam, drawW, drawH };
       }
 
       function captureToBlob(cb) {
@@ -1665,23 +1789,28 @@
           return;
         }
 
-        const camRect = cameraEl.getBoundingClientRect();
+        // Match what user sees (object-fit: cover) on screen
         const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-
-        // output matches what user sees (screen aspect)
+        const camRect = cameraEl.getBoundingClientRect();
         const out = document.createElement("canvas");
         out.width = Math.round(camRect.width * dpr);
         out.height = Math.round(camRect.height * dpr);
         const ctx = out.getContext("2d", { willReadFrequently: true });
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const cover = getCoverTransform(
+          cameraEl.videoWidth,
+          cameraEl.videoHeight,
+          camRect.width,
+          camRect.height
+        );
 
         const mirrorOutput = shouldMirrorPreview();
 
-        // Draw camera with same object-fit: cover as on screen
-        const cover = getCoverTransform(cameraEl.videoWidth, cameraEl.videoHeight, out.width, out.height);
-
+        // draw camera (cover crop like preview)
         ctx.save();
         if (mirrorOutput) {
-          ctx.translate(out.width, 0);
+          ctx.translate(camRect.width, 0);
           ctx.scale(-1, 1);
         }
         ctx.drawImage(
@@ -1693,38 +1822,51 @@
         );
         ctx.restore();
 
-        // Apply filter to whole output
+        // filter
         if (currentFilterId !== "none") {
           const imgData = ctx.getImageData(0, 0, out.width, out.height);
           applyRecipeToImageData(imgData, currentRecipe);
           ctx.putImageData(imgData, 0, 0);
         }
 
-        // helper for mirrored X
-        const mirrorX = (x) => (mirrorOutput ? out.width - x : x);
+        function mirrorX(xCam) {
+          return mirrorOutput ? camRect.width - xCam : xCam;
+        }
 
         // puff
         const puffRect = puffEl.getBoundingClientRect();
-        const puffC = rectToCanvasRect(puffRect, camRect, dpr);
+        const puffDraw = computeDrawRect(
+          puffRect,
+          camRect,
+          cover,
+          puffEl.videoWidth,
+          puffEl.videoHeight
+        );
 
         ctx.save();
-        ctx.translate(mirrorX(puffC.cx), puffC.cy);
+        ctx.translate(mirrorX(puffDraw.centerX_cam), puffDraw.centerY_cam);
         const puffRotation = mirrorOutput ? -puffState.rotation : puffState.rotation;
         ctx.rotate((puffRotation * Math.PI) / 180);
-        ctx.drawImage(puffEl, -puffC.w / 2, -puffC.h / 2, puffC.w, puffC.h);
+        ctx.drawImage(
+          puffEl,
+          -puffDraw.drawW / 2,
+          -puffDraw.drawH / 2,
+          puffDraw.drawW,
+          puffDraw.drawH
+        );
         ctx.restore();
 
         // stickers
         for (const [el, st] of stickerStates.entries()) {
           if (!el.complete || !el.naturalWidth) continue;
           const r = el.getBoundingClientRect();
-          const c = rectToCanvasRect(r, camRect, dpr);
+          const d = computeDrawRect(r, camRect, cover, el.naturalWidth, el.naturalHeight);
 
           ctx.save();
-          ctx.translate(mirrorX(c.cx), c.cy);
+          ctx.translate(mirrorX(d.centerX_cam), d.centerY_cam);
           const stickerRotation = mirrorOutput ? -st.rotation : st.rotation;
           ctx.rotate((stickerRotation * Math.PI) / 180);
-          ctx.drawImage(el, -c.w / 2, -c.h / 2, c.w, c.h);
+          ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
           ctx.restore();
         }
 
@@ -1773,20 +1915,13 @@
       ========================= */
       let photoboothOn = false;
 
-      const capturedPanel = qs("capturedPanel");
-      const capturedHeader = qs("capturedHeader");
-      const capturedList = qs("capturedList");
-      const cueBtn = qs("cueBtn");
-      const clearCapturedBtn = qs("clearCapturedBtn");
+      const capturedPanel = document.getElementById("capturedPanel");
+      const capturedHeader = document.getElementById("capturedHeader");
+      const capturedList = document.getElementById("capturedList");
+      const cueBtn = document.getElementById("cueBtn");
+      const clearCapturedBtn = document.getElementById("clearCapturedBtn");
 
-      // { blob, url, selected }
-      const capturedItems = [];
-
-      function getSelectedCapturedItems() {
-        const sel = capturedItems.filter((x) => x.selected);
-        // fallback: if none selected, treat all as selected
-        return sel.length ? sel : capturedItems;
-      }
+      const capturedItems = []; // { blob, url }
 
       function setPhotoboothMode(on) {
         photoboothOn = on;
@@ -1809,36 +1944,15 @@
 
       function updateCapturedUI() {
         capturedList.innerHTML = "";
-
-        // numbering by selection order
-        const selected = capturedItems.filter((x) => x.selected);
-        const orderMap = new Map();
-        selected.forEach((it, idx) => orderMap.set(it, idx + 1));
-
         capturedItems.forEach((it) => {
           const cell = document.createElement("div");
-          cell.className = "capThumb" + (it.selected ? " selected" : "");
+          cell.className = "capThumb";
           const img = document.createElement("img");
           img.src = it.url;
           img.alt = "capture";
           cell.appendChild(img);
-
-          if (it.selected) {
-            const badge = document.createElement("div");
-            badge.className = "badge";
-            badge.textContent = String(orderMap.get(it) || 1);
-            cell.appendChild(badge);
-          }
-
-          // tap thumbnail to select/deselect for strip
-          cell.addEventListener("click", () => {
-            it.selected = !it.selected;
-            updateCapturedUI();
-          });
-
           capturedList.appendChild(cell);
         });
-
         cueBtn.disabled = capturedItems.length === 0;
       }
 
@@ -1858,27 +1972,28 @@
           dragging = true;
           capturedHeader.setPointerCapture?.(e.pointerId);
           const rect = capturedPanel.getBoundingClientRect();
-          start = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
+          start = {
+            x: e.clientX,
+            y: e.clientY,
+            left: rect.left,
+            top: rect.top,
+          };
           capturedHeader.style.cursor = "grabbing";
         });
 
-        window.addEventListener(
-          "pointermove",
-          (e) => {
-            if (!dragging || !start) return;
-            e.preventDefault();
-            const dx = e.clientX - start.x;
-            const dy = e.clientY - start.y;
+        window.addEventListener("pointermove", (e) => {
+          if (!dragging || !start) return;
+          e.preventDefault();
+          const dx = e.clientX - start.x;
+          const dy = e.clientY - start.y;
 
-            const newLeft = clamp(start.left + dx, 6, innerWidth - capturedPanel.offsetWidth - 6);
-            const newTop = clamp(start.top + dy, 6, innerHeight - capturedPanel.offsetHeight - 6);
+          const newLeft = clamp(start.left + dx, 6, innerWidth - capturedPanel.offsetWidth - 6);
+          const newTop = clamp(start.top + dy, 6, innerHeight - capturedPanel.offsetHeight - 6);
 
-            capturedPanel.style.left = newLeft + "px";
-            capturedPanel.style.top = newTop + "px";
-            capturedPanel.style.right = "auto";
-          },
-          { passive: false }
-        );
+          capturedPanel.style.left = newLeft + "px";
+          capturedPanel.style.top = newTop + "px";
+          capturedPanel.style.right = "auto";
+        }, { passive: false });
 
         window.addEventListener("pointerup", () => {
           dragging = false;
@@ -1899,11 +2014,10 @@
           return;
         }
 
-        // photobooth ON: store in panel (no popup)
         captureToBlob((blob) => {
           if (!blob) { alert("Capture failed."); return; }
           const url = URL.createObjectURL(blob);
-          capturedItems.push({ blob, url, selected: true }); // default selected
+          capturedItems.push({ blob, url });
           updateCapturedUI();
         });
       });
@@ -1911,20 +2025,15 @@
       /* =========================
          BUILDER (customize page)
       ========================= */
-      const builderOverlay = qs("builderOverlay");
-      const builderCloseBtn = qs("builderCloseBtn");
-      const stripCanvas = qs("stripCanvas");
+      const builderOverlay = document.getElementById("builderOverlay");
+      const builderCloseBtn = document.getElementById("builderCloseBtn");
+      const stripCanvas = document.getElementById("stripCanvas");
       const stripCtx = stripCanvas.getContext("2d");
 
-      const frameColorRow = qs("frameColorRow");
-      const layoutRow = qs("layoutRow");
-
-      const addTextBtn = qs("addTextBtn");
-      const deleteTextBtn = qs("deleteTextBtn");
-      const textInput = qs("textInput");
-      const textColorRow = qs("textColorRow");
-      const fontSizeRange = qs("fontSizeRange");
-      const exportStripBtn = qs("exportStripBtn");
+      const frameColorRow = document.getElementById("frameColorRow");
+      const layoutRow = document.getElementById("layoutRow");
+      const exportStripBtn = document.getElementById("exportStripBtn");
+      const photoPicker = document.getElementById("photoPicker");
 
       cueBtn.addEventListener("click", () => openBuilder());
       builderCloseBtn.addEventListener("click", () => closeBuilder());
@@ -1933,6 +2042,7 @@
         if (capturedItems.length === 0) return;
         builderOverlay.classList.remove("hidden");
         builderOverlay.setAttribute("aria-hidden", "false");
+        initAssignments();
         syncCanvasToLayout();
         renderBuilderUI();
         drawStrip();
@@ -1941,18 +2051,19 @@
       function closeBuilder() {
         builderOverlay.classList.add("hidden");
         builderOverlay.setAttribute("aria-hidden", "true");
-        setSelectedText(null);
+        selectedPhotoIndex = null;
+        selectedSlotIndex = null;
       }
 
-      // frame colors
+      // frame colors (added pure black => logo-3)
       const FRAME_COLORS = [
-        { id: "red", name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
-        { id: "blue", name: "Dark Blue", value: "#060d3d", logo: "puff-logo-3.png" },
-        { id: "grey", name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
-        { id: "white", name: "White", value: "#ffffff", logo: "puff-logo-1.png" },
+        { id: "red",   name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
+        { id: "blue",  name: "Dark Blue",    value: "#060d3d", logo: "puff-logo-3.png" },
+        { id: "grey",  name: "Bright Grey",  value: "#e8eef1", logo: "puff-logo-1.png" },
+        { id: "white", name: "White",        value: "#ffffff", logo: "puff-logo-1.png" },
+        { id: "black", name: "Pure Black",   value: "#000000", logo: "puff-logo-3.png" },
       ];
 
-      // layouts
       const LAYOUTS = [
         { id: "L1", name: "Layout 1 (3 horizontal)" },
         { id: "L2", name: "Layout 2 (3 vertical)" },
@@ -1962,22 +2073,23 @@
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        texts: [], // {id, text, x,y,scale,rot,color,fontSize}
+        assignments: [], // slotIndex => capturedItems index
       };
 
-      // text colors
-      const TEXT_COLORS = [
-        { name: "Imperial Red", value: "#fa213f" },
-        { name: "Dark Blue", value: "#060d3d" },
-        { name: "Bright Grey", value: "#e8eef1" },
-        { name: "Pure White", value: "#ffffff" },
-        { name: "Fluorescent Yellow", value: "#fff100" },
-        { name: "Safety Orange", value: "#ff7800" },
-        { name: "Azure Blue", value: "#01b7ff" },
-        { name: "Vivid Red", value: "#ff1212" },
-      ];
+      let selectedPhotoIndex = null; // from picker
+      let selectedSlotIndex = null;  // last tapped slot
+
+      function neededSlots() {
+        return builderState.layoutId === "L3" ? 4 : 3;
+      }
+
+      function initAssignments() {
+        const n = neededSlots();
+        builderState.assignments = Array.from({ length: n }, (_, i) => i < capturedItems.length ? i : -1);
+      }
 
       function renderBuilderUI() {
+        // frame color pills
         frameColorRow.innerHTML = "";
         FRAME_COLORS.forEach((c) => {
           const p = document.createElement("div");
@@ -1991,6 +2103,7 @@
           frameColorRow.appendChild(p);
         });
 
+        // layout pills
         layoutRow.innerHTML = "";
         LAYOUTS.forEach((l) => {
           const p = document.createElement("div");
@@ -1998,6 +2111,7 @@
           p.textContent = l.name;
           p.addEventListener("click", () => {
             builderState.layoutId = l.id;
+            initAssignments();
             syncCanvasToLayout();
             renderBuilderUI();
             drawStrip();
@@ -2005,29 +2119,23 @@
           layoutRow.appendChild(p);
         });
 
-        textColorRow.innerHTML = "";
-        TEXT_COLORS.forEach((c) => {
-          const p = document.createElement("div");
-          p.className = "pill";
-          p.textContent = c.name;
-          p.addEventListener("click", () => {
-            if (!selectedText) return;
-            selectedText.color = c.value;
-            drawStrip();
+        // photo picker (ordered, not random)
+        photoPicker.innerHTML = "";
+        capturedItems.forEach((it, idx) => {
+          const cell = document.createElement("div");
+          cell.className = "pickThumb" + (selectedPhotoIndex === idx ? " active" : "");
+          const img = document.createElement("img");
+          img.src = it.url;
+          img.alt = "photo";
+          cell.appendChild(img);
+
+          cell.addEventListener("click", () => {
+            selectedPhotoIndex = idx;
+            renderBuilderUI();
           });
-          textColorRow.appendChild(p);
+
+          photoPicker.appendChild(cell);
         });
-
-        deleteTextBtn.disabled = !selectedText;
-        textInput.disabled = !selectedText;
-        fontSizeRange.disabled = !selectedText;
-
-        if (selectedText) {
-          textInput.value = selectedText.text;
-          fontSizeRange.value = String(selectedText.fontSize);
-        } else {
-          textInput.value = "";
-        }
       }
 
       function syncCanvasToLayout() {
@@ -2043,26 +2151,24 @@
         }
       }
 
-      // Logo cache + general image loader
-      const imgCache = new Map();
+      // Logo cache
+      const logoImgCache = new Map();
       function loadImage(src) {
         return new Promise((resolve) => {
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.onload = () => resolve(img);
           img.onerror = () => resolve(null);
-          // IMPORTANT: if blob URL => do NOT append query string (it breaks the blob URL)
-          if (String(src).startsWith("blob:")) img.src = src;
-          else img.src = src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+          img.src = src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
         });
       }
 
       async function getLogoImage() {
         const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
         const src = c.logo;
-        if (imgCache.has(src)) return imgCache.get(src);
+        if (logoImgCache.has(src)) return logoImgCache.get(src);
         const img = await loadImage(src);
-        imgCache.set(src, img);
+        logoImgCache.set(src, img);
         return img;
       }
 
@@ -2071,37 +2177,35 @@
         return c.value;
       }
 
-      function pickStrokeColor(frameColor) {
-        // default stroke is white; if frame is white, use a random vivid color (acceptable)
-        if (frameColor.toLowerCase() !== "#ffffff") return "rgba(255,255,255,0.9)";
-        const palette = ["#fa213f", "#060d3d", "#fff100", "#01b7ff", "#ff7800", "#ff1212"];
-        return palette[Math.floor(Math.random() * palette.length)];
-      }
-
       function getLayoutSlots() {
         const W = stripCanvas.width;
         const H = stripCanvas.height;
 
-        // follow "nice margins": outer border, top/bottom bars, inner gap
-        const base = Math.min(W, H);
-        const outer = Math.round(base * 0.06);
-        const bar = Math.round(base * 0.13);
-        const gap = Math.round(base * 0.03);
+        const m = Math.min(W, H);
 
-        const contentX = outer;
-        const contentY = outer + bar;
-        const contentW = W - outer * 2;
-        const contentH = H - outer * 2 - bar * 2;
+        // tighter gaps + top margin larger than bottom-to-panels
+        const outerX = Math.round(m * 0.06);
+        const outerTop = Math.round(m * 0.085);   // bigger top margin
+        const outerBottom = Math.round(m * 0.05); // smaller bottom margin
+        const barTop = Math.round(m * 0.16);      // bigger top bar
+        const barBot = Math.round(m * 0.12);      // smaller bottom bar
+        const gap = Math.round(m * 0.015);        // smaller panel gaps
 
-        const topBar = { x: outer, y: outer, w: contentW, h: bar };
-        const botBar = { x: outer, y: H - outer - bar, w: contentW, h: bar };
+        const contentX = outerX;
+        const contentY = outerTop + barTop;
+        const contentW = W - outerX * 2;
+        const contentH = H - outerTop - outerBottom - barTop - barBot;
+
+        const topBar = { x: outerX, y: outerTop, w: contentW, h: barTop };
+        const botBar = { x: outerX, y: H - outerBottom - barBot, w: contentW, h: barBot };
 
         if (builderState.layoutId === "L1") {
           const slotW = Math.floor((contentW - gap * 2) / 3);
           const slotH = contentH;
           return {
-            outer, bar, gap,
-            topBar, botBar,
+            gap,
+            topBar,
+            botBar,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2114,8 +2218,9 @@
           const slotH = Math.floor((contentH - gap * 2) / 3);
           const slotW = contentW;
           return {
-            outer, bar, gap,
-            topBar, botBar,
+            gap,
+            topBar,
+            botBar,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
@@ -2124,12 +2229,12 @@
           };
         }
 
-        // L3 2x2
         const slotW = Math.floor((contentW - gap) / 2);
         const slotH = Math.floor((contentH - gap) / 2);
         return {
-          outer, bar, gap,
-          topBar, botBar,
+          gap,
+          topBar,
+          botBar,
           slots: [
             { x: contentX, y: contentY, w: slotW, h: slotH },
             { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2149,59 +2254,18 @@
         const dh = ih * s;
         const dx = rx + (rw - dw) / 2;
         const dy = ry + (rh - dh) / 2;
+
+        // clip to panel so it never bleeds outside
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(rx, ry, rw, rh);
+        ctx.clip();
         ctx.drawImage(img, dx, dy, dw, dh);
+        ctx.restore();
       }
 
-      // text selection + transforms
-      let selectedText = null;
-      function setSelectedText(t) {
-        selectedText = t;
-        renderBuilderUI();
-        drawStrip();
-      }
-      function newId() {
-        return Math.random().toString(16).slice(2) + Date.now().toString(16);
-      }
-
-      addTextBtn.addEventListener("click", () => {
-        const t = {
-          id: newId(),
-          text: "PUFF",
-          x: 0.5,
-          y: 0.12,
-          scale: 1,
-          rot: 0,
-          color: "#ffffff",
-          fontSize: 56,
-        };
-        builderState.texts.push(t);
-        setSelectedText(t);
-      });
-
-      deleteTextBtn.addEventListener("click", () => {
-        if (!selectedText) return;
-        builderState.texts = builderState.texts.filter((x) => x.id !== selectedText.id);
-        setSelectedText(null);
-      });
-
-      textInput.addEventListener("input", () => {
-        if (!selectedText) return;
-        selectedText.text = textInput.value;
-        drawStrip();
-      });
-
-      fontSizeRange.addEventListener("input", () => {
-        if (!selectedText) return;
-        selectedText.fontSize = parseInt(fontSizeRange.value, 10);
-        drawStrip();
-      });
-
-      // Text gestures on canvas (drag + pinch/rotate)
-      (function enableTextGestures() {
-        const pointers = new Map();
-        let gestureStart = null;
-        let dragStart = null;
-
+      // Assign photo to slot by tapping slot on canvas
+      (function enableSlotAssign() {
         function canvasPoint(e) {
           const rect = stripCanvas.getBoundingClientRect();
           const x = (e.clientX - rect.left) * (stripCanvas.width / rect.width);
@@ -2209,164 +2273,82 @@
           return { x, y };
         }
 
-        function hitTestText(pt) {
-          let best = null;
-          let bestD = Infinity;
-          for (const t of builderState.texts) {
-            const tx = t.x * stripCanvas.width;
-            const ty = t.y * stripCanvas.height;
-
-            const fontSize = t.fontSize * t.scale;
-            stripCtx.save();
-            stripCtx.font = `900 ${fontSize}px BeautifulFreak, system-ui`;
-            const w = stripCtx.measureText(t.text || "").width;
-            const h = fontSize * 1.1;
-            stripCtx.restore();
-
-            const dx = pt.x - tx;
-            const dy = pt.y - ty;
-            const d = Math.hypot(dx, dy);
-
-            const pad = 18;
-            if (
-              pt.x >= tx - w / 2 - pad &&
-              pt.x <= tx + w / 2 + pad &&
-              pt.y >= ty - h / 2 - pad &&
-              pt.y <= ty + h / 2 + pad
-            ) {
-              if (d < bestD) {
-                bestD = d;
-                best = t;
-              }
-            }
-          }
-          return best;
-        }
-
         stripCanvas.addEventListener("pointerdown", (e) => {
           if (builderOverlay.classList.contains("hidden")) return;
           e.preventDefault();
-          stripCanvas.setPointerCapture?.(e.pointerId);
 
           const pt = canvasPoint(e);
-          const hit = hitTestText(pt);
-          if (hit) setSelectedText(hit);
-          else setSelectedText(null);
+          const layout = getLayoutSlots();
 
-          pointers.set(e.pointerId, { x: pt.x, y: pt.y });
-
-          if (!selectedText) return;
-
-          if (pointers.size === 1) {
-            dragStart = { x: pt.x, y: pt.y, baseX: selectedText.x, baseY: selectedText.y };
-            gestureStart = null;
-          } else if (pointers.size === 2) {
-            const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
-            const d = Math.hypot(a.x - b.x, a.y - b.y);
-            const ang = angleDeg(a, b);
-            gestureStart = { distance: d, angle: ang, scale: selectedText.scale, rotation: selectedText.rot };
-            dragStart = null;
+          let hit = -1;
+          for (let i = 0; i < layout.slots.length; i++) {
+            const s = layout.slots[i];
+            if (pt.x >= s.x && pt.x <= s.x + s.w && pt.y >= s.y && pt.y <= s.y + s.h) {
+              hit = i;
+              break;
+            }
           }
+          if (hit === -1) return;
+
+          selectedSlotIndex = hit;
+
+          // If a photo is selected, assign it; else cycle (ordered) within capturedItems
+          if (selectedPhotoIndex != null) {
+            builderState.assignments[hit] = selectedPhotoIndex;
+          } else {
+            const cur = builderState.assignments[hit];
+            const next = capturedItems.length ? (cur + 1 + capturedItems.length) % capturedItems.length : -1;
+            builderState.assignments[hit] = next;
+          }
+
+          drawStrip();
         }, { passive: false });
-
-        stripCanvas.addEventListener("pointermove", (e) => {
-          if (!pointers.has(e.pointerId)) return;
-          e.preventDefault();
-          const pt = canvasPoint(e);
-          pointers.set(e.pointerId, { x: pt.x, y: pt.y });
-
-          if (!selectedText) return;
-
-          if (pointers.size === 1 && dragStart) {
-            const dx = (pt.x - dragStart.x) / stripCanvas.width;
-            const dy = (pt.y - dragStart.y) / stripCanvas.height;
-            selectedText.x = clamp(dragStart.baseX + dx, 0, 1);
-            selectedText.y = clamp(dragStart.baseY + dy, 0, 1);
-            drawStrip();
-          }
-
-          if (pointers.size === 2 && gestureStart) {
-            const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
-            const d = Math.hypot(a.x - b.x, a.y - b.y);
-            const ang = angleDeg(a, b);
-
-            selectedText.scale = clamp(gestureStart.scale * (d / gestureStart.distance), 0.3, 5);
-            selectedText.rot = gestureStart.rotation + (ang - gestureStart.angle);
-            drawStrip();
-          }
-        }, { passive: false });
-
-        stripCanvas.addEventListener("pointerup", (e) => {
-          pointers.delete(e.pointerId);
-          if (pointers.size === 0) { dragStart = null; gestureStart = null; }
-          else if (pointers.size === 1 && selectedText) {
-            const pt = Array.from(pointers.values())[0];
-            dragStart = { x: pt.x, y: pt.y, baseX: selectedText.x, baseY: selectedText.y };
-            gestureStart = null;
-          }
-        });
-
-        stripCanvas.addEventListener("pointercancel", () => {
-          pointers.clear();
-          dragStart = null;
-          gestureStart = null;
-        });
       })();
 
       async function drawStrip() {
-        const selected = getSelectedCapturedItems();
-        const needed = builderState.layoutId === "L3" ? 4 : 3;
-        const chosen = selected.slice(0, needed);
-
-        // IMPORTANT FIX: load blob URLs without adding ?v=...
-        const imgs = await Promise.all(chosen.map((it) => loadImage(it.url)));
-
         const frameColor = getFrameColor();
-        const strokeColor = pickStrokeColor(frameColor);
         const layout = getLayoutSlots();
 
-        // One-color background only
+        // solid single-color frame only (no extra overlays)
         stripCtx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
         stripCtx.fillStyle = frameColor;
         stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
 
-        // Photo slots + small stroke
-        const base = Math.min(stripCanvas.width, stripCanvas.height);
-        const strokeW = Math.max(2, Math.round(base * 0.006));
-        const innerPad = Math.max(2, Math.round(base * 0.008)); // small inner margin inside slot
+        // load only used images (by assignment)
+        const imgCache = new Map();
+        async function getImgByIndex(idx) {
+          if (idx == null || idx < 0 || idx >= capturedItems.length) return null;
+          const url = capturedItems[idx].url;
+          if (imgCache.has(url)) return imgCache.get(url);
+          const img = await loadImage(url);
+          imgCache.set(url, img);
+          return img;
+        }
 
         for (let i = 0; i < layout.slots.length; i++) {
           const slot = layout.slots[i];
+          const capIdx = builderState.assignments[i] ?? -1;
+          const img = await getImgByIndex(capIdx);
 
-          // image area slightly inset so stroke feels clean
-          const ix = slot.x + innerPad;
-          const iy = slot.y + innerPad;
-          const iw = slot.w - innerPad * 2;
-          const ih = slot.h - innerPad * 2;
-
-          if (!imgs[i]) {
-            stripCtx.fillStyle = "rgba(0,0,0,0.16)";
-            stripCtx.fillRect(ix, iy, iw, ih);
+          if (!img) {
+            // empty panel: keep subtle, still single-color feel (no extra layers)
+            stripCtx.save();
+            stripCtx.beginPath();
+            stripCtx.rect(slot.x, slot.y, slot.w, slot.h);
+            stripCtx.clip();
+            stripCtx.clearRect(slot.x, slot.y, slot.w, slot.h);
+            stripCtx.restore();
           } else {
-            drawCover(stripCtx, imgs[i], ix, iy, iw, ih);
+            drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
           }
-
-          // thin stroke around slot
-          stripCtx.save();
-          stripCtx.lineWidth = strokeW;
-          stripCtx.strokeStyle = strokeColor;
-          stripCtx.strokeRect(slot.x + strokeW / 2, slot.y + strokeW / 2, slot.w - strokeW, slot.h - strokeW);
-          stripCtx.restore();
         }
 
-        // logo (top centered) — bigger
+        // logo (top centered, bigger)
         const logoImg = await getLogoImage();
         if (logoImg) {
           const top = layout.topBar;
           const maxW = top.w * 0.42;
-          const maxH = top.h * 0.85;
+          const maxH = top.h * 0.78;
           const iw = logoImg.naturalWidth || logoImg.width;
           const ih = logoImg.naturalHeight || logoImg.height;
           if (iw && ih) {
@@ -2377,32 +2359,6 @@
             const y = top.y + (top.h - h) / 2;
             stripCtx.drawImage(logoImg, x, y, w, h);
           }
-        }
-
-        // draw texts
-        for (const t of builderState.texts) {
-          const x = t.x * stripCanvas.width;
-          const y = t.y * stripCanvas.height;
-          const fontSize = (t.fontSize || 56) * (t.scale || 1);
-
-          stripCtx.save();
-          stripCtx.translate(x, y);
-          stripCtx.rotate(((t.rot || 0) * Math.PI) / 180);
-          stripCtx.fillStyle = t.color || "#fff";
-          stripCtx.font = `900 ${fontSize}px BeautifulFreak, system-ui`;
-          stripCtx.textAlign = "center";
-          stripCtx.textBaseline = "middle";
-          stripCtx.fillText(t.text || "", 0, 0);
-
-          if (selectedText && selectedText.id === t.id) {
-            const w = stripCtx.measureText(t.text || "").width;
-            const h = fontSize * 1.1;
-            stripCtx.strokeStyle = "rgba(255,255,255,0.75)";
-            stripCtx.lineWidth = Math.max(2, fontSize * 0.04);
-            stripCtx.strokeRect(-w / 2 - 12, -h / 2 - 10, w + 24, h + 20);
-          }
-
-          stripCtx.restore();
         }
       }
 
@@ -2435,9 +2391,13 @@
       });
 
       /* =========================
-         Photobooth init
+         Photobooth toggle availability after AR start
       ========================= */
       setPhotoboothMode(false);
+
+      /* =========================
+         INIT filter preview
+      ========================= */
       applyCameraFilterPreview();
 
       /* =========================
