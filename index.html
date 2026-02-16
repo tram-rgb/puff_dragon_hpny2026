@@ -50,9 +50,7 @@
         object-fit: contain;
         background: #fff;
         display: block;
-
-        /* IMPORTANT: allow clicking close button above it */
-        pointer-events: none;
+        pointer-events: none; /* ✅ don't block tapping puff-close */
       }
 
       #introClosePuff {
@@ -66,7 +64,6 @@
         cursor: pointer;
         user-select: none;
         -webkit-tap-highlight-color: transparent;
-        pointer-events: auto;
       }
 
       #introClosePuff:active {
@@ -89,7 +86,6 @@
         cursor: pointer;
         z-index: 2;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-        pointer-events: auto;
       }
 
       #exploreBtn:active {
@@ -448,7 +444,7 @@
       }
 
       /* =========================
-         BUILDER OVERLAY (customize page)
+         BUILDER OVERLAY
       ========================= */
       #builderOverlay {
         position: fixed;
@@ -473,6 +469,14 @@
         gap: 12px;
       }
 
+      /* ✅ Hide controls mode */
+      #builderShell.controlsHidden {
+        grid-template-columns: 1fr !important;
+      }
+      #builderShell.controlsHidden #builderControls {
+        display: none;
+      }
+
       #builderStageWrap {
         border-radius: 16px;
         overflow: auto;
@@ -483,6 +487,7 @@
         justify-content: center;
         padding: 12px;
         -webkit-overflow-scrolling: touch;
+        position: relative;
       }
 
       #builderStage {
@@ -499,7 +504,22 @@
         image-rendering: auto;
         border-radius: 0;
         background: transparent;
-        touch-action: manipulation; /* allow tap selection */
+        touch-action: none; /* ✅ important for drag+pinch */
+        user-select: none;
+      }
+
+      /* ✅ Open button when controls hidden */
+      #builderOpenBtn {
+        position: sticky;
+        bottom: 12px;
+        margin-left: auto;
+        margin-right: 0;
+        z-index: 5;
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.92);
+        min-width: unset;
       }
 
       #builderControls {
@@ -643,7 +663,10 @@
         webkit-playsinline
         muted
         preload="auto"
-      ></video>
+      >
+        <source id="introMp4" src="" type="video/mp4" />
+        <source id="introWebm" src="" type="video/webm" />
+      </video>
 
       <img
         id="introClosePuff"
@@ -672,7 +695,7 @@
         webkit-playsinline
         muted
         loop
-        preload="auto"
+        preload="metadata"
         crossorigin="anonymous"
       ></video>
 
@@ -759,12 +782,17 @@
           <div id="builderStage">
             <canvas id="stripCanvas" width="400" height="1200"></canvas>
           </div>
+
+          <button id="builderOpenBtn" type="button" class="hidden">Show</button>
         </div>
 
         <div id="builderControls">
           <div id="builderTopbar">
             <div class="label">Photoshoot Customize</div>
-            <button id="builderCloseBtn" type="button">Close</button>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button id="builderHideBtn" type="button">Hide</button>
+              <button id="builderCloseBtn" type="button">Close</button>
+            </div>
           </div>
 
           <div id="builderBody">
@@ -781,7 +809,7 @@
               <div class="pillRow" id="fitModeRow"></div>
               <div class="hint" style="margin-top:8px">
                 Smart = mostly full image (contain), but auto fills when aspect is close.
-                Manual = drag & pinch zoom inside the frame (clipped).
+                Manual = pan/zoom inside the frame (clipped).
               </div>
             </div>
 
@@ -795,7 +823,6 @@
               <div class="pillRow" id="slotRow"></div>
               <div class="hint" style="margin-top:8px">
                 Tap a slot (or tap a panel in preview), then tap a captured photo to assign it.
-                In Manual fit mode: drag the preview panel to pan; pinch to zoom.
               </div>
               <div style="height:10px"></div>
               <div id="photoPickGrid"></div>
@@ -822,8 +849,7 @@
       const clamp01 = (v) => clamp(v, 0, 1);
       const clamp255 = (v) => clamp(v, 0, 255);
       const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-      const angleDeg = (a, b) =>
-        (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+      const angleDeg = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 
       function applyTransform(el, state) {
         el.style.left = state.x + "%";
@@ -850,7 +876,7 @@
         return isIOS || isSafari;
       }
 
-      // ✅ FIX: do NOT append cache-bust to blob:/data: URLs
+      // ✅ append cache-bust only for normal URLs (not blob:)
       function loadImage(src) {
         return new Promise((resolve) => {
           if (!src) return resolve(null);
@@ -860,8 +886,9 @@
           img.onerror = () => resolve(null);
 
           const isBlob = src.startsWith("blob:") || src.startsWith("data:");
-          if (isBlob) img.src = src;
-          else img.src = src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+          img.src = isBlob
+            ? src
+            : src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
         });
       }
 
@@ -923,9 +950,7 @@
       });
 
       const tryPlayIntro = async () => {
-        try {
-          await introVideo.play();
-        } catch (_) {}
+        try { await introVideo.play(); } catch (_) {}
         window.removeEventListener("pointerdown", tryPlayIntro, true);
       };
       window.addEventListener("pointerdown", tryPlayIntro, true);
@@ -933,15 +958,13 @@
       async function closeIntro() {
         introOverlay.classList.add("hidden");
         app.classList.remove("hidden");
-        try {
-          await puffEl.play();
-        } catch (_) {}
+        try { await puffEl.play(); } catch (_) {}
       }
       closePuff.addEventListener("click", closeIntro);
       exploreBtn.addEventListener("click", closeIntro);
 
       /* =========================================================
-         FILTERS (unchanged logic)
+         FILTERS
       ========================================================= */
       function srgbToLin(c) {
         c /= 255;
@@ -949,8 +972,7 @@
       }
       function linToSrgb(c) {
         c = clamp01(c);
-        const v =
-          c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+        const v = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
         return clamp255(v * 255);
       }
       function lumaLin(rLin, gLin, bLin) {
@@ -1010,9 +1032,7 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n,
-              bg = g / n,
-              bb = b / n;
+            const br = r / n, bg = g / n, bb = b / n;
 
             data[p] = clamp255(src[p] + amount * (src[p] - br));
             data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
@@ -1044,9 +1064,7 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n,
-              bg = g / n,
-              bb = b / n;
+            const br = r / n, bg = g / n, bb = b / n;
 
             data[p] = clamp255(src[p] * (1 - strength) + br * strength);
             data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
@@ -1077,135 +1095,72 @@
           id: "35mm04",
           name: "35mm 04",
           recipe: recipe({
-            exposure: -5,
-            brilliance: -10,
-            highlights: -30,
-            shadows: +18,
-            brightness: -10,
-            contrast: -8,
-            saturation: -6,
-            warmth: -6,
-            fade: +12,
-            sharpness: -5,
-            noiseReduce: +8,
+            exposure: -5, brilliance: -10, highlights: -30, shadows: +18,
+            brightness: -10, contrast: -8, saturation: -6, warmth: -6,
+            fade: +12, sharpness: -5, noiseReduce: +8,
           }),
         },
         {
           id: "vi4",
           name: "VI4",
           recipe: recipe({
-            exposure: +10,
-            brilliance: +18,
-            highlights: -35,
-            shadows: +14,
-            brightness: +6,
-            contrast: -6,
-            saturation: +10,
-            warmth: +10,
-            fade: +10,
-            sharpness: +6,
-            noiseReduce: +10,
+            exposure: +10, brilliance: +18, highlights: -35, shadows: +14,
+            brightness: +6, contrast: -6, saturation: +10, warmth: +10,
+            fade: +10, sharpness: +6, noiseReduce: +10,
           }),
         },
         {
           id: "cm1",
           name: "CM1",
           recipe: recipe({
-            exposure: +8,
-            brilliance: +22,
-            highlights: -25,
-            shadows: +12,
-            brightness: +4,
-            contrast: -4,
-            saturation: +12,
-            warmth: +6,
-            fade: +6,
-            sharpness: +10,
-            noiseReduce: +8,
+            exposure: +8, brilliance: +22, highlights: -25, shadows: +12,
+            brightness: +4, contrast: -4, saturation: +12, warmth: +6,
+            fade: +6, sharpness: +10, noiseReduce: +8,
           }),
         },
         {
           id: "sapa",
           name: "Sapa",
           recipe: recipe({
-            exposure: +12,
-            brilliance: +10,
-            highlights: -22,
-            shadows: +18,
-            brightness: +8,
-            contrast: -10,
-            saturation: +6,
-            warmth: -10,
-            fade: +16,
-            sharpness: +6,
-            noiseReduce: +10,
+            exposure: +12, brilliance: +10, highlights: -22, shadows: +18,
+            brightness: +8, contrast: -10, saturation: +6, warmth: -10,
+            fade: +16, sharpness: +6, noiseReduce: +10,
           }),
         },
         {
           id: "salt",
           name: "Salt",
           recipe: recipe({
-            exposure: +18,
-            brilliance: +18,
-            highlights: -40,
-            shadows: +10,
-            brightness: +10,
-            contrast: -8,
-            saturation: +14,
-            warmth: +14,
-            fade: +8,
-            sharpness: +8,
-            noiseReduce: +8,
+            exposure: +18, brilliance: +18, highlights: -40, shadows: +10,
+            brightness: +10, contrast: -8, saturation: +14, warmth: +14,
+            fade: +8, sharpness: +8, noiseReduce: +8,
           }),
         },
         {
           id: "in2",
           name: "IN2",
           recipe: recipe({
-            exposure: +10,
-            brilliance: +8,
-            highlights: -30,
-            shadows: +16,
-            brightness: +4,
-            contrast: -12,
-            saturation: -4,
-            warmth: -8,
-            fade: +18,
-            sharpness: +6,
-            noiseReduce: +12,
+            exposure: +10, brilliance: +8, highlights: -30, shadows: +16,
+            brightness: +4, contrast: -12, saturation: -4, warmth: -8,
+            fade: +18, sharpness: +6, noiseReduce: +12,
           }),
         },
         {
           id: "fl2",
           name: "FL2",
           recipe: recipe({
-            exposure: +14,
-            brilliance: +14,
-            highlights: -28,
-            shadows: +10,
-            brightness: +8,
-            contrast: -6,
-            saturation: +10,
-            warmth: +8,
-            fade: +10,
-            sharpness: +8,
-            noiseReduce: +10,
+            exposure: +14, brilliance: +14, highlights: -28, shadows: +10,
+            brightness: +8, contrast: -6, saturation: +10, warmth: +8,
+            fade: +10, sharpness: +8, noiseReduce: +10,
           }),
         },
         {
           id: "bwfilm",
           name: "B&W Film",
           recipe: recipe({
-            exposure: +6,
-            brilliance: +10,
-            highlights: -20,
-            shadows: +10,
-            brightness: +4,
-            contrast: +10,
-            saturation: -100,
-            fade: +8,
-            sharpness: +10,
-            noiseReduce: +10,
+            exposure: +6, brilliance: +10, highlights: -20, shadows: +10,
+            brightness: +4, contrast: +10, saturation: -100, fade: +8,
+            sharpness: +10, noiseReduce: +10,
           }),
         },
       ];
@@ -1219,11 +1174,7 @@
         const sat = 1 + r.saturation * 0.75;
         const hue = r.warmth * -18;
         const sep = clamp01(r.warmth * 0.35 + 0.05);
-        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(
-          3
-        )}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(
-          3
-        )}) hue-rotate(${hue.toFixed(1)}deg)`;
+        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(3)}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(3)}) hue-rotate(${hue.toFixed(1)}deg)`;
       }
 
       function applyCameraFilterPreview() {
@@ -1243,19 +1194,14 @@
         filterListEl.innerHTML = "";
         FILTERS.forEach((f) => {
           const b = document.createElement("button");
-          b.className =
-            "filterItem" + (f.id === currentFilterId ? " active" : "");
+          b.className = "filterItem" + (f.id === currentFilterId ? " active" : "");
           b.type = "button";
 
           const r = f.recipe;
           const recLine =
             f.id === "none"
               ? "no recipe"
-              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(
-                  r.highlights * 100
-                )} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(
-                  r.saturation * 100
-                )}`;
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(r.highlights * 100)} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(r.saturation * 100)}`;
 
           b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
 
@@ -1280,9 +1226,8 @@
       /* =========================
          PUFF RANDOM (weighted)
       ========================= */
-      const puffBasesWeighted = ["puff", "puff", "puff", "puff", "puff", "puff2", "puff3"];
-      const chosenBase =
-        puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
+      const puffBasesWeighted = ["puff","puff","puff","puff","puff","puff2","puff3"];
+      const chosenBase = puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
 
       function setPuffSource(base) {
         const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
@@ -1406,21 +1351,16 @@
           currentFacingMode === "environment" ? "user" : "environment";
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
-        try {
-          await startCamera();
-        } catch (e) {
-          console.error(e);
-        }
+        try { await startCamera(); } catch (e) { console.error(e); }
       });
 
       mirrorBtn.addEventListener("click", () => {
-        mirrorMode =
-          mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
+        mirrorMode = mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
         applyMirrorToPreview();
       });
 
       /* =========================
-         PUFF TRANSFORM
+         TRANSFORMS (Puff: touch drag/pinch)
       ========================= */
       function enableTouchDragPinch(el, state, onUpdate) {
         let mode = null;
@@ -1428,8 +1368,7 @@
 
         const getTouch = (t) => ({ x: t.clientX, y: t.clientY });
         const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-        const ang2 = (a, b) =>
-          (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+        const ang2 = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 
         function toPct(dxPx, dyPx) {
           return { dx: (dxPx / innerWidth) * 100, dy: (dyPx / innerHeight) * 100 };
@@ -1445,12 +1384,7 @@
             mode = "pinch";
             const a = getTouch(e.touches[0]);
             const b = getTouch(e.touches[1]);
-            start = {
-              d: dist2(a, b),
-              ang: ang2(a, b),
-              baseScale: state.scale,
-              baseRot: state.rotation,
-            };
+            start = { d: dist2(a, b), ang: ang2(a, b), baseScale: state.scale, baseRot: state.rotation };
           }
         }
 
@@ -1480,17 +1414,15 @@
         }
 
         function onTouchEnd(e) {
-          if (e.touches.length === 0) {
-            mode = null;
-            start = null;
-          } else if (e.touches.length === 1) {
+          if (e.touches.length === 0) { mode = null; start = null; }
+          else if (e.touches.length === 1) {
             mode = "drag";
             const t = getTouch(e.touches[0]);
             start = { x: t.x, y: t.y, baseX: state.x, baseY: state.y };
           }
         }
 
-        // Mouse fallback
+        // Mouse fallback drag + wheel zoom
         let mouseDown = false;
         let mouseStart = null;
 
@@ -1531,7 +1463,17 @@
         el.addEventListener("wheel", onWheel, { passive: false });
       }
 
-      // Sticker transform
+      /* =========================
+         PUFF transform
+      ========================= */
+      const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
+      function updatePuff() { applyTransform(puffEl, puffState); }
+      updatePuff();
+      enableTouchDragPinch(puffEl, puffState, updatePuff);
+
+      /* =========================
+         MULTI-STICKERS
+      ========================= */
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
@@ -1588,8 +1530,7 @@
             lastTime = null;
           } else if (pointers.size === 2) {
             const pts = Array.from(pointers.values());
-            const a = pts[0],
-              b = pts[1];
+            const a = pts[0], b = pts[1];
             const ang = angleDeg(a, b);
             gestureStart = {
               distance: dist(a, b),
@@ -1622,8 +1563,7 @@
 
           if (pointers.size === 2 && gestureStart) {
             const pts = Array.from(pointers.values());
-            const a = pts[0],
-              b = pts[1];
+            const a = pts[0], b = pts[1];
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
 
@@ -1632,7 +1572,8 @@
               0.2,
               6
             );
-            state.rotation = gestureStart.rotation + (newAngle - gestureStart.angle);
+            state.rotation =
+              gestureStart.rotation + (newAngle - gestureStart.angle);
 
             const now = performance.now();
             const dt = (now - lastTime) / 1000;
@@ -1669,16 +1610,6 @@
         );
       }
 
-      const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
-      function updatePuff() {
-        applyTransform(puffEl, puffState);
-      }
-      updatePuff();
-      enableTouchDragPinch(puffEl, puffState, updatePuff);
-
-      /* =========================
-         MULTI-STICKERS
-      ========================= */
       let stickersLoaded = false;
       const stickerStates = new Map();
       let selectedStickerEl = null;
@@ -1706,9 +1637,7 @@
         const state = { x: 50, y: 40, scale: 1.0, rotation: 0 };
         stickerStates.set(el, state);
 
-        function update() {
-          applyTransform(el, state);
-        }
+        function update() { applyTransform(el, state); }
         update();
 
         el.addEventListener("pointerdown", () => setSelectedSticker(el), true);
@@ -1786,7 +1715,8 @@
           });
         } catch (e) {
           console.error(e);
-          stickerGrid.innerHTML = `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
+          stickerGrid.innerHTML =
+            `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
               Could not load stickers.json. Check ./stickers.json is deployed.
             </div>`;
         }
@@ -1811,7 +1741,7 @@
       });
 
       /* =========================
-         CAPTURE (viewport-accurate, matches what user sees)
+         CAPTURE (viewport-accurate)
       ========================= */
       function applyRecipeToImageData(imageData, r) {
         const d = imageData.data;
@@ -1838,9 +1768,7 @@
 
           const y0 = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
           const sc = y / y0;
-          rLin *= sc;
-          gLin *= sc;
-          bLin *= sc;
+          rLin *= sc; gLin *= sc; bLin *= sc;
 
           [rLin, gLin, bLin] = applySaturationLin(rLin, gLin, bLin, sat);
 
@@ -1852,9 +1780,7 @@
           const yFade = applyFadeLin(lumaLin(rLin, gLin, bLin), r.fade);
           const yNow = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
           const s2 = yFade / yNow;
-          rLin *= s2;
-          gLin *= s2;
-          bLin *= s2;
+          rLin *= s2; gLin *= s2; bLin *= s2;
 
           d[i] = linToSrgb(rLin);
           d[i + 1] = linToSrgb(gLin);
@@ -1893,43 +1819,42 @@
           const h = rect.height * dpr;
           return { x, y, w, h };
         };
-        const mirrorX = (x, w) => (mirrorOutput ? W - (x + w) : x);
+        const mirrorX = (x, w) => (mirrorOutput ? (W - (x + w)) : x);
 
-        // camera base
         ctx.save();
         if (mirrorOutput) {
           ctx.translate(W, 0);
           ctx.scale(-1, 1);
         }
-        ctx.drawImage(cameraEl, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
+        ctx.drawImage(
+          cameraEl,
+          crop.sx,
+          crop.sy,
+          crop.sw,
+          crop.sh,
+          0,
+          0,
+          W,
+          H
+        );
         ctx.restore();
 
-        // filter
         if (currentFilterId !== "none") {
           const imgData = ctx.getImageData(0, 0, W, H);
           applyRecipeToImageData(imgData, currentRecipe);
           ctx.putImageData(imgData, 0, 0);
         }
 
-        // puff
         const puffRect = rectToCanvas(puffEl.getBoundingClientRect());
         ctx.save();
         const px = mirrorX(puffRect.x, puffRect.w) + puffRect.w / 2;
         const py = puffRect.y + puffRect.h / 2;
         ctx.translate(px, py);
-        const puffRot =
-          (mirrorOutput ? -puffState.rotation : puffState.rotation) * (Math.PI / 180);
+        const puffRot = (mirrorOutput ? -puffState.rotation : puffState.rotation) * Math.PI / 180;
         ctx.rotate(puffRot);
-        ctx.drawImage(
-          puffEl,
-          -puffRect.w / 2,
-          -puffRect.h / 2,
-          puffRect.w,
-          puffRect.h
-        );
+        ctx.drawImage(puffEl, -puffRect.w / 2, -puffRect.h / 2, puffRect.w, puffRect.h);
         ctx.restore();
 
-        // stickers
         for (const [el, st] of stickerStates.entries()) {
           if (!el.complete || !el.naturalWidth) continue;
           const r = rectToCanvas(el.getBoundingClientRect());
@@ -1937,7 +1862,7 @@
           const sx = mirrorX(r.x, r.w) + r.w / 2;
           const sy = r.y + r.h / 2;
           ctx.translate(sx, sy);
-          const rot = (mirrorOutput ? -st.rotation : st.rotation) * (Math.PI / 180);
+          const rot = (mirrorOutput ? -st.rotation : st.rotation) * Math.PI / 180;
           ctx.rotate(rot);
           ctx.drawImage(el, -r.w / 2, -r.h / 2, r.w, r.h);
           ctx.restore();
@@ -2049,31 +1974,19 @@
           capturedHeader.style.cursor = "grabbing";
         });
 
-        window.addEventListener(
-          "pointermove",
-          (e) => {
-            if (!dragging || !start) return;
-            e.preventDefault();
-            const dx = e.clientX - start.x;
-            const dy = e.clientY - start.y;
+        window.addEventListener("pointermove", (e) => {
+          if (!dragging || !start) return;
+          e.preventDefault();
+          const dx = e.clientX - start.x;
+          const dy = e.clientY - start.y;
 
-            const newLeft = clamp(
-              start.left + dx,
-              6,
-              innerWidth - capturedPanel.offsetWidth - 6
-            );
-            const newTop = clamp(
-              start.top + dy,
-              6,
-              innerHeight - capturedPanel.offsetHeight - 6
-            );
+          const newLeft = clamp(start.left + dx, 6, innerWidth - capturedPanel.offsetWidth - 6);
+          const newTop = clamp(start.top + dy, 6, innerHeight - capturedPanel.offsetHeight - 6);
 
-            capturedPanel.style.left = newLeft + "px";
-            capturedPanel.style.top = newTop + "px";
-            capturedPanel.style.right = "auto";
-          },
-          { passive: false }
-        );
+          capturedPanel.style.left = newLeft + "px";
+          capturedPanel.style.top = newTop + "px";
+          capturedPanel.style.right = "auto";
+        }, { passive: false });
 
         window.addEventListener("pointerup", () => {
           dragging = false;
@@ -2088,21 +2001,14 @@
       captureBtn.addEventListener("click", () => {
         if (!photoboothOn) {
           captureToBlob((blob) => {
-            if (!blob) {
-              alert("Capture failed.");
-              return;
-            }
+            if (!blob) { alert("Capture failed."); return; }
             openDownloadWindow(blob);
           });
           return;
         }
 
-        // photobooth ON: store in panel
         captureToBlob((blob) => {
-          if (!blob) {
-            alert("Capture failed.");
-            return;
-          }
+          if (!blob) { alert("Capture failed."); return; }
           const url = URL.createObjectURL(blob);
           capturedItems.push({ blob, url });
           updateCapturedUI();
@@ -2124,20 +2030,26 @@
       const photoPickGrid = document.getElementById("photoPickGrid");
       const exportStripBtn = document.getElementById("exportStripBtn");
 
+      const builderHideBtn = document.getElementById("builderHideBtn");
+      const builderOpenBtn = document.getElementById("builderOpenBtn");
+      const builderShell = document.getElementById("builderShell");
+
       cueBtn.addEventListener("click", () => openBuilder());
       builderCloseBtn.addEventListener("click", () => closeBuilder());
       builderOverlay.addEventListener("pointerdown", (e) => {
         if (e.target === builderOverlay) closeBuilder();
       });
 
+      // frame colors
       const FRAME_COLORS = [
-        { id: "red", name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
-        { id: "blue", name: "Dark Blue", value: "#060d3d", logo: "puff-logo-3.png" },
-        { id: "grey", name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
-        { id: "white", name: "White", value: "#ffffff", logo: "puff-logo-1.png" },
-        { id: "black", name: "Pure Black", value: "#000000", logo: "puff-logo-3.png" },
+        { id: "red",   name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
+        { id: "blue",  name: "Dark Blue",   value: "#060d3d", logo: "puff-logo-3.png" },
+        { id: "grey",  name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
+        { id: "white", name: "White",       value: "#ffffff", logo: "puff-logo-1.png" },
+        { id: "black", name: "Pure Black",  value: "#000000", logo: "puff-logo-3.png" },
       ];
 
+      // layouts
       const LAYOUTS = [
         { id: "L1", name: "Layout 1 (3 horizontal strip)" },
         { id: "L2", name: "Layout 2 (3 vertical strip)" },
@@ -2151,18 +2063,27 @@
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        fitMode: "smart", // "contain" | "smart" | "cover" | "manual"
+        fitMode: "smart", // contain | smart | cover | manual
         slotToCapture: [],
-        slotTransforms: {}, // ✅ per-slot pan/zoom for manual mode
+        slotTransforms: [], // per slot: { scaleMul, offsetX, offsetY }
       };
 
       let activeSlot = 0;
 
+      // hide/show controls state
+      let builderControlsHidden = false;
+      function setBuilderControlsHidden(hidden) {
+        builderControlsHidden = hidden;
+        builderShell.classList.toggle("controlsHidden", hidden);
+        builderOpenBtn.classList.toggle("hidden", !hidden);
+        builderHideBtn.textContent = hidden ? "Show" : "Hide";
+      }
+      builderHideBtn.addEventListener("click", () => setBuilderControlsHidden(!builderControlsHidden));
+      builderOpenBtn.addEventListener("click", () => setBuilderControlsHidden(false));
+
       const logoImgCache = new Map();
       async function getLogoImage() {
-        const c =
-          FRAME_COLORS.find((x) => x.id === builderState.frameColorId) ||
-          FRAME_COLORS[1];
+        const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
         const src = c.logo;
         if (logoImgCache.has(src)) return logoImgCache.get(src);
         const img = await loadImage(src);
@@ -2171,37 +2092,19 @@
       }
 
       function getFrameColor() {
-        const c =
-          FRAME_COLORS.find((x) => x.id === builderState.frameColorId) ||
-          FRAME_COLORS[1];
+        const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
         return c.value;
       }
 
       function syncCanvasToLayout() {
-        if (builderState.layoutId === "L1") {
-          stripCanvas.width = 1200;
-          stripCanvas.height = 400;
-          return;
-        }
-        if (builderState.layoutId === "L2") {
-          stripCanvas.width = 400;
-          stripCanvas.height = 1200;
-          return;
-        }
-        if (builderState.layoutId === "L3") {
-          stripCanvas.width = 900;
-          stripCanvas.height = 1350;
-          return;
-        }
+        if (builderState.layoutId === "L1") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
+        if (builderState.layoutId === "L2") { stripCanvas.width = 400;  stripCanvas.height = 1200; return; }
+        if (builderState.layoutId === "L3") { stripCanvas.width = 900;  stripCanvas.height = 1350; return; }
         if (builderState.layoutId === "L4" || builderState.layoutId === "L5") {
-          stripCanvas.width = 1200;
-          stripCanvas.height = 400;
-          return;
+          stripCanvas.width = 1200; stripCanvas.height = 400; return;
         }
         if (builderState.layoutId === "L6" || builderState.layoutId === "L7") {
-          stripCanvas.width = 1350;
-          stripCanvas.height = 900;
-          return;
+          stripCanvas.width = 1350; stripCanvas.height = 900; return;
         }
       }
 
@@ -2215,30 +2118,36 @@
 
       function ensureSlotMapping() {
         const n = slotsNeeded();
+
+        // slots -> capture index
         const arr = builderState.slotToCapture || [];
         const next = new Array(n).fill(-1);
-        for (let i = 0; i < n; i++) next[i] = arr[i] ?? i;
+        for (let i = 0; i < n; i++) next[i] = (arr[i] ?? i);
         for (let i = 0; i < n; i++) {
           if (next[i] >= capturedItems.length) next[i] = -1;
         }
         builderState.slotToCapture = next;
-        activeSlot = clamp(activeSlot, 0, n - 1);
 
-        // ✅ ensure transform exists per slot (manual mode)
-        builderState.slotTransforms = builderState.slotTransforms || {};
-        for (let i = 0; i < n; i++) {
-          if (!builderState.slotTransforms[i]) {
-            builderState.slotTransforms[i] = { scale: 1, offsetX: 0, offsetY: 0 };
-          }
-        }
+        // per-slot transforms (manual)
+        const tArr = builderState.slotTransforms || [];
+        const tNext = new Array(n).fill(null).map((_, i) => {
+          const prev = tArr[i];
+          return {
+            scaleMul: prev?.scaleMul ?? 1, // relative to cover
+            offsetX: prev?.offsetX ?? 0,   // px in canvas coords
+            offsetY: prev?.offsetY ?? 0,
+          };
+        });
+        builderState.slotTransforms = tNext;
+
+        activeSlot = clamp(activeSlot, 0, n - 1);
       }
 
       function renderBuilderUI() {
         frameColorRow.innerHTML = "";
         FRAME_COLORS.forEach((c) => {
           const p = document.createElement("div");
-          p.className =
-            "pill" + (builderState.frameColorId === c.id ? " active" : "");
+          p.className = "pill" + (builderState.frameColorId === c.id ? " active" : "");
           p.textContent = c.name;
           p.addEventListener("click", async () => {
             builderState.frameColorId = c.id;
@@ -2264,13 +2173,13 @@
           layoutRow.appendChild(p);
         });
 
-        // ✅ fit modes (added Manual)
+        // fit modes (+ manual)
         fitModeRow.innerHTML = "";
         [
           { id: "contain", label: "Contain (no crop)" },
           { id: "smart", label: "Smart (recommended)" },
           { id: "cover", label: "Cover (fill slot)" },
-          { id: "manual", label: "Manual (zoom & drag)" },
+          { id: "manual", label: "Manual (pan/zoom)" },
         ].forEach((m) => {
           const p = document.createElement("div");
           p.className = "pill" + (builderState.fitMode === m.id ? " active" : "");
@@ -2311,12 +2220,6 @@
 
           cell.addEventListener("click", async () => {
             builderState.slotToCapture[activeSlot] = idx;
-
-            // ✅ if switching photo in manual mode, reset that slot transform (optional but nicer)
-            if (builderState.fitMode === "manual") {
-              builderState.slotTransforms[activeSlot] = { scale: 1, offsetX: 0, offsetY: 0 };
-            }
-
             const n = slotsNeeded();
             activeSlot = (activeSlot + 1) % n;
             renderBuilderUI();
@@ -2331,6 +2234,8 @@
         if (capturedItems.length === 0) return;
         builderOverlay.classList.remove("hidden");
         builderOverlay.setAttribute("aria-hidden", "false");
+        setBuilderControlsHidden(false); // ✅ always open with controls visible
+
         syncCanvasToLayout();
         ensureSlotMapping();
         renderBuilderUI();
@@ -2343,9 +2248,7 @@
         builderOverlay.setAttribute("aria-hidden", "true");
       }
 
-      /* =========================
-         DRAW HELPERS
-      ========================= */
+      /* ======= Draw helpers ======= */
       function drawCover(ctx, img, rx, ry, rw, rh) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
@@ -2379,47 +2282,61 @@
 
         const imgAR = iw / ih;
         const slotAR = rw / rh;
-
         const ratio = imgAR / slotAR;
         const closeEnough = ratio > 0.82 && ratio < 1.22;
-
         if (closeEnough) drawCover(ctx, img, rx, ry, rw, rh);
         else drawContain(ctx, img, rx, ry, rw, rh);
       }
 
-      // ✅ NEW: manual zoom/pan, clipped to slot frame
-      function drawManual(ctx, img, slot, slotIndex) {
+      // ✅ Manual: clipped inside slot, pan/zoom
+      function drawManual(ctx, img, rx, ry, rw, rh, tr) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
         if (!iw || !ih) return;
 
-        const t = builderState.slotTransforms[slotIndex] || { scale: 1, offsetX: 0, offsetY: 0 };
+        const coverS = Math.max(rw / iw, rh / ih);
+        const containS = Math.min(rw / iw, rh / ih);
 
-        // Minimum scale = contain-fit (so you can never shrink smaller than contain)
-        const minScale = Math.min(slot.w / iw, slot.h / ih);
-        t.scale = Math.max(t.scale, minScale);
+        const minMul = containS / coverS;       // allow zoom-out to contain
+        const maxMul = 3.0;                     // zoom-in limit
+        tr.scaleMul = clamp(tr.scaleMul || 1, minMul, maxMul);
 
-        const dw = iw * t.scale;
-        const dh = ih * t.scale;
+        const s = coverS * tr.scaleMul;
+        const dw = iw * s;
+        const dh = ih * s;
 
-        // Clamp pan offsets so image always covers center area but never leaves slot bounds
-        const maxOffsetX = Math.max(0, (dw - slot.w) / 2);
-        const maxOffsetY = Math.max(0, (dh - slot.h) / 2);
+        // base centered cover position
+        let dx = rx + (rw - dw) / 2;
+        let dy = ry + (rh - dh) / 2;
 
-        t.offsetX = clamp(t.offsetX, -maxOffsetX, maxOffsetX);
-        t.offsetY = clamp(t.offsetY, -maxOffsetY, maxOffsetY);
+        // allow pan offsets, but keep coverage if image bigger than slot
+        let offX = tr.offsetX || 0;
+        let offY = tr.offsetY || 0;
 
-        // Save clamped transform back
-        builderState.slotTransforms[slotIndex] = t;
+        if (dw > rw) {
+          const maxPanX = (dw - rw) / 2;
+          offX = clamp(offX, -maxPanX, +maxPanX);
+        } else {
+          offX = 0; // if smaller than slot, just keep centered
+        }
+
+        if (dh > rh) {
+          const maxPanY = (dh - rh) / 2;
+          offY = clamp(offY, -maxPanY, +maxPanY);
+        } else {
+          offY = 0;
+        }
+
+        tr.offsetX = offX;
+        tr.offsetY = offY;
+
+        dx += offX;
+        dy += offY;
 
         ctx.save();
         ctx.beginPath();
-        ctx.rect(slot.x, slot.y, slot.w, slot.h);
-        ctx.clip();
-
-        const dx = slot.x + slot.w / 2 - dw / 2 + t.offsetX;
-        const dy = slot.y + slot.h / 2 - dh / 2 + t.offsetY;
-
+        ctx.rect(rx, ry, rw, rh);
+        ctx.clip(); // ✅ clip under frame
         ctx.drawImage(img, dx, dy, dw, dh);
         ctx.restore();
       }
@@ -2442,19 +2359,13 @@
         const contentH = H - outer - bottomBar - contentY;
 
         const topBarRect = { x: outer, y: outer, w: contentW, h: topBar };
-        const botBarRect = {
-          x: outer,
-          y: H - outer - bottomBar,
-          w: contentW,
-          h: bottomBar,
-        };
+        const botBarRect = { x: outer, y: H - outer - bottomBar, w: contentW, h: bottomBar };
 
         if (builderState.layoutId === "L1") {
           const slotW = Math.floor((contentW - gap * 2) / 3);
           const slotH = contentH;
           return {
-            topBar: topBarRect,
-            botBar: botBarRect,
+            topBar: topBarRect, botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2467,8 +2378,7 @@
           const slotH = Math.floor((contentH - gap * 2) / 3);
           const slotW = contentW;
           return {
-            topBar: topBarRect,
-            botBar: botBarRect,
+            topBar: topBarRect, botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
@@ -2481,8 +2391,7 @@
           const slotW = Math.floor((contentW - gap) / 2);
           const slotH = Math.floor((contentH - gap) / 2);
           return {
-            topBar: topBarRect,
-            botBar: botBarRect,
+            topBar: topBarRect, botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2498,8 +2407,7 @@
           const slotW = Math.floor((photosW - gap) / 2);
           const slotH = contentH;
           return {
-            topBar: topBarRect,
-            botBar: botBarRect,
+            topBar: topBarRect, botBar: botBarRect,
             slots: [
               { x: contentX + barW + gap, y: contentY, w: slotW, h: slotH },
               { x: contentX + barW + gap + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2512,8 +2420,7 @@
           const slotW = Math.floor((contentW - barW - gap * 2) / 2);
           const slotH = contentH;
           return {
-            topBar: topBarRect,
-            botBar: botBarRect,
+            topBar: topBarRect, botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap + barW + gap, y: contentY, w: slotW, h: slotH },
@@ -2526,8 +2433,7 @@
           const leftW = contentW - rightW - gap;
           const slotH = Math.floor((contentH - gap) / 2);
           return {
-            topBar: topBarRect,
-            botBar: botBarRect,
+            topBar: topBarRect, botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: leftW, h: slotH },
               { x: contentX, y: contentY + slotH + gap, w: leftW, h: slotH },
@@ -2542,8 +2448,7 @@
           const slotW = contentW - inset * 2;
           const slotH = contentH - inset * 2;
           return {
-            topBar: topBarRect,
-            botBar: botBarRect,
+            topBar: topBarRect, botBar: botBarRect,
             slots: [{ x: slotX, y: slotY, w: slotW, h: slotH }],
           };
         }
@@ -2551,7 +2456,6 @@
         return { topBar: topBarRect, botBar: botBarRect, slots: [] };
       }
 
-      // tap preview panel to select slot
       function canvasPointToSlotIndex(clientX, clientY) {
         const rect = stripCanvas.getBoundingClientRect();
         const x = ((clientX - rect.left) / rect.width) * stripCanvas.width;
@@ -2565,65 +2469,95 @@
         return -1;
       }
 
-      stripCanvas.addEventListener(
-        "pointerdown",
-        (e) => {
-          if (builderOverlay.classList.contains("hidden")) return;
-          const idx = canvasPointToSlotIndex(e.clientX, e.clientY);
-          if (idx >= 0) {
-            activeSlot = idx;
-            renderBuilderUI();
-            drawStrip({ forExport: false });
-          }
-        },
-        { passive: true }
-      );
+      /* ✅ Manual gestures: desktop + mobile */
+      let manualPointer = {
+        active: false,
+        pointerId: null,
+        startX: 0,
+        startY: 0,
+        baseX: 0,
+        baseY: 0,
+      };
 
-      // ✅ Manual mode gestures (drag pan + pinch zoom), clipped to panel
-      let manualDrag = null;
-      stripCanvas.addEventListener(
-        "pointerdown",
-        (e) => {
-          if (builderOverlay.classList.contains("hidden")) return;
-          if (builderState.fitMode !== "manual") return;
-
-          const idx = canvasPointToSlotIndex(e.clientX, e.clientY);
-          if (idx < 0) return;
-
-          // set active slot on touch
+      function setActiveSlotFromPoint(clientX, clientY) {
+        const idx = canvasPointToSlotIndex(clientX, clientY);
+        if (idx >= 0) {
           if (idx !== activeSlot) {
             activeSlot = idx;
             renderBuilderUI();
-            drawStrip({ forExport: false });
           }
+          return idx;
+        }
+        return -1;
+      }
 
-          manualDrag = {
-            startX: e.clientX,
-            startY: e.clientY,
-            baseX: builderState.slotTransforms[activeSlot]?.offsetX || 0,
-            baseY: builderState.slotTransforms[activeSlot]?.offsetY || 0,
-          };
-        },
-        { passive: true }
-      );
+      stripCanvas.addEventListener("pointerdown", (e) => {
+        if (builderOverlay.classList.contains("hidden")) return;
 
-      window.addEventListener("pointermove", (e) => {
-        if (!manualDrag) return;
+        const idx = setActiveSlotFromPoint(e.clientX, e.clientY);
+        if (idx < 0) return;
+
+        if (builderState.fitMode !== "manual") {
+          drawStrip({ forExport: false });
+          return;
+        }
+
+        manualPointer.active = true;
+        manualPointer.pointerId = e.pointerId;
+        manualPointer.startX = e.clientX;
+        manualPointer.startY = e.clientY;
+
+        const tr = builderState.slotTransforms[activeSlot];
+        manualPointer.baseX = tr?.offsetX || 0;
+        manualPointer.baseY = tr?.offsetY || 0;
+
+        stripCanvas.setPointerCapture?.(e.pointerId);
+      });
+
+      stripCanvas.addEventListener("pointermove", (e) => {
+        if (!manualPointer.active) return;
         if (builderState.fitMode !== "manual") return;
+        if (e.pointerId !== manualPointer.pointerId) return;
 
-        const dx = e.clientX - manualDrag.startX;
-        const dy = e.clientY - manualDrag.startY;
+        const dx = e.clientX - manualPointer.startX;
+        const dy = e.clientY - manualPointer.startY;
 
-        const t = builderState.slotTransforms[activeSlot];
-        t.offsetX = manualDrag.baseX + dx;
-        t.offsetY = manualDrag.baseY + dy;
+        const tr = builderState.slotTransforms[activeSlot];
+        tr.offsetX = manualPointer.baseX + dx;
+        tr.offsetY = manualPointer.baseY + dy;
 
         drawStrip({ forExport: false });
       });
 
-      window.addEventListener("pointerup", () => {
-        manualDrag = null;
+      stripCanvas.addEventListener("pointerup", (e) => {
+        if (e.pointerId === manualPointer.pointerId) {
+          manualPointer.active = false;
+          manualPointer.pointerId = null;
+        }
       });
+      stripCanvas.addEventListener("pointercancel", () => {
+        manualPointer.active = false;
+        manualPointer.pointerId = null;
+      });
+
+      // wheel zoom
+      stripCanvas.addEventListener(
+        "wheel",
+        (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+          if (builderState.fitMode !== "manual") return;
+
+          setActiveSlotFromPoint(e.clientX, e.clientY);
+
+          e.preventDefault();
+          const tr = builderState.slotTransforms[activeSlot];
+          const zoom = e.deltaY > 0 ? 0.92 : 1.08;
+          tr.scaleMul = (tr.scaleMul || 1) * zoom;
+
+          drawStrip({ forExport: false });
+        },
+        { passive: false }
+      );
 
       // pinch zoom (touch)
       let pinchStart = null;
@@ -2637,7 +2571,7 @@
             const b = e.touches[1];
             pinchStart = {
               dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
-              baseScale: builderState.slotTransforms[activeSlot]?.scale || 1,
+              baseScale: builderState.slotTransforms[activeSlot]?.scaleMul || 1,
             };
           }
         },
@@ -2654,29 +2588,22 @@
             const a = e.touches[0];
             const b = e.touches[1];
             const newDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-            const scaleFactor = newDist / pinchStart.dist;
-
-            builderState.slotTransforms[activeSlot].scale =
-              pinchStart.baseScale * scaleFactor;
-
+            const factor = newDist / pinchStart.dist;
+            builderState.slotTransforms[activeSlot].scaleMul = pinchStart.baseScale * factor;
             drawStrip({ forExport: false });
           }
         },
         { passive: false }
       );
 
-      stripCanvas.addEventListener("touchend", () => {
-        pinchStart = null;
-      });
+      stripCanvas.addEventListener("touchend", () => { pinchStart = null; });
 
       async function drawStrip({ forExport } = { forExport: false }) {
         ensureSlotMapping();
 
         const selectedIdxs = builderState.slotToCapture.slice();
         const imgs = await Promise.all(
-          selectedIdxs.map((ci) =>
-            ci >= 0 ? loadImage(capturedItems[ci]?.url || "") : Promise.resolve(null)
-          )
+          selectedIdxs.map((ci) => (ci >= 0 ? loadImage(capturedItems[ci]?.url || "") : Promise.resolve(null)))
         );
 
         const frameColor = getFrameColor();
@@ -2690,6 +2617,7 @@
           const slot = layout.slots[i];
           const img = imgs[i];
 
+          // fill slot background
           stripCtx.fillStyle = frameColor;
           stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
 
@@ -2697,7 +2625,7 @@
             const mode = builderState.fitMode || "smart";
             if (mode === "contain") drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
             else if (mode === "cover") drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
-            else if (mode === "manual") drawManual(stripCtx, img, slot, i);
+            else if (mode === "manual") drawManual(stripCtx, img, slot.x, slot.y, slot.w, slot.h, builderState.slotTransforms[i]);
             else drawSmart(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
           }
         }
@@ -2741,16 +2669,10 @@
         await drawStrip({ forExport: true });
 
         stripCanvas.toBlob((blob) => {
-          if (!blob) {
-            alert("Export failed.");
-            return;
-          }
+          if (!blob) { alert("Export failed."); return; }
           const url = URL.createObjectURL(blob);
           const win = window.open("about:blank", "_blank");
-          if (!win) {
-            alert("Popup blocked.");
-            return;
-          }
+          if (!win) { alert("Popup blocked."); return; }
           const filename = `Puff_Dragon_Photobooth_${Date.now()}.png`;
 
           win.document.write(`
@@ -2772,10 +2694,40 @@
       });
 
       /* =========================
+         Builder selection by tapping canvas (slot)
+      ========================= */
+      stripCanvas.addEventListener(
+        "pointerdown",
+        (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+          const idx = canvasPointToSlotIndex(e.clientX, e.clientY);
+          if (idx >= 0) {
+            activeSlot = idx;
+            renderBuilderUI();
+            drawStrip({ forExport: false });
+          }
+        },
+        { passive: true }
+      );
+
+      /* =========================
          Photobooth toggle default
       ========================= */
       setPhotoboothMode(false);
       applyCameraFilterPreview();
+
+      /* =========================
+         Open builder cue button state
+      ========================= */
+      cueBtn.addEventListener("click", () => {
+        if (cueBtn.disabled) return;
+      });
+
+      /* =========================
+         START: enable buttons after intro close? (kept as original)
+      ========================= */
+      // Note: start button is user-triggered.
+
     </script>
   </body>
 </html>
