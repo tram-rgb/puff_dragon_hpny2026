@@ -1971,74 +1971,90 @@
       }
 
       function captureToBlob(cb) {
-        if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
-          alert("Start AR first.");
-          return;
-        }
 
-        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-        const W = Math.round(window.innerWidth * dpr);
-        const H = Math.round(window.innerHeight * dpr);
+  if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
+    alert("Start AR first.");
+    return;
+  }
 
-        const out = document.createElement("canvas");
-        out.width = W;
-        out.height = H;
-        const ctx = out.getContext("2d", { willReadFrequently: true });
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  const W = Math.round(window.innerWidth * dpr);
+  const H = Math.round(window.innerHeight * dpr);
 
-        const mirrorCameraOnly = shouldMirrorPreview(); // ✅ mirror camera only
-        const camSrcW = cameraEl.videoWidth;
-        const camSrcH = cameraEl.videoHeight;
-        const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
+  const out = document.createElement("canvas");
+  out.width = W;
+  out.height = H;
+  const ctx = out.getContext("2d", { willReadFrequently: true });
 
-        const rectToCanvas = (rect) => {
-          const x = rect.left * dpr;
-          const y = rect.top * dpr;
-          const w = rect.width * dpr;
-          const h = rect.height * dpr;
-          return { x, y, w, h };
-        };
+  const mirrorCameraOnly = shouldMirrorPreview();
 
-        // camera base (mirrored when needed)
-        ctx.save();
-        if (mirrorCameraOnly) {
-          ctx.translate(W, 0);
-          ctx.scale(-1, 1);
-        }
-        ctx.drawImage(
-          cameraEl,
-          crop.sx,
-          crop.sy,
-          crop.sw,
-          crop.sh,
-          0,
-          0,
-          W,
-          H
-        );
-        ctx.restore();
+  const camSrcW = cameraEl.videoWidth;
+  const camSrcH = cameraEl.videoHeight;
+  const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
 
-        // filter
-        if (currentFilterId !== "none") {
-          const imgData = ctx.getImageData(0, 0, W, H);
-          applyRecipeToImageData(imgData, currentRecipe);
-          ctx.putImageData(imgData, 0, 0);
-        }
+  const rectToCanvas = (rect) => ({
+    x: rect.left * dpr,
+    y: rect.top * dpr,
+    w: rect.width * dpr,
+    h: rect.height * dpr,
+  });
 
-        // puff (NOT mirrored, matches preview)
-        const puffRect = rectToCanvas(puffEl.getBoundingClientRect());
-        ctx.save();
-        const px = puffRect.x + puffRect.w / 2;
-        const py = puffRect.y + puffRect.h / 2;
-        ctx.translate(px, py);
-        ctx.rotate((puffState.rotation * Math.PI) / 180);
-        ctx.drawImage(
-          puffEl,
-          -puffRect.w / 2,
-          -puffRect.h / 2,
-          puffRect.w,
-          puffRect.h
-        );
-        ctx.restore();
+  /* ---------- CAMERA ---------- */
+  ctx.save();
+  if (mirrorCameraOnly) {
+    ctx.translate(W, 0);
+    ctx.scale(-1, 1);
+  }
+
+  ctx.drawImage(
+    cameraEl,
+    crop.sx,
+    crop.sy,
+    crop.sw,
+    crop.sh,
+    0,
+    0,
+    W,
+    H
+  );
+
+  ctx.restore();
+
+  /* ---------- FILTER ---------- */
+  if (currentFilterId !== "none") {
+    const imgData = ctx.getImageData(0, 0, W, H);
+    applyRecipeToImageData(imgData, currentRecipe);
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  /* =========================================================
+     ✅ FIXED PUFF DRAW (NO STRETCH)
+  ========================================================= */
+
+  const rect = puffEl.getBoundingClientRect();
+  const center = rectToCanvas(rect);
+
+  const puffW = puffEl.offsetWidth * dpr * puffState.scale;
+  const puffH = puffEl.offsetHeight * dpr * puffState.scale;
+
+  ctx.save();
+
+  ctx.translate(
+    center.x + center.w / 2,
+    center.y + center.h / 2
+  );
+
+  ctx.rotate((puffState.rotation * Math.PI) / 180);
+
+  ctx.drawImage(
+    puffEl,
+    -puffW / 2,
+    -puffH / 2,
+    puffW,
+    puffH
+  );
+
+  ctx.restore();
 
         // stickers (NOT mirrored, matches preview)
         for (const [el, st] of stickerStates.entries()) {
