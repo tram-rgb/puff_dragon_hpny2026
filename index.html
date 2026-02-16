@@ -9,6 +9,12 @@
     <title>Puff Dragon AR Viewer</title>
 
     <style>
+      @font-face {
+        font-family: "BeautifulFreak";
+        src: url("BeautifulFreak.otf") format("opentype");
+        font-display: swap;
+      }
+
       html,
       body {
         margin: 0;
@@ -30,29 +36,23 @@
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background: #fff; /* white background (top/bottom bars) */
+        background: #fff;
         display: flex;
         align-items: center;
         justify-content: center;
         overflow: hidden;
       }
 
-      /*
-        IMPORTANT:
-        - Full width always
-        - Height auto
-        - Any leftover space becomes white (top/bottom)
-      */
+      /* Full width; top/bottom white bars if needed */
       #introVideo {
         width: 100vw;
         height: auto;
         max-height: 100vh;
-        object-fit: contain; /* show the whole frame */
+        object-fit: contain;
         background: #fff;
         display: block;
       }
 
-      /* TOP PUFF CLOSE BUTTON (always visible) */
       #introClosePuff {
         position: absolute;
         top: calc(14px + env(safe-area-inset-top));
@@ -70,7 +70,6 @@
         transform: translateX(-50%) scale(0.96);
       }
 
-      /* Bigger Explore */
       #exploreBtn {
         position: absolute;
         left: 50%;
@@ -106,9 +105,25 @@
         transform-origin: center;
       }
 
-      /* Mirror ONLY the live preview if needed */
       #camera.mirror {
         transform: scaleX(-1);
+      }
+
+      /* Filtered preview canvas (matches final output better) */
+      #cameraFx {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 1;
+        display: none;
+        object-fit: cover;
+        background: #000;
+      }
+
+      #cameraFx.mirror {
+        transform: scaleX(-1);
+        transform-origin: center;
       }
 
       #puff {
@@ -127,7 +142,6 @@
         user-select: none;
       }
 
-      /* Stickers layer above puff */
       #stickerLayer {
         position: fixed;
         inset: 0;
@@ -156,6 +170,41 @@
         border-radius: 14px;
       }
 
+      /* Text layer */
+      #textLayer {
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+        pointer-events: none;
+      }
+
+      .textItem {
+        position: fixed;
+        left: 50%;
+        top: 30%;
+        pointer-events: auto;
+        touch-action: none;
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+        transform-origin: center;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        padding: 6px 10px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.18);
+        backdrop-filter: blur(6px);
+        color: #fff;
+        font-family: "BeautifulFreak", system-ui;
+        font-size: 44px;
+        line-height: 1;
+        white-space: pre;
+        will-change: transform;
+      }
+
+      .textItem.selected {
+        outline: 2px solid rgba(255, 255, 255, 0.65);
+        outline-offset: 6px;
+      }
+
       /* =========================
          UI: smaller buttons
       ========================= */
@@ -164,11 +213,11 @@
         left: 0;
         right: 0;
         bottom: 0;
-        padding: 12px;
+        padding: 10px;
         display: flex;
         flex-direction: column;
         gap: 7px;
-        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
         background: linear-gradient(
           to top,
           rgba(0, 0, 0, 0.65),
@@ -188,13 +237,14 @@
       button {
         border: 0;
         border-radius: 9px;
-        padding: 6px 10px;
-        font-size: 12px;
-        font-weight: 800;
+        padding: 6px 9px;
+        font-size: 11px;
+        font-weight: 900;
         letter-spacing: 0.2px;
         color: #fff;
         background: #e11d2e;
-        min-width: 76px;
+        min-width: 74px;
+        line-height: 1;
       }
 
       #start {
@@ -213,12 +263,17 @@
         background: #fff100;
         color: #060d3d;
         font-weight: 900;
-        min-width: 92px;
+        min-width: 86px;
+      }
+
+      #boothBtn {
+        min-width: 86px;
       }
 
       /* Panels */
       #stickerPanel,
-      #filterPanel {
+      #filterPanel,
+      #boothPanel {
         position: fixed;
         left: 0;
         right: 0;
@@ -232,7 +287,7 @@
         border-top-left-radius: 18px;
         border-top-right-radius: 18px;
 
-        max-height: min(78vh, 560px);
+        max-height: min(80vh, 600px);
         display: flex;
         flex-direction: column;
 
@@ -240,12 +295,14 @@
       }
 
       #stickerPanel.open,
-      #filterPanel.open {
+      #filterPanel.open,
+      #boothPanel.open {
         transform: translateY(0);
       }
 
       #stickerPanelHeader,
-      #filterPanelHeader {
+      #filterPanelHeader,
+      #boothPanelHeader {
         position: sticky;
         top: 0;
         z-index: 2;
@@ -300,7 +357,7 @@
         padding: 10px 10px;
         background: rgba(255, 255, 255, 0.12);
         color: rgba(255, 255, 255, 0.95);
-        font: 800 12px system-ui;
+        font: 900 12px system-ui;
         text-align: left;
       }
 
@@ -326,6 +383,72 @@
         padding-top: 10px;
       }
 
+      /* Booth panel UI */
+      .boothRow {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .pill {
+        border: 0;
+        border-radius: 999px;
+        padding: 9px 12px;
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.95);
+        font: 900 12px system-ui;
+        cursor: pointer;
+      }
+
+      .pill.active {
+        outline: 2px solid rgba(255, 255, 255, 0.75);
+        outline-offset: 2px;
+      }
+
+      .fieldLabel {
+        color: rgba(255, 255, 255, 0.85);
+        font: 800 11px system-ui;
+        margin: 10px 0 6px;
+        text-align: center;
+      }
+
+      select,
+      input[type="range"],
+      input[type="text"] {
+        width: 100%;
+        border: 0;
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.95);
+        font: 800 12px system-ui;
+        outline: none;
+      }
+
+      input[type="range"] {
+        padding: 10px 8px;
+      }
+
+      /* On-screen capture hint for photobooth */
+      #poseHint {
+        position: fixed;
+        left: 50%;
+        top: calc(12px + env(safe-area-inset-top));
+        transform: translateX(-50%);
+        z-index: 50;
+        padding: 10px 12px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.5);
+        color: rgba(255, 255, 255, 0.92);
+        font: 900 12px system-ui;
+        display: none;
+        user-select: none;
+        pointer-events: none;
+      }
+
       /* Desktop hint */
       #desktopHint {
         position: fixed;
@@ -336,7 +459,7 @@
         border-radius: 10px;
         background: rgba(0, 0, 0, 0.45);
         color: rgba(255, 255, 255, 0.85);
-        font: 700 11px system-ui;
+        font: 800 11px system-ui;
         display: none;
         user-select: none;
       }
@@ -351,7 +474,7 @@
 
   <body>
     <!-- =========================
-         INTRO (shows every visit)
+         INTRO
     ========================= -->
     <div id="introOverlay">
       <video
@@ -362,12 +485,14 @@
         muted
         preload="auto"
       >
-        <!-- Stronger codec hints help browser selection -->
-        <source id="introMp4" src="" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+        <source
+          id="introMp4"
+          src=""
+          type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
+        />
         <source id="introWebm" src="" type='video/webm; codecs="vp09.00.10.08"' />
       </video>
 
-      <!-- Always-visible top puff close button -->
       <img
         id="introClosePuff"
         src="puff-close.png"
@@ -375,19 +500,21 @@
         role="button"
       />
 
-      <!-- Explore shows only after full intro watched once -->
       <button id="exploreBtn" class="hidden" type="button">Explore</button>
     </div>
 
     <!-- =========================
-         MAIN APP (hidden until closed)
+         MAIN APP
     ========================= -->
     <div id="app" class="hidden">
       <div id="desktopHint">
         Desktop: drag=move • wheel=zoom • Alt/Shift/right-drag=rotate • click=select
       </div>
 
+      <div id="poseHint"></div>
+
       <video id="camera" autoplay playsinline muted></video>
+      <canvas id="cameraFx"></canvas>
 
       <video
         id="puff"
@@ -401,6 +528,7 @@
       ></video>
 
       <div id="stickerLayer"></div>
+      <div id="textLayer"></div>
 
       <div id="ui">
         <div class="ui-row">
@@ -412,6 +540,7 @@
         <div class="ui-row">
           <button id="stickers" class="secondary" disabled>Sticker</button>
           <button id="filterBtn" class="secondary" disabled>Filter</button>
+          <button id="boothBtn" class="secondary" disabled>Photobooth: Off</button>
           <button id="capture" disabled>Puff It!</button>
         </div>
       </div>
@@ -419,7 +548,7 @@
       <!-- Sticker panel -->
       <div id="stickerPanel" aria-hidden="true">
         <div id="stickerPanelHeader">
-          <div style="color:#fff;font:800 14px system-ui">Choose a sticker</div>
+          <div style="color:#fff;font:900 14px system-ui">Choose a sticker</div>
           <button id="stickerClose" class="secondary">Close</button>
         </div>
 
@@ -427,20 +556,11 @@
           <div id="stickerGrid"></div>
 
           <div class="panelFooter">
-            <div
-              style="
-                display: flex;
-                gap: 8px;
-                justify-content: center;
-                flex-wrap: wrap;
-              "
-            >
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
               <button id="stickerRemove" class="secondary" disabled>
                 Remove selected
               </button>
-              <button id="stickerClear" class="secondary" disabled>
-                Clear all
-              </button>
+              <button id="stickerClear" class="secondary" disabled>Clear all</button>
             </div>
           </div>
         </div>
@@ -449,12 +569,75 @@
       <!-- Filter panel -->
       <div id="filterPanel" aria-hidden="true">
         <div id="filterPanelHeader">
-          <div style="color:#fff;font:800 14px system-ui">Choose a filter</div>
+          <div style="color:#fff;font:900 14px system-ui">Choose a filter</div>
           <button id="filterClose" class="secondary">Close</button>
         </div>
 
         <div class="panelBody">
           <div id="filterList"></div>
+        </div>
+      </div>
+
+      <!-- Booth panel -->
+      <div id="boothPanel" aria-hidden="true">
+        <div id="boothPanelHeader">
+          <div style="color:#fff;font:900 14px system-ui">Photobooth</div>
+          <button id="boothClose" class="secondary">Close</button>
+        </div>
+
+        <div class="panelBody">
+          <div class="fieldLabel">Layout</div>
+          <div class="boothRow" id="layoutRow"></div>
+
+          <div class="fieldLabel">Frame color</div>
+          <div class="boothRow" id="colorRow"></div>
+
+          <div class="fieldLabel">Texts (Beautiful Freak)</div>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button id="addText" class="secondary" type="button">Add Text</button>
+            <button id="removeText" class="secondary" type="button" disabled>
+              Remove selected
+            </button>
+            <button id="clearText" class="secondary" type="button" disabled>
+              Clear all
+            </button>
+          </div>
+
+          <div style="margin-top:10px;">
+            <div class="fieldLabel">Selected text content</div>
+            <input id="textContent" type="text" placeholder="Type your text…" />
+          </div>
+
+          <div style="margin-top:10px;">
+            <div class="fieldLabel">Text color</div>
+            <select id="textColor"></select>
+          </div>
+
+          <div style="margin-top:10px;">
+            <div class="fieldLabel">Text size</div>
+            <input id="textSize" type="range" min="18" max="120" value="44" />
+          </div>
+
+          <div style="margin-top:14px;">
+            <div class="fieldLabel">
+              Stickers (only pick stickers when taking photos)
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+              <button id="openStickerFromBooth" class="secondary" type="button">
+                Choose stickers
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;">
+            <div class="fieldLabel">How it works</div>
+            <div
+              style="color:rgba(255,255,255,0.85);font:700 12px system-ui;line-height:1.4;text-align:center;"
+            >
+              Photobooth OFF: Puff It! takes 1 photo.<br />
+              Photobooth ON: Puff It! takes multiple poses and builds a strip.
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -463,20 +646,74 @@
       /* =========================
          CACHE BUSTING
       ========================= */
-      const ASSET_VERSION = "26";
+      const ASSET_VERSION = "27";
+
+      /* =========================
+         COLORS / LOGOS
+      ========================= */
+      const BOOTH_COLORS = [
+        { id: "imperialRed", name: "Imperial Red", hex: "#fa213f" },
+        { id: "darkBlue", name: "Dark Blue", hex: "#060d3d" },
+        { id: "brightGrey", name: "Bright Grey", hex: "#e8eef1" },
+        { id: "white", name: "White", hex: "#ffffff" },
+      ];
+
+      const TEXT_COLORS = [
+        { name: "Imperial Red", hex: "#fa213f" },
+        { name: "Dark Blue", hex: "#060d3d" },
+        { name: "Bright Grey", hex: "#e8eef1" },
+        { name: "Pure White", hex: "#ffffff" },
+        { name: "Fluorescent Yellow", hex: "#fff100" },
+        { name: "Safety Orange", hex: "#ff7800" },
+        { name: "Azure Blue", hex: "#01b7ff" },
+        { name: "Vivid Red", hex: "#ff1212" },
+      ];
+
+      function logoForBg(bgHex) {
+        const c = bgHex.toLowerCase();
+        if (c === "#fa213f") return "puff-logo-2.png";
+        if (c === "#060d3d") return "puff-logo-3.png";
+        return "puff-logo-1.png";
+      }
+
+      /* =========================
+         FONT LOADING (Canvas)
+      ========================= */
+      let BEAUTIFUL_FREAK_READY = false;
+      (async () => {
+        try {
+          const ff = new FontFace("BeautifulFreak", "url(BeautifulFreak.otf)");
+          await ff.load();
+          document.fonts.add(ff);
+          await document.fonts.ready;
+          BEAUTIFUL_FREAK_READY = true;
+        } catch (_) {
+          BEAUTIFUL_FREAK_READY = false;
+        }
+      })();
 
       /* =========================
          MAIN APP ELEMENTS
       ========================= */
       const cameraEl = document.getElementById("camera");
+      const cameraFx = document.getElementById("cameraFx");
       const puffEl = document.getElementById("puff");
       const stickerLayer = document.getElementById("stickerLayer");
+      const textLayer = document.getElementById("textLayer");
 
       const startBtn = document.getElementById("start");
       const flipBtn = document.getElementById("flip");
       const mirrorBtn = document.getElementById("mirror");
       const stickersBtn = document.getElementById("stickers");
       const captureBtn = document.getElementById("capture");
+
+      const boothBtn = document.getElementById("boothBtn");
+      const boothPanel = document.getElementById("boothPanel");
+      const boothClose = document.getElementById("boothClose");
+      const layoutRow = document.getElementById("layoutRow");
+      const colorRow = document.getElementById("colorRow");
+
+      const poseHint = document.getElementById("poseHint");
 
       const filterBtn = document.getElementById("filterBtn");
       const filterPanel = document.getElementById("filterPanel");
@@ -488,9 +725,18 @@
       const stickerClose = document.getElementById("stickerClose");
       const stickerRemove = document.getElementById("stickerRemove");
       const stickerClear = document.getElementById("stickerClear");
+      const openStickerFromBooth = document.getElementById("openStickerFromBooth");
+
+      /* Text UI */
+      const addTextBtn = document.getElementById("addText");
+      const removeTextBtn = document.getElementById("removeText");
+      const clearTextBtn = document.getElementById("clearText");
+      const textContentInput = document.getElementById("textContent");
+      const textColorSelect = document.getElementById("textColor");
+      const textSizeRange = document.getElementById("textSize");
 
       /* =========================
-         INTRO LOGIC (ALWAYS SHOW INTRO EACH VISIT)
+         INTRO LOGIC
       ========================= */
       const introOverlay = document.getElementById("introOverlay");
       const introVideo = document.getElementById("introVideo");
@@ -498,24 +744,18 @@
       const closePuff = document.getElementById("introClosePuff");
       const app = document.getElementById("app");
 
-      // Multi-source intro video (MP4 required, WEBM optional)
       const introMp4 = document.getElementById("introMp4");
       const introWebm = document.getElementById("introWebm");
 
       introMp4.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
       introWebm.src = `intro.webm?v=${encodeURIComponent(ASSET_VERSION)}`;
-
       introVideo.load();
 
       let introLoopStarted = false;
-
-      // After first full play, show Explore and loop forever
       introVideo.addEventListener("ended", async () => {
         if (!introLoopStarted) {
           introLoopStarted = true;
-
           exploreBtn.classList.remove("hidden");
-
           introVideo.loop = true;
           try {
             introVideo.currentTime = 0;
@@ -524,7 +764,6 @@
         }
       });
 
-      // If autoplay is blocked, try on first interaction
       const tryPlayIntro = async () => {
         try {
           await introVideo.play();
@@ -540,13 +779,11 @@
           await puffEl.play();
         } catch (_) {}
       }
-
-      // Puff close works anytime; Explore works after the 1st play finished
       closePuff.addEventListener("click", closeIntro);
       exploreBtn.addEventListener("click", closeIntro);
 
       /* =========================================================
-         FOODIE-LIKE FILTER RECIPES
+         FILTERS (same as your final processing)
       ========================================================= */
       const clamp01 = (v) => Math.max(0, Math.min(1, v));
       const clamp255 = (v) => Math.max(0, Math.min(255, v));
@@ -572,17 +809,14 @@
 
       function adjustShadowsHighlightsLin(y, shadows, highlights) {
         let out = y;
-
         if (shadows !== 0) {
           const t = clamp01((0.45 - y) / 0.45);
           out += shadows * t * 0.35;
         }
-
         if (highlights !== 0) {
           const t = clamp01((y - 0.55) / 0.45);
           out += highlights * t * 0.35;
         }
-
         return clamp01(out);
       }
 
@@ -765,21 +999,127 @@
       let currentFilterId = "none";
       let currentRecipe = FILTERS[0].recipe;
 
-      function recipeToPreviewCss(r) {
-        const bright = 1 + r.exposure * 0.55 + r.brightness * 0.35;
-        const cont = 1 + r.contrast * 0.6 + r.brilliance * 0.25;
-        const sat = 1 + r.saturation * 0.75;
-        const hue = r.warmth * -18;
-        const sep = clamp01(r.warmth * 0.35 + 0.05);
-        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(
-          3
-        )}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(
-          3
-        )}) hue-rotate(${hue.toFixed(1)}deg)`;
+      function applyRecipeToImageData(imageData, r) {
+        const d = imageData.data;
+        const sat = 1 + r.saturation * 0.9;
+        const exposureGain = Math.pow(2, r.exposure);
+        const brightnessGain = 1 + r.brightness * 0.35;
+        const contrastGain = 1 + r.contrast * 0.6;
+
+        for (let i = 0; i < d.length; i += 4) {
+          let rLin = srgbToLin(d[i]);
+          let gLin = srgbToLin(d[i + 1]);
+          let bLin = srgbToLin(d[i + 2]);
+
+          [rLin, gLin, bLin] = applyWarmthLin(rLin, gLin, bLin, r.warmth);
+
+          rLin *= exposureGain * brightnessGain;
+          gLin *= exposureGain * brightnessGain;
+          bLin *= exposureGain * brightnessGain;
+
+          let y = lumaLin(rLin, gLin, bLin);
+          y = applyBrillianceLin(y, r.brilliance);
+          y = adjustShadowsHighlightsLin(y, r.shadows, r.highlights);
+
+          const y0 = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
+          const sc = y / y0;
+          rLin *= sc;
+          gLin *= sc;
+          bLin *= sc;
+
+          [rLin, gLin, bLin] = applySaturationLin(rLin, gLin, bLin, sat);
+
+          const pivot = 0.18;
+          rLin = (rLin - pivot) * contrastGain + pivot;
+          gLin = (gLin - pivot) * contrastGain + pivot;
+          bLin = (bLin - pivot) * contrastGain + pivot;
+
+          const yFade = applyFadeLin(lumaLin(rLin, gLin, bLin), r.fade);
+          const yNow = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
+          const s2 = yFade / yNow;
+          rLin *= s2;
+          gLin *= s2;
+          bLin *= s2;
+
+          d[i] = linToSrgb(rLin);
+          d[i + 1] = linToSrgb(gLin);
+          d[i + 2] = linToSrgb(bLin);
+        }
+
+        if (r.noiseReduce > 0.01) noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
+        if (r.sharpness > 0.01) unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
+
+        return imageData;
+      }
+
+      /* =========================
+         Filter preview (canvas) - closer to final
+      ========================= */
+      let fxRunning = false;
+      let fxRaf = null;
+      let fxLast = 0;
+
+      function stopFx() {
+        fxRunning = false;
+        if (fxRaf) cancelAnimationFrame(fxRaf);
+        fxRaf = null;
+        cameraFx.style.display = "none";
+        cameraEl.style.visibility = "visible";
+      }
+
+      function startFx() {
+        if (fxRunning) return;
+        fxRunning = true;
+
+        cameraFx.style.display = "block";
+        cameraEl.style.visibility = "hidden";
+
+        const ctx = cameraFx.getContext("2d", { willReadFrequently: true });
+
+        const tick = (t) => {
+          if (!fxRunning) return;
+
+          // throttle a bit for performance
+          if (t - fxLast < 66) {
+            fxRaf = requestAnimationFrame(tick);
+            return;
+          }
+          fxLast = t;
+
+          if (!cameraEl.videoWidth || !cameraEl.videoHeight) {
+            fxRaf = requestAnimationFrame(tick);
+            return;
+          }
+
+          // render at reduced resolution for speed (still looks close)
+          const maxW = 900;
+          const vw = cameraEl.videoWidth;
+          const vh = cameraEl.videoHeight;
+          const s = Math.min(1, maxW / vw);
+          const rw = Math.max(2, Math.floor(vw * s));
+          const rh = Math.max(2, Math.floor(vh * s));
+
+          if (cameraFx.width !== rw || cameraFx.height !== rh) {
+            cameraFx.width = rw;
+            cameraFx.height = rh;
+          }
+
+          ctx.drawImage(cameraEl, 0, 0, rw, rh);
+          if (currentFilterId !== "none") {
+            const img = ctx.getImageData(0, 0, rw, rh);
+            applyRecipeToImageData(img, currentRecipe);
+            ctx.putImageData(img, 0, 0);
+          }
+
+          fxRaf = requestAnimationFrame(tick);
+        };
+
+        fxRaf = requestAnimationFrame(tick);
       }
 
       function applyCameraFilterPreview() {
-        cameraEl.style.filter = recipeToPreviewCss(currentRecipe);
+        if (currentFilterId === "none") stopFx();
+        else startFx();
       }
 
       function openFilterPanel() {
@@ -802,11 +1142,9 @@
           const recLine =
             f.id === "none"
               ? "no recipe"
-              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(
-                  r.highlights * 100
-                )} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(
-                  r.saturation * 100
-                )}`;
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(r.highlights * 100)} • sh ${Math.round(
+                  r.shadows * 100
+                )} • sat ${Math.round(r.saturation * 100)}`;
 
           b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
 
@@ -817,6 +1155,7 @@
             renderFilters();
             closeFilterPanel();
           });
+
           filterListEl.appendChild(b);
         });
       }
@@ -871,24 +1210,17 @@
       ========================= */
       let currentFacingMode = "environment";
       let stream = null;
-
       let mirrorMode = "auto";
 
       function shouldMirrorPreview() {
-        return (
-          mirrorMode === "on" ||
-          (mirrorMode === "auto" && currentFacingMode === "user")
-        );
+        return mirrorMode === "on" || (mirrorMode === "auto" && currentFacingMode === "user");
       }
 
       function applyMirrorToPreview() {
         cameraEl.classList.toggle("mirror", shouldMirrorPreview());
+        cameraFx.classList.toggle("mirror", shouldMirrorPreview());
         mirrorBtn.textContent =
-          mirrorMode === "auto"
-            ? "Mirror: Auto"
-            : mirrorMode === "on"
-            ? "Mirror: On"
-            : "Mirror: Off";
+          mirrorMode === "auto" ? "Mirror: Auto" : mirrorMode === "on" ? "Mirror: On" : "Mirror: Off";
       }
 
       function waitLoadedMetadata(videoEl, timeoutMs = 6000) {
@@ -912,9 +1244,10 @@
 
       async function startCamera() {
         captureBtn.disabled = true;
-        stickersBtn.disabled = true;
+        boothBtn.disabled = true;
         mirrorBtn.disabled = true;
         filterBtn.disabled = true;
+        stickersBtn.disabled = true;
 
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -940,7 +1273,7 @@
 
         flipBtn.disabled = false;
         captureBtn.disabled = false;
-        stickersBtn.disabled = false;
+        boothBtn.disabled = false;
         mirrorBtn.disabled = false;
         filterBtn.disabled = false;
 
@@ -961,8 +1294,7 @@
       });
 
       flipBtn.addEventListener("click", async () => {
-        currentFacingMode =
-          currentFacingMode === "environment" ? "user" : "environment";
+        currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
         try {
@@ -978,7 +1310,8 @@
       });
 
       /* =========================
-         TRANSFORM HELPERS
+         TRANSFORM HELPERS (NO INERTIA)
+         Fixes “tap rotate a bit but spins a full turn”
       ========================= */
       function clamp(v, min, max) {
         return Math.max(min, Math.min(max, v));
@@ -1001,36 +1334,11 @@
         let gestureStart = null;
         let dragStart = null;
 
-        let inertiaRAF = null;
-        let angularVelocity = 0;
-        let lastAngle = null;
-        let lastTime = null;
-
-        function stopInertia() {
-          if (inertiaRAF) cancelAnimationFrame(inertiaRAF);
-          inertiaRAF = null;
-        }
-        function startInertia() {
-          stopInertia();
-          let prev = performance.now();
-          function tick(now) {
-            const dt = (now - prev) / 1000;
-            prev = now;
-            state.rotation += angularVelocity * dt;
-            onUpdate();
-            angularVelocity *= 0.92;
-            if (Math.abs(angularVelocity) < 5) return;
-            inertiaRAF = requestAnimationFrame(tick);
-          }
-          inertiaRAF = requestAnimationFrame(tick);
-        }
-
         el.addEventListener("contextmenu", (e) => e.preventDefault());
 
         el.addEventListener("pointerdown", (e) => {
           e.preventDefault();
           el.setPointerCapture?.(e.pointerId);
-          stopInertia();
           pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
           const isRightButtonRotate =
@@ -1048,8 +1356,6 @@
               baseRotation: state.rotation,
             };
             gestureStart = null;
-            lastAngle = null;
-            lastTime = null;
           } else if (pointers.size === 2) {
             const pts = Array.from(pointers.values());
             const a = pts[0], b = pts[1];
@@ -1060,8 +1366,6 @@
               scale: state.scale,
               rotation: state.rotation,
             };
-            lastAngle = ang;
-            lastTime = performance.now();
             dragStart = null;
           }
         });
@@ -1075,7 +1379,7 @@
             const dy = ((e.clientY - dragStart.y) / dragStart.h) * 100;
 
             if (dragStart.rotating) {
-              state.rotation = dragStart.baseRotation + dx * 3.0;
+              state.rotation = dragStart.baseRotation + dx * 2.2;
             } else {
               state.x = clamp(dragStart.baseX + dx, 0, 100);
               state.y = clamp(dragStart.baseY + dy, 0, 100);
@@ -1086,7 +1390,6 @@
           if (pointers.size === 2 && gestureStart) {
             const pts = Array.from(pointers.values());
             const a = pts[0], b = pts[1];
-
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
 
@@ -1095,15 +1398,8 @@
               0.2,
               6
             );
-            state.rotation =
-              gestureStart.rotation + (newAngle - gestureStart.angle);
 
-            const now = performance.now();
-            const dt = (now - lastTime) / 1000;
-            if (dt > 0) angularVelocity = (newAngle - lastAngle) / dt;
-            lastAngle = newAngle;
-            lastTime = now;
-
+            state.rotation = gestureStart.rotation + (newAngle - gestureStart.angle);
             onUpdate();
           }
         });
@@ -1112,7 +1408,6 @@
           pointers.clear();
           dragStart = null;
           gestureStart = null;
-          if (Math.abs(angularVelocity) > 30) startInertia();
         });
 
         el.addEventListener("pointercancel", () => {
@@ -1144,7 +1439,7 @@
       makeTransformable(puffEl, puffState, updatePuff);
 
       /* =========================
-         MULTI-STICKERS
+         STICKERS (only enable when booth panel open, or during capture)
       ========================= */
       let stickersLoaded = false;
       const stickerStates = new Map();
@@ -1180,7 +1475,6 @@
 
         el.addEventListener("pointerdown", () => setSelectedSticker(el), true);
         el.addEventListener("click", () => setSelectedSticker(el));
-
         makeTransformable(el, state, update);
 
         setSelectedSticker(el);
@@ -1200,6 +1494,10 @@
 
       stickersBtn.addEventListener("click", () => {
         if (stickersBtn.disabled) return;
+        openStickerPanel();
+      });
+
+      openStickerFromBooth.addEventListener("click", () => {
         openStickerPanel();
       });
 
@@ -1257,39 +1555,211 @@
         } catch (e) {
           console.error(e);
           stickerGrid.innerHTML =
-            `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
+            `<div style="color:#fff;font:800 12px system-ui;opacity:.9">
               Could not load stickers.json. Check ./stickers.json is deployed.
             </div>`;
         }
       }
 
+      /* =========================
+         TEXTS (multi, draggable, scale/rotate, color/size)
+      ========================= */
+      TEXT_COLORS.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.hex;
+        opt.textContent = `${c.name} (${c.hex})`;
+        textColorSelect.appendChild(opt);
+      });
+      textColorSelect.value = "#ffffff";
+
+      const textStates = new Map(); // el -> {x,y,scale,rotation, color, size, text}
+      let selectedTextEl = null;
+
+      function setSelectedText(el) {
+        if (selectedTextEl && selectedTextEl !== el) selectedTextEl.classList.remove("selected");
+        selectedTextEl = el;
+        if (selectedTextEl) selectedTextEl.classList.add("selected");
+
+        removeTextBtn.disabled = !selectedTextEl;
+        clearTextBtn.disabled = textStates.size === 0;
+
+        if (selectedTextEl) {
+          const st = textStates.get(selectedTextEl);
+          textContentInput.value = st.text;
+          textColorSelect.value = st.color;
+          textSizeRange.value = String(st.size);
+        } else {
+          textContentInput.value = "";
+        }
+      }
+
+      function updateTextEl(el) {
+        const st = textStates.get(el);
+        el.textContent = st.text || " ";
+        el.style.color = st.color;
+        el.style.fontSize = `${st.size}px`;
+        applyTransform(el, st);
+      }
+
+      function createTextItem() {
+        const el = document.createElement("div");
+        el.className = "textItem";
+        el.textContent = "Hello";
+        textLayer.appendChild(el);
+
+        const st = { x: 50, y: 28, scale: 1, rotation: 0, color: "#ffffff", size: 44, text: "Hello" };
+        textStates.set(el, st);
+        updateTextEl(el);
+
+        el.addEventListener("pointerdown", () => setSelectedText(el), true);
+        el.addEventListener("click", () => setSelectedText(el));
+        makeTransformable(el, st, () => updateTextEl(el));
+
+        setSelectedText(el);
+        clearTextBtn.disabled = textStates.size === 0;
+      }
+
+      addTextBtn.addEventListener("click", createTextItem);
+
+      removeTextBtn.addEventListener("click", () => {
+        if (!selectedTextEl) return;
+        textStates.delete(selectedTextEl);
+        selectedTextEl.remove();
+        selectedTextEl = null;
+        setSelectedText(null);
+        clearTextBtn.disabled = textStates.size === 0;
+      });
+
+      clearTextBtn.addEventListener("click", () => {
+        for (const el of textStates.keys()) el.remove();
+        textStates.clear();
+        setSelectedText(null);
+        clearTextBtn.disabled = true;
+      });
+
+      textContentInput.addEventListener("input", () => {
+        if (!selectedTextEl) return;
+        const st = textStates.get(selectedTextEl);
+        st.text = textContentInput.value;
+        updateTextEl(selectedTextEl);
+      });
+
+      textColorSelect.addEventListener("change", () => {
+        if (!selectedTextEl) return;
+        const st = textStates.get(selectedTextEl);
+        st.color = textColorSelect.value;
+        updateTextEl(selectedTextEl);
+      });
+
+      textSizeRange.addEventListener("input", () => {
+        if (!selectedTextEl) return;
+        const st = textStates.get(selectedTextEl);
+        st.size = parseInt(textSizeRange.value, 10);
+        updateTextEl(selectedTextEl);
+      });
+
+      /* click outside deselect */
       document.addEventListener("pointerdown", (e) => {
-        const isSticker =
-          e.target &&
-          e.target.classList &&
-          e.target.classList.contains("sticker");
-        const clickedPanel = stickerPanel.contains(e.target);
-        const clickedFilter = filterPanel.contains(e.target);
+        const isSticker = e.target?.classList?.contains("sticker");
+        const isText = e.target?.classList?.contains("textItem");
+        const clickedPanel = stickerPanel.contains(e.target) || filterPanel.contains(e.target) || boothPanel.contains(e.target);
         const clickedUI = document.getElementById("ui").contains(e.target);
         const clickedPuff = e.target === puffEl;
 
-        if (!isSticker && !clickedPanel && !clickedFilter && !clickedUI && !clickedPuff) {
+        if (!isSticker && !isText && !clickedPanel && !clickedUI && !clickedPuff) {
           if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
           selectedStickerEl = null;
           stickerRemove.disabled = true;
           stickerClear.disabled = stickerStates.size === 0;
+
+          if (selectedTextEl) selectedTextEl.classList.remove("selected");
+          selectedTextEl = null;
+          removeTextBtn.disabled = true;
+          clearTextBtn.disabled = textStates.size === 0;
         }
       });
 
       /* =========================
-         CAPTURE HELPERS + FILTER APPLY
+         PHOTOBOOTH STATE + PANEL
       ========================= */
-      function nextCaptureFilename() {
-        const key = "puff_capture_counter";
+      let photoboothOn = false;
+
+      const LAYOUTS = [
+        { id: "h3", name: "Layout 1 (3 Horizontal)", shots: 3 },
+        { id: "v3", name: "Layout 2 (3 Vertical)", shots: 3 },
+        { id: "g4", name: "Layout 3 (2x2)", shots: 4 },
+      ];
+      let boothLayoutId = "v3";
+      let boothColorHex = "#fa213f";
+
+      function openBoothPanel() {
+        boothPanel.classList.add("open");
+        boothPanel.setAttribute("aria-hidden", "false");
+        // stickers only selectable when taking photos → allow it from booth panel
+        stickersBtn.disabled = false;
+      }
+      function closeBoothPanel() {
+        boothPanel.classList.remove("open");
+        boothPanel.setAttribute("aria-hidden", "true");
+        // keep sticker button locked unless booth panel open (or during capture)
+        stickersBtn.disabled = true;
+      }
+
+      boothClose.addEventListener("click", closeBoothPanel);
+
+      function renderLayoutRow() {
+        layoutRow.innerHTML = "";
+        LAYOUTS.forEach((l) => {
+          const b = document.createElement("button");
+          b.className = "pill" + (l.id === boothLayoutId ? " active" : "");
+          b.textContent = l.name;
+          b.type = "button";
+          b.addEventListener("click", () => {
+            boothLayoutId = l.id;
+            renderLayoutRow();
+          });
+          layoutRow.appendChild(b);
+        });
+      }
+
+      function renderColorRow() {
+        colorRow.innerHTML = "";
+        BOOTH_COLORS.forEach((c) => {
+          const b = document.createElement("button");
+          b.className = "pill" + (c.hex.toLowerCase() === boothColorHex.toLowerCase() ? " active" : "");
+          b.type = "button";
+          b.innerHTML = `<span style="display:inline-flex;align-items:center;gap:8px;">
+            <span style="width:14px;height:14px;border-radius:4px;background:${c.hex};border:1px solid rgba(255,255,255,0.35)"></span>
+            ${c.name}
+          </span>`;
+          b.addEventListener("click", () => {
+            boothColorHex = c.hex;
+            renderColorRow();
+          });
+          colorRow.appendChild(b);
+        });
+      }
+
+      renderLayoutRow();
+      renderColorRow();
+
+      boothBtn.addEventListener("click", () => {
+        if (boothBtn.disabled) return;
+        photoboothOn = !photoboothOn;
+        boothBtn.textContent = photoboothOn ? "Photobooth: On" : "Photobooth: Off";
+        if (photoboothOn) openBoothPanel();
+        else closeBoothPanel();
+      });
+
+      /* =========================
+         CAPTURE HELPERS
+      ========================= */
+      function nextCaptureFilename(isStrip) {
+        const key = isStrip ? "puff_strip_counter" : "puff_capture_counter";
         const current = parseInt(localStorage.getItem(key) || "0", 10) + 1;
         localStorage.setItem(key, String(current));
         const num = String(current).padStart(3, "0");
-        return `Puff Dragon_HPNY2026_${num}.png`;
+        return isStrip ? `Puff Dragon_HPNY2026_STRIP_${num}.png` : `Puff Dragon_HPNY2026_${num}.png`;
       }
 
       function getCoverTransform(srcW, srcH, dstW, dstH) {
@@ -1301,197 +1771,386 @@
         return { scale, drawW, drawH, offsetX, offsetY };
       }
 
-      function applyRecipeToImageData(imageData, r) {
-        const d = imageData.data;
-
-        const sat = 1 + r.saturation * 0.9;
-        const exposureGain = Math.pow(2, r.exposure);
-        const brightnessGain = 1 + r.brightness * 0.35;
-        const contrastGain = 1 + r.contrast * 0.6;
-
-        for (let i = 0; i < d.length; i += 4) {
-          let rLin = srgbToLin(d[i]);
-          let gLin = srgbToLin(d[i + 1]);
-          let bLin = srgbToLin(d[i + 2]);
-
-          [rLin, gLin, bLin] = applyWarmthLin(rLin, gLin, bLin, r.warmth);
-
-          rLin *= exposureGain * brightnessGain;
-          gLin *= exposureGain * brightnessGain;
-          bLin *= exposureGain * brightnessGain;
-
-          let y = lumaLin(rLin, gLin, bLin);
-          y = applyBrillianceLin(y, r.brilliance);
-          y = adjustShadowsHighlightsLin(y, r.shadows, r.highlights);
-
-          const y0 = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
-          const sc = y / y0;
-          rLin *= sc;
-          gLin *= sc;
-          bLin *= sc;
-
-          [rLin, gLin, bLin] = applySaturationLin(rLin, gLin, bLin, sat);
-
-          const pivot = 0.18;
-          rLin = (rLin - pivot) * contrastGain + pivot;
-          gLin = (gLin - pivot) * contrastGain + pivot;
-          bLin = (bLin - pivot) * contrastGain + pivot;
-
-          const yFade = applyFadeLin(lumaLin(rLin, gLin, bLin), r.fade);
-          const yNow = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
-          const s2 = yFade / yNow;
-          rLin *= s2;
-          gLin *= s2;
-          bLin *= s2;
-
-          d[i] = linToSrgb(rLin);
-          d[i + 1] = linToSrgb(gLin);
-          d[i + 2] = linToSrgb(bLin);
-        }
-
-        if (r.noiseReduce > 0.01) {
-          noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
-        }
-        if (r.sharpness > 0.01) {
-          unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
-        }
-
-        return imageData;
+      function delay(ms) {
+        return new Promise((r) => setTimeout(r, ms));
       }
 
-      captureBtn.addEventListener("click", () => {
+      function showPoseHint(text) {
+        poseHint.textContent = text;
+        poseHint.style.display = "block";
+      }
+      function hidePoseHint() {
+        poseHint.style.display = "none";
+      }
+
+      function mirrorX(xCam, outW, mirrorOutput) {
+        return mirrorOutput ? outW - xCam : xCam;
+      }
+
+      function computeOverlayCenter(domRect, camRect, cover) {
+        const centerX_screen = domRect.left + domRect.width / 2 - camRect.left;
+        const centerY_screen = domRect.top + domRect.height / 2 - camRect.top;
+        const centerX_cam = (centerX_screen - cover.offsetX) / cover.scale;
+        const centerY_cam = (centerY_screen - cover.offsetY) / cover.scale;
+        return { centerX_cam, centerY_cam };
+      }
+
+      function drawTextOverlayOnFrame(ctx, outW, outH, frameX, frameY, frameW, frameH, mirrorOutput) {
+        if (textStates.size === 0) return;
+
+        const camRect = cameraEl.getBoundingClientRect();
+        const cover = getCoverTransform(outW, outH, camRect.width, camRect.height);
+
+        const frameCover = getCoverTransform(outW, outH, frameW, frameH);
+
+        for (const [el, st] of textStates.entries()) {
+          const r = el.getBoundingClientRect();
+          const { centerX_cam, centerY_cam } = computeOverlayCenter(r, camRect, cover);
+
+          // map camera coords -> frame coords (with cover scaling)
+          const xOnFrame = frameX + frameCover.offsetX + mirrorX(centerX_cam, outW, mirrorOutput) * frameCover.scale;
+          const yOnFrame = frameY + frameCover.offsetY + centerY_cam * frameCover.scale;
+
+          const fontPx = Math.max(6, st.size * st.scale);
+          const rot = mirrorOutput ? -st.rotation : st.rotation;
+
+          ctx.save();
+          ctx.translate(xOnFrame, yOnFrame);
+          ctx.rotate((rot * Math.PI) / 180);
+
+          ctx.font = `${Math.round(fontPx)}px BeautifulFreak, system-ui`;
+          ctx.fillStyle = st.color;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+
+          // subtle readability
+          ctx.shadowColor = "rgba(0,0,0,0.35)";
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 2;
+
+          const lines = String(st.text || "").split("\n");
+          const lineH = fontPx * 0.95;
+          const totalH = lineH * lines.length;
+
+          lines.forEach((line, i) => {
+            const yy = (i - (lines.length - 1) / 2) * lineH;
+            ctx.fillText(line, 0, yy);
+          });
+
+          ctx.restore();
+        }
+      }
+
+      async function loadImage(src) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+      }
+
+      async function drawLogoTopBar(ctx, x, y, w, h, bgHex) {
+        const logoFile = logoForBg(bgHex);
+        const logo = await loadImage(`${logoFile}?v=${encodeURIComponent(ASSET_VERSION)}`).catch(() => null);
+        if (!logo) return;
+
+        const maxH = h * 0.7;
+        const scale = Math.min(w * 0.8 / logo.naturalWidth, maxH / logo.naturalHeight);
+        const dw = logo.naturalWidth * scale;
+        const dh = logo.naturalHeight * scale;
+        const dx = x + (w - dw) / 2;
+        const dy = y + (h - dh) / 2;
+        ctx.drawImage(logo, dx, dy, dw, dh);
+      }
+
+      function drawStickersOnFrame(ctx, outW, outH, frameX, frameY, frameW, frameH, mirrorOutput) {
+        if (stickerStates.size === 0) return;
+
+        const camRect = cameraEl.getBoundingClientRect();
+        const cover = getCoverTransform(outW, outH, camRect.width, camRect.height);
+
+        const frameCover = getCoverTransform(outW, outH, frameW, frameH);
+
+        for (const [el, st] of stickerStates.entries()) {
+          if (!el.complete || !el.naturalWidth) continue;
+
+          const r = el.getBoundingClientRect();
+          const { centerX_cam, centerY_cam } = computeOverlayCenter(r, camRect, cover);
+
+          const xOnFrame = frameX + frameCover.offsetX + mirrorX(centerX_cam, outW, mirrorOutput) * frameCover.scale;
+          const yOnFrame = frameY + frameCover.offsetY + centerY_cam * frameCover.scale;
+
+          const wCam = r.width / cover.scale;
+          const hCam = r.height / cover.scale;
+
+          const wOnFrame = wCam * frameCover.scale;
+          const hOnFrame = hCam * frameCover.scale;
+
+          const rot = mirrorOutput ? -st.rotation : st.rotation;
+
+          ctx.save();
+          ctx.translate(xOnFrame, yOnFrame);
+          ctx.rotate((rot * Math.PI) / 180);
+          ctx.drawImage(el, -wOnFrame / 2, -hOnFrame / 2, wOnFrame, hOnFrame);
+          ctx.restore();
+        }
+      }
+
+      function drawPuffOnFrame(ctx, outW, outH, frameX, frameY, frameW, frameH, mirrorOutput) {
+        const camRect = cameraEl.getBoundingClientRect();
+        const cover = getCoverTransform(outW, outH, camRect.width, camRect.height);
+        const frameCover = getCoverTransform(outW, outH, frameW, frameH);
+
+        const puffRect = puffEl.getBoundingClientRect();
+        const center = computeOverlayCenter(puffRect, camRect, cover);
+
+        const xOnFrame = frameX + frameCover.offsetX + mirrorX(center.centerX_cam, outW, mirrorOutput) * frameCover.scale;
+        const yOnFrame = frameY + frameCover.offsetY + center.centerY_cam * frameCover.scale;
+
+        const wCam = puffRect.width / cover.scale;
+        const hCam = puffRect.height / cover.scale;
+        const wOnFrame = wCam * frameCover.scale;
+        const hOnFrame = hCam * frameCover.scale;
+
+        const rot = mirrorOutput ? -puffState.rotation : puffState.rotation;
+
+        ctx.save();
+        ctx.translate(xOnFrame, yOnFrame);
+        ctx.rotate((rot * Math.PI) / 180);
+
+        // draw puff video current frame
+        ctx.drawImage(puffEl, -wOnFrame / 2, -hOnFrame / 2, wOnFrame, hOnFrame);
+
+        ctx.restore();
+      }
+
+      function drawCameraToFrame(ctx, cameraFrameCanvas, frameX, frameY, frameW, frameH) {
+        // cameraFrameCanvas is a full-resolution camera capture (outW x outH)
+        const outW = cameraFrameCanvas.width;
+        const outH = cameraFrameCanvas.height;
+        const cover = getCoverTransform(outW, outH, frameW, frameH);
+
+        ctx.drawImage(
+          cameraFrameCanvas,
+          0,
+          0,
+          outW,
+          outH,
+          frameX + cover.offsetX,
+          frameY + cover.offsetY,
+          cover.drawW,
+          cover.drawH
+        );
+      }
+
+      async function openResultWindow(blob, filename) {
         const win = window.open("about:blank", "_blank");
         if (!win) {
           alert("Popup blocked. Please allow popups for this site.");
           return;
         }
+        const url = URL.createObjectURL(blob);
+        win.document.write(`
+          <title>${filename}</title>
+          <div style="margin:0;background:#000;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;">
+            <img src="${url}" style="max-width:100%;height:auto;display:block;" />
+            <a
+              href="${url}"
+              download="${filename}"
+              style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
+            >
+              Download (${filename})
+            </a>
+          </div>
+        `);
+        win.document.close();
+        setTimeout(() => URL.revokeObjectURL(url), 15000);
+      }
 
+      function captureCameraFrame(outW, outH, mirrorOutput) {
+        const c = document.createElement("canvas");
+        c.width = outW;
+        c.height = outH;
+        const ctx = c.getContext("2d", { willReadFrequently: true });
+
+        ctx.save();
+        if (mirrorOutput) {
+          ctx.translate(outW, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(cameraEl, 0, 0, outW, outH);
+        ctx.restore();
+
+        // apply final filter to the frame (so booth strip uses the same look)
+        if (currentFilterId !== "none") {
+          const img = ctx.getImageData(0, 0, outW, outH);
+          applyRecipeToImageData(img, currentRecipe);
+          ctx.putImageData(img, 0, 0);
+        }
+
+        return c;
+      }
+
+      /* =========================
+         CAPTURE: single or photobooth
+      ========================= */
+      captureBtn.addEventListener("click", async () => {
         try {
           if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
-            win.close();
             alert("Start AR first.");
             return;
           }
 
-          const out = document.createElement("canvas");
-          out.width = cameraEl.videoWidth;
-          out.height = cameraEl.videoHeight;
-          const ctx = out.getContext("2d", { willReadFrequently: true });
+          // allow sticker picking during capture window
+          stickersBtn.disabled = false;
 
-          const camRect = cameraEl.getBoundingClientRect();
-          const cover = getCoverTransform(out.width, out.height, camRect.width, camRect.height);
+          // ensure font is ready if possible
+          try { await document.fonts.ready; } catch (_) {}
 
+          const outW = cameraEl.videoWidth;
+          const outH = cameraEl.videoHeight;
           const mirrorOutput = shouldMirrorPreview();
 
-          ctx.save();
-          if (mirrorOutput) {
-            ctx.translate(out.width, 0);
-            ctx.scale(-1, 1);
-          }
-          ctx.drawImage(cameraEl, 0, 0, out.width, out.height);
-          ctx.restore();
+          if (!photoboothOn) {
+            // ---------- SINGLE ----------
+            const frame = captureCameraFrame(outW, outH, mirrorOutput);
 
-          if (currentFilterId !== "none") {
-            const imgData = ctx.getImageData(0, 0, out.width, out.height);
-            applyRecipeToImageData(imgData, currentRecipe);
-            ctx.putImageData(imgData, 0, 0);
-          }
+            const out = document.createElement("canvas");
+            out.width = outW;
+            out.height = outH;
+            const ctx = out.getContext("2d", { willReadFrequently: true });
 
-          function computeDrawRect(domRect, aspectW, aspectH) {
-            const centerX_screen = domRect.left + domRect.width / 2 - camRect.left;
-            const centerY_screen = domRect.top + domRect.height / 2 - camRect.top;
+            ctx.drawImage(frame, 0, 0);
 
-            const centerX_cam = (centerX_screen - cover.offsetX) / cover.scale;
-            const centerY_cam = (centerY_screen - cover.offsetY) / cover.scale;
+            // overlays
+            drawPuffOnFrame(ctx, outW, outH, 0, 0, outW, outH, mirrorOutput);
+            drawStickersOnFrame(ctx, outW, outH, 0, 0, outW, outH, mirrorOutput);
+            drawTextOverlayOnFrame(ctx, outW, outH, 0, 0, outW, outH, mirrorOutput);
 
-            const w_cam = domRect.width / cover.scale;
-            const h_cam = domRect.height / cover.scale;
+            const filename = nextCaptureFilename(false);
+            out.toBlob(async (blob) => {
+              if (!blob) return alert("Capture failed.");
+              await openResultWindow(blob, filename);
+            }, "image/png");
 
-            const ar = aspectW && aspectH ? aspectW / aspectH : domRect.width / domRect.height;
-
-            let drawW = w_cam;
-            let drawH = drawW / ar;
-            if (drawH > h_cam) {
-              drawH = h_cam;
-              drawW = drawH * ar;
-            }
-            return { centerX_cam, centerY_cam, drawW, drawH };
+            // lock stickers again unless booth panel is open
+            stickersBtn.disabled = !boothPanel.classList.contains("open");
+            return;
           }
 
-          function mirrorX(xCam) {
-            return mirrorOutput ? out.width - xCam : xCam;
+          // ---------- PHOTOBOOTH ----------
+          const layout = LAYOUTS.find((l) => l.id === boothLayoutId) || LAYOUTS[1];
+          const shots = layout.shots;
+
+          // capture N frames with a short delay between
+          const frames = [];
+          for (let i = 0; i < shots; i++) {
+            showPoseHint(`Pose ${i + 1} / ${shots}`);
+            await delay(i === 0 ? 150 : 750);
+            frames.push(captureCameraFrame(outW, outH, mirrorOutput));
+          }
+          hidePoseHint();
+
+          // Build strip canvas sizes
+          const topBar = Math.round(outH * 0.22);
+          const bottomBar = Math.round(outH * 0.22);
+
+          let stripW = outW;
+          let stripH = outH + topBar + bottomBar;
+
+          if (layout.id === "h3") {
+            stripW = outW * 3;
+            stripH = outH + topBar + bottomBar;
+          } else if (layout.id === "v3") {
+            stripW = outW;
+            stripH = outH * 3 + topBar + bottomBar;
+          } else if (layout.id === "g4") {
+            stripW = outW * 2;
+            stripH = outH * 2 + topBar + bottomBar;
           }
 
-          const puffRect = puffEl.getBoundingClientRect();
-          const puffDraw = computeDrawRect(puffRect, puffEl.videoWidth, puffEl.videoHeight);
+          const strip = document.createElement("canvas");
+          strip.width = stripW;
+          strip.height = stripH;
+          const sctx = strip.getContext("2d", { willReadFrequently: true });
 
-          ctx.save();
-          ctx.translate(mirrorX(puffDraw.centerX_cam), puffDraw.centerY_cam);
-          const puffRotation = mirrorOutput ? -puffState.rotation : puffState.rotation;
-          ctx.rotate((puffRotation * Math.PI) / 180);
-          ctx.drawImage(
-            puffEl,
-            -puffDraw.drawW / 2,
-            -puffDraw.drawH / 2,
-            puffDraw.drawW,
-            puffDraw.drawH
-          );
-          ctx.restore();
+          // background (top/bottom filled)
+          sctx.fillStyle = boothColorHex;
+          sctx.fillRect(0, 0, stripW, topBar);
+          sctx.fillRect(0, stripH - bottomBar, stripW, bottomBar);
 
-          for (const [el, st] of stickerStates.entries()) {
-            if (!el.complete || !el.naturalWidth) continue;
-            const r = el.getBoundingClientRect();
-            const d = computeDrawRect(r, el.naturalWidth, el.naturalHeight);
+          // optional: a clean area behind photos
+          sctx.fillStyle = "#000";
+          sctx.fillRect(0, topBar, stripW, stripH - topBar - bottomBar);
 
-            ctx.save();
-            ctx.translate(mirrorX(d.centerX_cam), d.centerY_cam);
-            const stickerRotation = mirrorOutput ? -st.rotation : st.rotation;
-            ctx.rotate((stickerRotation * Math.PI) / 180);
-            ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
-            ctx.restore();
+          // logo on top bar
+          await drawLogoTopBar(sctx, 0, 0, stripW, topBar, boothColorHex);
+
+          // frame layout positions
+          const framesAreaY = topBar;
+          const framesAreaH = stripH - topBar - bottomBar;
+
+          const slots = [];
+          if (layout.id === "h3") {
+            for (let i = 0; i < 3; i++) slots.push({ x: i * outW, y: framesAreaY, w: outW, h: outH });
+          } else if (layout.id === "v3") {
+            for (let i = 0; i < 3; i++) slots.push({ x: 0, y: framesAreaY + i * outH, w: outW, h: outH });
+          } else if (layout.id === "g4") {
+            slots.push({ x: 0, y: framesAreaY, w: outW, h: outH });
+            slots.push({ x: outW, y: framesAreaY, w: outW, h: outH });
+            slots.push({ x: 0, y: framesAreaY + outH, w: outW, h: outH });
+            slots.push({ x: outW, y: framesAreaY + outH, w: outW, h: outH });
           }
 
-          out.toBlob((blob) => {
-            if (!blob) {
-              win.document.write("<h3>Capture failed</h3>");
-              win.document.close();
-              return;
-            }
+          // draw each frame + overlays replicated per shot (same placement)
+          for (let i = 0; i < slots.length; i++) {
+            const slot = slots[i];
+            const frame = frames[i] || frames[frames.length - 1];
 
-            const filename = nextCaptureFilename();
-            const url = URL.createObjectURL(blob);
+            // photo
+            drawCameraToFrame(sctx, frame, slot.x, slot.y, slot.w, slot.h);
 
-            win.document.write(`
-              <title>${filename}</title>
-              <div style="margin:0;background:#000;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;">
-                <img src="${url}" style="max-width:100%;height:auto;display:block;" />
-                <a
-                  href="${url}"
-                  download="${filename}"
-                  style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
-                >
-                  Download (${filename})
-                </a>
-              </div>
-            `);
+            // overlays on that slot
+            drawPuffOnFrame(sctx, outW, outH, slot.x, slot.y, slot.w, slot.h, mirrorOutput);
+            drawStickersOnFrame(sctx, outW, outH, slot.x, slot.y, slot.w, slot.h, mirrorOutput);
+            drawTextOverlayOnFrame(sctx, outW, outH, slot.x, slot.y, slot.w, slot.h, mirrorOutput);
 
-            win.document.close();
-            setTimeout(() => URL.revokeObjectURL(url), 15000);
+            // subtle separator border
+            sctx.save();
+            sctx.strokeStyle = "rgba(255,255,255,0.10)";
+            sctx.lineWidth = 6;
+            sctx.strokeRect(slot.x + 3, slot.y + 3, slot.w - 6, slot.h - 6);
+            sctx.restore();
+          }
+
+          const filename = nextCaptureFilename(true);
+          strip.toBlob(async (blob) => {
+            if (!blob) return alert("Strip capture failed.");
+            await openResultWindow(blob, filename);
           }, "image/png");
+
+          // lock stickers again unless booth panel open
+          stickersBtn.disabled = !boothPanel.classList.contains("open");
         } catch (err) {
           console.error(err);
-          win.document.write(
-            `<h3>Capture Error</h3><pre style="white-space:pre-wrap">${String(err)}</pre>`
-          );
-          win.document.close();
+          hidePoseHint();
           alert("Capture failed. Try again.");
         }
       });
 
       /* =========================
-         IMPORTANT: apply initial preview filter
+         FILTER PREVIEW: initial
       ========================= */
       applyCameraFilterPreview();
+
+      /* =========================
+         Booth panel opens only when photobooth ON
+      ========================= */
+      // (already handled by booth button)
+
     </script>
   </body>
 </html>
