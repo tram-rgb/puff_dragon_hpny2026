@@ -45,15 +45,34 @@
         background: #fff;
       }
 
+      /* TOP PUFF CLOSE BUTTON (always visible) */
+      #introClosePuff {
+        position: absolute;
+        top: calc(14px + env(safe-area-inset-top));
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(22vw, 96px);
+        height: auto;
+        z-index: 3;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      #introClosePuff:active {
+        transform: translateX(-50%) scale(0.96);
+      }
+
+      /* Bigger Explore */
       #exploreBtn {
         position: absolute;
         left: 50%;
-        top: 50%;
+        top: 55%;
         transform: translate(-50%, -50%);
         border: 0;
-        border-radius: 12px;
-        padding: 14px 22px;
-        font-size: 16px;
+        border-radius: 16px;
+        padding: 18px 34px;
+        font-size: clamp(20px, 4.2vw, 30px);
         font-weight: 900;
         letter-spacing: 0.2px;
         color: #fff;
@@ -325,7 +344,7 @@
 
   <body>
     <!-- =========================
-         INTRO (shows first)
+         INTRO (shows every visit)
     ========================= -->
     <div id="introOverlay">
       <video
@@ -335,12 +354,25 @@
         webkit-playsinline
         muted
         preload="auto"
-      ></video>
+      >
+        <source id="introMp4" src="" type="video/mp4" />
+        <source id="introWebm" src="" type="video/webm" />
+      </video>
+
+      <!-- Always-visible top puff close button -->
+      <img
+        id="introClosePuff"
+        src="puff-close.png"
+        alt="Close intro"
+        role="button"
+      />
+
+      <!-- Explore shows only after full intro watched once -->
       <button id="exploreBtn" class="hidden" type="button">Explore</button>
     </div>
 
     <!-- =========================
-         MAIN APP (hidden until Explore)
+         MAIN APP (hidden until closed)
     ========================= -->
     <div id="app" class="hidden">
       <div id="desktopHint">
@@ -426,62 +458,7 @@
       const ASSET_VERSION = "26";
 
       /* =========================
-         INTRO LOGIC + SKIP ON REFRESH
-      ========================= */
-      const introOverlay = document.getElementById("introOverlay");
-      const introVideo = document.getElementById("introVideo");
-      const exploreBtn = document.getElementById("exploreBtn");
-      const app = document.getElementById("app");
-
-      const INTRO_KEY = "puff_intro_seen";
-
-      // Load intro video (same folder as index.html)
-      introVideo.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
-
-      // First play once, then show Explore and loop forever
-      let introLoopStarted = false;
-
-      introVideo.addEventListener("ended", async () => {
-        if (!introLoopStarted) {
-          introLoopStarted = true;
-          exploreBtn.classList.remove("hidden");
-
-          introVideo.loop = true;
-          try {
-            introVideo.currentTime = 0;
-            await introVideo.play();
-          } catch (_) {}
-        }
-      });
-
-      // If autoplay is blocked (rare when muted), try on first interaction
-      const tryPlayIntro = async () => {
-        try {
-          await introVideo.play();
-        } catch (_) {}
-        window.removeEventListener("pointerdown", tryPlayIntro, true);
-      };
-      window.addEventListener("pointerdown", tryPlayIntro, true);
-
-      // ✅ Skip intro if user already clicked Explore before
-      if (localStorage.getItem(INTRO_KEY) === "yes") {
-        introOverlay.classList.add("hidden");
-        app.classList.remove("hidden");
-      }
-
-      exploreBtn.addEventListener("click", async () => {
-        localStorage.setItem(INTRO_KEY, "yes");
-
-        introOverlay.classList.add("hidden");
-        app.classList.remove("hidden");
-
-        try {
-          await puffEl.play();
-        } catch (_) {}
-      });
-
-      /* =========================
-         MAIN APP CODE (your original)
+         MAIN APP ELEMENTS
       ========================= */
       const cameraEl = document.getElementById("camera");
       const puffEl = document.getElementById("puff");
@@ -504,10 +481,67 @@
       const stickerRemove = document.getElementById("stickerRemove");
       const stickerClear = document.getElementById("stickerClear");
 
+      /* =========================
+         INTRO LOGIC (ALWAYS SHOW INTRO EACH VISIT)
+      ========================= */
+      const introOverlay = document.getElementById("introOverlay");
+      const introVideo = document.getElementById("introVideo");
+      const exploreBtn = document.getElementById("exploreBtn");
+      const closePuff = document.getElementById("introClosePuff");
+      const app = document.getElementById("app");
+
+      // Multi-source intro video (MP4 required, WEBM optional)
+      const introMp4 = document.getElementById("introMp4");
+      const introWebm = document.getElementById("introWebm");
+
+      introMp4.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
+
+      // If you did NOT create intro.webm, comment the next line and also remove the <source id="introWebm"...> tag.
+      introWebm.src = `intro.webm?v=${encodeURIComponent(ASSET_VERSION)}`;
+
+      introVideo.load();
+
+      let introLoopStarted = false;
+
+      // After first full play, show Explore and loop forever
+      introVideo.addEventListener("ended", async () => {
+        if (!introLoopStarted) {
+          introLoopStarted = true;
+
+          exploreBtn.classList.remove("hidden");
+
+          introVideo.loop = true;
+          try {
+            introVideo.currentTime = 0;
+            await introVideo.play();
+          } catch (_) {}
+        }
+      });
+
+      // If autoplay is blocked, try on first interaction
+      const tryPlayIntro = async () => {
+        try {
+          await introVideo.play();
+        } catch (_) {}
+        window.removeEventListener("pointerdown", tryPlayIntro, true);
+      };
+      window.addEventListener("pointerdown", tryPlayIntro, true);
+
+      async function closeIntro() {
+        introOverlay.classList.add("hidden");
+        app.classList.remove("hidden");
+        try {
+          await puffEl.play();
+        } catch (_) {}
+      }
+
+      // Puff close works anytime; Explore works after the 1st play finished
+      closePuff.addEventListener("click", closeIntro);
+      exploreBtn.addEventListener("click", closeIntro);
+
       /* =========================================================
          FOODIE-LIKE FILTER RECIPES
       ========================================================= */
-
       const clamp01 = (v) => Math.max(0, Math.min(1, v));
       const clamp255 = (v) => Math.max(0, Math.min(255, v));
 
@@ -1186,7 +1220,7 @@
 
       async function loadStickers() {
         try {
-          const res = await fetch(`/stickers.json?v=${encodeURIComponent(ASSET_VERSION)}`);
+          const res = await fetch(`./stickers.json?v=${encodeURIComponent(ASSET_VERSION)}`);
           const list = await res.json();
           stickersLoaded = true;
 
@@ -1218,7 +1252,7 @@
           console.error(e);
           stickerGrid.innerHTML =
             `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
-              Could not load stickers.json. Check /stickers.json at repo root.
+              Could not load stickers.json. Check ./stickers.json is deployed.
             </div>`;
         }
       }
