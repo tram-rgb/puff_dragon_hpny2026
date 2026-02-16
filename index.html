@@ -950,55 +950,93 @@
       const stickerRemove = document.getElementById("stickerRemove");
       const stickerClear = document.getElementById("stickerClear");
 
-      /* =========================
-         INTRO
-      ========================= */
-      const introOverlay = document.getElementById("introOverlay");
-      const introVideo = document.getElementById("introVideo");
-      const exploreBtn = document.getElementById("exploreBtn");
-      const closePuff = document.getElementById("introClosePuff");
-      const app = document.getElementById("app");
+    /* =========================
+   INTRO (FAIL SAFE)
+========================= */
 
-      function setIntroSources() {
-        const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
-        introVideo.innerHTML = `
-          <source src="intro.mp4?${v}" type="video/mp4">
-          <source src="intro.webm?${v}" type="video/webm">
-        `;
-        introVideo.load();
-      }
-      setIntroSources();
+const introOverlay = document.getElementById("introOverlay");
+const introVideo = document.getElementById("introVideo");
+const exploreBtn = document.getElementById("exploreBtn");
+const closePuff = document.getElementById("introClosePuff");
+const app = document.getElementById("app");
 
-      let introLoopStarted = false;
-      introVideo.addEventListener("ended", async () => {
-        if (!introLoopStarted) {
-          introLoopStarted = true;
-          exploreBtn.classList.remove("hidden");
-          introVideo.loop = true;
-          try {
-            introVideo.currentTime = 0;
-            await introVideo.play();
-          } catch (_) {}
-        }
-      });
+let introReady = false;
+let introClosed = false;
+let introFailTimer = null;
 
-      const tryPlayIntro = async () => {
-        try {
-          await introVideo.play();
-        } catch (_) {}
-        window.removeEventListener("pointerdown", tryPlayIntro, true);
-      };
-      window.addEventListener("pointerdown", tryPlayIntro, true);
+function setIntroSources() {
+  const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
 
-      async function closeIntro() {
-        introOverlay.classList.add("hidden");
-        app.classList.remove("hidden");
-        try {
-          await puffEl.play();
-        } catch (_) {}
-      }
-      closePuff.addEventListener("click", closeIntro);
-      exploreBtn.addEventListener("click", closeIntro);
+  introVideo.innerHTML = `
+    <source src="intro.mp4?${v}" type="video/mp4">
+    <source src="intro.webm?${v}" type="video/webm">
+  `;
+
+  introVideo.load();
+
+  // FAILSAFE: unlock after 3 seconds
+  introFailTimer = setTimeout(() => {
+    if (!introReady && !introClosed) {
+      console.warn("Intro timeout fallback");
+      exploreBtn.classList.remove("hidden");
+    }
+  }, 3000);
+}
+
+setIntroSources();
+
+introVideo.addEventListener("loadeddata", () => {
+  introReady = true;
+
+  // stop fallback timer because video is confirmed ready
+  if (introFailTimer) {
+    clearTimeout(introFailTimer);
+    introFailTimer = null;
+  }
+});
+
+introVideo.addEventListener("ended", async () => {
+  if (introClosed) return;
+
+  exploreBtn.classList.remove("hidden");
+
+  try {
+    introVideo.loop = true;
+    introVideo.currentTime = 0;
+    await introVideo.play();
+  } catch (_) {}
+});
+
+introVideo.addEventListener("error", () => {
+  console.warn("Intro video failed");
+  exploreBtn.classList.remove("hidden");
+});
+
+const tryPlayIntro = async () => {
+  try {
+    await introVideo.play();
+  } catch (_) {}
+  window.removeEventListener("pointerdown", tryPlayIntro, true);
+};
+
+window.addEventListener("pointerdown", tryPlayIntro, true);
+
+async function closeIntro() {
+  if (introClosed) return;
+  introClosed = true;
+
+  clearTimeout(introFailTimer);
+
+  introOverlay.classList.add("hidden");
+  app.classList.remove("hidden");
+
+  try {
+    await puffEl.play();
+  } catch (_) {}
+}
+
+closePuff.addEventListener("click", closeIntro);
+exploreBtn.addEventListener("click", closeIntro); 
 
       /* =========================
          FILTERS
