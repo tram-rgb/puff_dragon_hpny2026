@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -405,7 +406,6 @@
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
-        align-content: start;
       }
 
       .capThumb {
@@ -414,20 +414,13 @@
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: rgba(255, 255, 255, 0.06);
         aspect-ratio: 4 / 3;
-        cursor: pointer;
-        position: relative;
       }
-
       .capThumb img {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain; /* show full (no zoom/crop) */
         display: block;
-      }
-
-      .capThumb.selected {
-        outline: 2px solid rgba(255, 241, 0, 0.95);
-        outline-offset: 2px;
+        background: rgba(0, 0, 0, 0.55);
       }
 
       #capturedFooter {
@@ -446,13 +439,12 @@
         font-weight: 1000;
         min-width: unset;
       }
-
       #cueBtn:disabled {
         opacity: 0.5;
       }
 
       /* =========================
-         BUILDER OVERLAY
+         BUILDER OVERLAY (customize page)
       ========================= */
       #builderOverlay {
         position: fixed;
@@ -460,12 +452,11 @@
         z-index: 200;
         background: rgba(0, 0, 0, 0.72);
         backdrop-filter: blur(14px);
-        padding: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 14px;
       }
-
       #builderOverlay.hidden {
         display: none !important;
       }
@@ -474,26 +465,17 @@
         width: min(980px, 100%);
         height: min(720px, 100%);
         display: grid;
-        grid-template-columns: 1.25fr 0.75fr;
+        grid-template-columns: 1.2fr 0.8fr;
         gap: 12px;
-      }
-
-      /* Mobile: bigger preview, smaller controls + preview scroll */
-      @media (max-width: 860px) {
-        #builderShell {
-          grid-template-columns: 1fr;
-          grid-template-rows: 1.2fr 0.8fr; /* preview bigger */
-          height: 100%;
-        }
       }
 
       #builderStageWrap {
         border-radius: 16px;
-        overflow: auto; /* allow scroll to view full strip */
+        overflow: auto; /* allow scroll on mobile preview */
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: rgba(0, 0, 0, 0.25);
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
         padding: 12px;
         -webkit-overflow-scrolling: touch;
@@ -501,8 +483,9 @@
 
       #builderStage {
         position: relative;
+        width: 100%;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
       }
 
@@ -510,6 +493,7 @@
         max-width: 100%;
         height: auto;
         image-rendering: auto;
+        border-radius: 0;
         background: transparent;
         touch-action: none;
       }
@@ -584,7 +568,6 @@
         cursor: pointer;
         user-select: none;
       }
-
       .pill.active {
         outline: 2px solid rgba(255, 255, 255, 0.7);
         outline-offset: 1px;
@@ -596,6 +579,27 @@
         line-height: 1.25;
       }
 
+      #photoPickGrid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .pickThumb {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 12px;
+        overflow: hidden;
+        aspect-ratio: 4/3;
+        background: rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+      }
+      .pickThumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
       #exportStripBtn {
         width: 100%;
         border-radius: 12px;
@@ -605,9 +609,19 @@
         padding: 10px 12px;
       }
 
-      /* Slot selection hint */
-      .slotHint {
-        margin-top: 8px;
+      @media (max-width: 860px) {
+        /* Mobile: preview bigger, controls smaller */
+        #builderShell {
+          grid-template-columns: 1fr;
+          grid-template-rows: 1.35fr 0.65fr; /* preview > controls */
+          height: 100%;
+        }
+        #builderStageWrap {
+          padding: 10px;
+        }
+        #builderBody {
+          max-height: 34vh; /* keep controls smaller */
+        }
       }
     </style>
   </head>
@@ -763,17 +777,25 @@
             <div class="ctrlGroup">
               <div class="ctrlTitle">Layout</div>
               <div class="pillRow" id="layoutRow"></div>
-              <div class="hint slotHint">
-                Step 1: tap a thumbnail in Captured (select)<br/>
-                Step 2: tap a panel area on the strip (assign)<br/>
-                Step 3: on mobile, pinch/drag on the panel to scale/position.
+              <div class="hint" style="margin-top:8px">
+                Now includes 4 extra layouts (2-pose + 4x6 variants).
               </div>
+            </div>
+
+            <div class="ctrlGroup">
+              <div class="ctrlTitle">Select photos</div>
+              <div class="pillRow" id="slotRow"></div>
+              <div class="hint" style="margin-top:8px">
+                Tap a slot, then tap a captured photo to assign it.
+              </div>
+              <div style="height:10px"></div>
+              <div id="photoPickGrid"></div>
             </div>
 
             <div class="ctrlGroup">
               <button id="exportStripBtn" type="button">Export strip PNG</button>
               <div class="hint" style="margin-top:8px">
-                Export adds random 3–5 stickers around the outer frame only (auto color-matched).
+                Uses selected captured photos (stickers only from capture step).
               </div>
             </div>
           </div>
@@ -786,7 +808,50 @@
          CACHE BUSTING
       ========================= */
       const ASSET_VERSION = "27";
-      const vq = (u) => `${u}${u.includes("?") ? "&" : "?"}v=${encodeURIComponent(ASSET_VERSION)}`;
+
+      /* =========================
+         HELPERS
+      ========================= */
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      const clamp01 = (v) => clamp(v, 0, 1);
+      const clamp255 = (v) => clamp(v, 0, 255);
+      const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      const angleDeg = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+
+      function applyTransform(el, state) {
+        el.style.left = state.x + "%";
+        el.style.top = state.y + "%";
+        el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
+      }
+
+      function getCoverSrcRect(srcW, srcH, dstW, dstH) {
+        const scale = Math.max(dstW / srcW, dstH / srcH);
+        const cropW = dstW / scale;
+        const cropH = dstH / scale;
+        const sx = (srcW - cropW) / 2;
+        const sy = (srcH - cropH) / 2;
+        return { sx, sy, sw: cropW, sh: cropH };
+      }
+
+      function isAppleSafari() {
+        const ua = navigator.userAgent;
+        const isIOS =
+          /iPad|iPhone|iPod/.test(ua) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        const isSafari =
+          /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox/.test(ua);
+        return isIOS || isSafari;
+      }
+
+      function loadImage(src) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+        });
+      }
 
       /* =========================
          MAIN APP ELEMENTS
@@ -824,20 +889,21 @@
       const introMp4 = document.getElementById("introMp4");
       const introWebm = document.getElementById("introWebm");
 
-      introMp4.src = vq("intro.mp4");
-      introWebm.src = vq("intro.webm");
+      introMp4.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
+      introWebm.src = `intro.webm?v=${encodeURIComponent(ASSET_VERSION)}`;
       introVideo.load();
 
       let introLoopStarted = false;
       introVideo.addEventListener("ended", async () => {
-        if (introLoopStarted) return;
-        introLoopStarted = true;
-        exploreBtn.classList.remove("hidden");
-        introVideo.loop = true;
-        try {
-          introVideo.currentTime = 0;
-          await introVideo.play();
-        } catch (_) {}
+        if (!introLoopStarted) {
+          introLoopStarted = true;
+          exploreBtn.classList.remove("hidden");
+          introVideo.loop = true;
+          try {
+            introVideo.currentTime = 0;
+            await introVideo.play();
+          } catch (_) {}
+        }
       });
 
       const tryPlayIntro = async () => {
@@ -855,11 +921,8 @@
       exploreBtn.addEventListener("click", closeIntro);
 
       /* =========================================================
-         FILTERS (unchanged)
+         FILTERS (unchanged logic)
       ========================================================= */
-      const clamp01 = (v) => Math.max(0, Math.min(1, v));
-      const clamp255 = (v) => Math.max(0, Math.min(255, v));
-
       function srgbToLin(c) {
         c /= 255;
         return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
@@ -908,6 +971,7 @@
         const { width: w, height: h, data } = imageData;
         const src = new Uint8ClampedArray(data);
         const idx = (x, y) => (y * w + x) * 4;
+
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
             let r = 0, g = 0, b = 0, n = 0;
@@ -918,11 +982,15 @@
                 const xx = x + dx;
                 if (xx < 0 || xx >= w) continue;
                 const p = idx(xx, yy);
-                r += src[p]; g += src[p + 1]; b += src[p + 2]; n++;
+                r += src[p];
+                g += src[p + 1];
+                b += src[p + 2];
+                n++;
               }
             }
             const p = idx(x, y);
             const br = r / n, bg = g / n, bb = b / n;
+
             data[p] = clamp255(src[p] + amount * (src[p] - br));
             data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
             data[p + 2] = clamp255(src[p + 2] + amount * (src[p + 2] - bb));
@@ -935,6 +1003,7 @@
         const { width: w, height: h, data } = imageData;
         const src = new Uint8ClampedArray(data);
         const idx = (x, y) => (y * w + x) * 4;
+
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
             let r = 0, g = 0, b = 0, n = 0;
@@ -945,11 +1014,15 @@
                 const xx = x + dx;
                 if (xx < 0 || xx >= w) continue;
                 const p = idx(xx, yy);
-                r += src[p]; g += src[p + 1]; b += src[p + 2]; n++;
+                r += src[p];
+                g += src[p + 1];
+                b += src[p + 2];
+                n++;
               }
             }
             const p = idx(x, y);
             const br = r / n, bg = g / n, bb = b / n;
+
             data[p] = clamp255(src[p] * (1 - strength) + br * strength);
             data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
             data[p + 2] = clamp255(src[p + 2] * (1 - strength) + bb * strength);
@@ -972,17 +1045,83 @@
           noiseReduce: (params.noiseReduce || 0) / 100,
         };
       }
+
       const FILTERS = [
         { id: "none", name: "None", recipe: recipe({}) },
-        { id: "35mm04", name: "35mm 04", recipe: recipe({ exposure: -5, brilliance: -10, highlights: -30, shadows: +18, brightness: -10, contrast: -8, saturation: -6, warmth: -6, fade: +12, sharpness: -5, noiseReduce: +8 }) },
-        { id: "vi4", name: "VI4", recipe: recipe({ exposure: +10, brilliance: +18, highlights: -35, shadows: +14, brightness: +6, contrast: -6, saturation: +10, warmth: +10, fade: +10, sharpness: +6, noiseReduce: +10 }) },
-        { id: "cm1", name: "CM1", recipe: recipe({ exposure: +8, brilliance: +22, highlights: -25, shadows: +12, brightness: +4, contrast: -4, saturation: +12, warmth: +6, fade: +6, sharpness: +10, noiseReduce: +8 }) },
-        { id: "sapa", name: "Sapa", recipe: recipe({ exposure: +12, brilliance: +10, highlights: -22, shadows: +18, brightness: +8, contrast: -10, saturation: +6, warmth: -10, fade: +16, sharpness: +6, noiseReduce: +10 }) },
-        { id: "salt", name: "Salt", recipe: recipe({ exposure: +18, brilliance: +18, highlights: -40, shadows: +10, brightness: +10, contrast: -8, saturation: +14, warmth: +14, fade: +8, sharpness: +8, noiseReduce: +8 }) },
-        { id: "in2", name: "IN2", recipe: recipe({ exposure: +10, brilliance: +8, highlights: -30, shadows: +16, brightness: +4, contrast: -12, saturation: -4, warmth: -8, fade: +18, sharpness: +6, noiseReduce: +12 }) },
-        { id: "fl2", name: "FL2", recipe: recipe({ exposure: +14, brilliance: +14, highlights: -28, shadows: +10, brightness: +8, contrast: -6, saturation: +10, warmth: +8, fade: +10, sharpness: +8, noiseReduce: +10 }) },
-        { id: "bwfilm", name: "B&W Film", recipe: recipe({ exposure: +6, brilliance: +10, highlights: -20, shadows: +10, brightness: +4, contrast: +10, saturation: -100, fade: +8, sharpness: +10, noiseReduce: +10 }) },
+        {
+          id: "35mm04",
+          name: "35mm 04",
+          recipe: recipe({
+            exposure: -5, brilliance: -10, highlights: -30, shadows: +18,
+            brightness: -10, contrast: -8, saturation: -6, warmth: -6,
+            fade: +12, sharpness: -5, noiseReduce: +8,
+          }),
+        },
+        {
+          id: "vi4",
+          name: "VI4",
+          recipe: recipe({
+            exposure: +10, brilliance: +18, highlights: -35, shadows: +14,
+            brightness: +6, contrast: -6, saturation: +10, warmth: +10,
+            fade: +10, sharpness: +6, noiseReduce: +10,
+          }),
+        },
+        {
+          id: "cm1",
+          name: "CM1",
+          recipe: recipe({
+            exposure: +8, brilliance: +22, highlights: -25, shadows: +12,
+            brightness: +4, contrast: -4, saturation: +12, warmth: +6,
+            fade: +6, sharpness: +10, noiseReduce: +8,
+          }),
+        },
+        {
+          id: "sapa",
+          name: "Sapa",
+          recipe: recipe({
+            exposure: +12, brilliance: +10, highlights: -22, shadows: +18,
+            brightness: +8, contrast: -10, saturation: +6, warmth: -10,
+            fade: +16, sharpness: +6, noiseReduce: +10,
+          }),
+        },
+        {
+          id: "salt",
+          name: "Salt",
+          recipe: recipe({
+            exposure: +18, brilliance: +18, highlights: -40, shadows: +10,
+            brightness: +10, contrast: -8, saturation: +14, warmth: +14,
+            fade: +8, sharpness: +8, noiseReduce: +8,
+          }),
+        },
+        {
+          id: "in2",
+          name: "IN2",
+          recipe: recipe({
+            exposure: +10, brilliance: +8, highlights: -30, shadows: +16,
+            brightness: +4, contrast: -12, saturation: -4, warmth: -8,
+            fade: +18, sharpness: +6, noiseReduce: +12,
+          }),
+        },
+        {
+          id: "fl2",
+          name: "FL2",
+          recipe: recipe({
+            exposure: +14, brilliance: +14, highlights: -28, shadows: +10,
+            brightness: +8, contrast: -6, saturation: +10, warmth: +8,
+            fade: +10, sharpness: +8, noiseReduce: +10,
+          }),
+        },
+        {
+          id: "bwfilm",
+          name: "B&W Film",
+          recipe: recipe({
+            exposure: +6, brilliance: +10, highlights: -20, shadows: +10,
+            brightness: +4, contrast: +10, saturation: -100, fade: +8,
+            sharpness: +10, noiseReduce: +10,
+          }),
+        },
       ];
+
       let currentFilterId = "none";
       let currentRecipe = FILTERS[0].recipe;
 
@@ -994,9 +1133,11 @@
         const sep = clamp01(r.warmth * 0.35 + 0.05);
         return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(3)}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(3)}) hue-rotate(${hue.toFixed(1)}deg)`;
       }
+
       function applyCameraFilterPreview() {
         cameraEl.style.filter = recipeToPreviewCss(currentRecipe);
       }
+
       function openFilterPanel() {
         filterPanel.classList.add("open");
         filterPanel.setAttribute("aria-hidden", "false");
@@ -1005,15 +1146,22 @@
         filterPanel.classList.remove("open");
         filterPanel.setAttribute("aria-hidden", "true");
       }
+
       function renderFilters() {
         filterListEl.innerHTML = "";
         FILTERS.forEach((f) => {
           const b = document.createElement("button");
           b.className = "filterItem" + (f.id === currentFilterId ? " active" : "");
           b.type = "button";
+
           const r = f.recipe;
-          const recLine = f.id === "none" ? "no recipe" : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(r.highlights * 100)} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(r.saturation * 100)}`;
+          const recLine =
+            f.id === "none"
+              ? "no recipe"
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(r.highlights * 100)} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(r.saturation * 100)}`;
+
           b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
+
           b.addEventListener("click", () => {
             currentFilterId = f.id;
             currentRecipe = f.recipe;
@@ -1025,21 +1173,20 @@
         });
       }
       renderFilters();
-      filterBtn.addEventListener("click", () => { if (!filterBtn.disabled) openFilterPanel(); });
+
+      filterBtn.addEventListener("click", () => {
+        if (filterBtn.disabled) return;
+        openFilterPanel();
+      });
       filterClose.addEventListener("click", closeFilterPanel);
 
       /* =========================
-         PUFF RANDOM (weighted: puff more)
+         PUFF RANDOM (weighted)
+         - puff is more frequent than puff2/puff3
       ========================= */
-      const puffBases = ["puff", "puff", "puff", "puff", "puff2", "puff3"]; // puff heavier
-      const chosenBase = puffBases[Math.floor(Math.random() * puffBases.length)];
+      const puffBasesWeighted = ["puff","puff","puff","puff","puff","puff2","puff3"];
+      const chosenBase = puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
 
-      function isAppleSafari() {
-        const ua = navigator.userAgent;
-        const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-        const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox/.test(ua);
-        return isIOS || isSafari;
-      }
       function setPuffSource(base) {
         const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
         if (isAppleSafari()) {
@@ -1055,6 +1202,7 @@
         }
         puffEl.load();
       }
+
       puffEl.setAttribute("playsinline", "");
       puffEl.setAttribute("webkit-playsinline", "");
       puffEl.muted = true;
@@ -1069,17 +1217,33 @@
       let mirrorMode = "auto";
 
       function shouldMirrorPreview() {
-        return mirrorMode === "on" || (mirrorMode === "auto" && currentFacingMode === "user");
+        return (
+          mirrorMode === "on" ||
+          (mirrorMode === "auto" && currentFacingMode === "user")
+        );
       }
+
       function applyMirrorToPreview() {
         cameraEl.classList.toggle("mirror", shouldMirrorPreview());
-        mirrorBtn.textContent = mirrorMode === "auto" ? "Mirror: Auto" : mirrorMode === "on" ? "Mirror: On" : "Mirror: Off";
+        mirrorBtn.textContent =
+          mirrorMode === "auto"
+            ? "Mirror: Auto"
+            : mirrorMode === "on"
+            ? "Mirror: On"
+            : "Mirror: Off";
       }
+
       function waitLoadedMetadata(videoEl, timeoutMs = 6000) {
         return new Promise((resolve, reject) => {
           if (videoEl.readyState >= 1 && videoEl.videoWidth > 0) return resolve();
-          const t = setTimeout(() => { cleanup(); reject(new Error("metadata timeout")); }, timeoutMs);
-          const onMeta = () => { cleanup(); resolve(); };
+          const t = setTimeout(() => {
+            cleanup();
+            reject(new Error("metadata timeout"));
+          }, timeoutMs);
+          const onMeta = () => {
+            cleanup();
+            resolve();
+          };
           const cleanup = () => {
             clearTimeout(t);
             videoEl.removeEventListener("loadedmetadata", onMeta);
@@ -1132,15 +1296,17 @@
       }
 
       startBtn.addEventListener("click", async () => {
-        try { await startCamera(); }
-        catch (e) {
+        try {
+          await startCamera();
+        } catch (e) {
           console.error(e);
           alert("Could not access camera. Please allow permission and use HTTPS.");
         }
       });
 
       flipBtn.addEventListener("click", async () => {
-        currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+        currentFacingMode =
+          currentFacingMode === "environment" ? "user" : "environment";
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
         try { await startCamera(); } catch (e) { console.error(e); }
@@ -1152,18 +1318,8 @@
       });
 
       /* =========================
-         TRANSFORM HELPERS
+         TRANSFORMS (Puff: touch drag/pinch + 2-finger rotate)
       ========================= */
-      function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-      function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
-      function angleDeg(a, b) { return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI; }
-      function applyTransform(el, state) {
-        el.style.left = state.x + "%";
-        el.style.top = state.y + "%";
-        el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
-      }
-
-      // Touch-first drag/pinch for Puff (reliable on iOS)
       function enableTouchDragPinch(el, state, onUpdate) {
         let mode = null;
         let start = null;
@@ -1224,7 +1380,7 @@
           }
         }
 
-        // Mouse fallback (desktop)
+        // Mouse fallback
         let mouseDown = false;
         let mouseStart = null;
 
@@ -1265,18 +1421,46 @@
         el.addEventListener("wheel", onWheel, { passive: false });
       }
 
-      // Stickers: pointer-based, 2-finger rotate supported naturally via pinch
+      // Sticker transform (keeps 2-finger rotate support via pointer gestures)
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
         let dragStart = null;
+
+        let inertiaRAF = null;
+        let angularVelocity = 0;
+        let lastAngle = null;
+        let lastTime = null;
+
+        function stopInertia() {
+          if (inertiaRAF) cancelAnimationFrame(inertiaRAF);
+          inertiaRAF = null;
+        }
+        function startInertia() {
+          stopInertia();
+          let prev = performance.now();
+          function tick(now) {
+            const dt = (now - prev) / 1000;
+            prev = now;
+            state.rotation += angularVelocity * dt;
+            onUpdate();
+            angularVelocity *= 0.92;
+            if (Math.abs(angularVelocity) < 5) return;
+            inertiaRAF = requestAnimationFrame(tick);
+          }
+          inertiaRAF = requestAnimationFrame(tick);
+        }
 
         el.addEventListener("contextmenu", (e) => e.preventDefault());
 
         el.addEventListener("pointerdown", (e) => {
           e.preventDefault();
           el.setPointerCapture?.(e.pointerId);
+          stopInertia();
           pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+          const isRightButtonRotate =
+            e.pointerType === "mouse" && (e.buttons === 2 || e.button === 2);
 
           if (pointers.size === 1) {
             dragStart = {
@@ -1286,17 +1470,24 @@
               baseY: state.y,
               w: innerWidth,
               h: innerHeight,
+              rotating: !!e.altKey || !!e.shiftKey || isRightButtonRotate,
+              baseRotation: state.rotation,
             };
             gestureStart = null;
+            lastAngle = null;
+            lastTime = null;
           } else if (pointers.size === 2) {
             const pts = Array.from(pointers.values());
             const a = pts[0], b = pts[1];
+            const ang = angleDeg(a, b);
             gestureStart = {
               distance: dist(a, b),
-              angle: angleDeg(a, b),
+              angle: ang,
               scale: state.scale,
               rotation: state.rotation,
             };
+            lastAngle = ang;
+            lastTime = performance.now();
             dragStart = null;
           }
         });
@@ -1308,8 +1499,13 @@
           if (pointers.size === 1 && dragStart) {
             const dx = ((e.clientX - dragStart.x) / dragStart.w) * 100;
             const dy = ((e.clientY - dragStart.y) / dragStart.h) * 100;
-            state.x = clamp(dragStart.baseX + dx, 0, 100);
-            state.y = clamp(dragStart.baseY + dy, 0, 100);
+
+            if (dragStart.rotating) {
+              state.rotation = dragStart.baseRotation + dx * 3.0;
+            } else {
+              state.x = clamp(dragStart.baseX + dx, 0, 100);
+              state.y = clamp(dragStart.baseY + dy, 0, 100);
+            }
             onUpdate();
           }
 
@@ -1319,22 +1515,47 @@
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
 
-            state.scale = clamp(gestureStart.scale * (newDistance / gestureStart.distance), 0.2, 6);
-            state.rotation = gestureStart.rotation + (newAngle - gestureStart.angle);
+            state.scale = clamp(
+              gestureStart.scale * (newDistance / gestureStart.distance),
+              0.2,
+              6
+            );
+            state.rotation =
+              gestureStart.rotation + (newAngle - gestureStart.angle);
+
+            const now = performance.now();
+            const dt = (now - lastTime) / 1000;
+            if (dt > 0) angularVelocity = (newAngle - lastAngle) / dt;
+            lastAngle = newAngle;
+            lastTime = now;
+
             onUpdate();
           }
         });
 
-        const end = () => { pointers.clear(); dragStart = null; gestureStart = null; };
-        el.addEventListener("pointerup", end);
-        el.addEventListener("pointercancel", end);
+        el.addEventListener("pointerup", () => {
+          pointers.clear();
+          dragStart = null;
+          gestureStart = null;
+          if (Math.abs(angularVelocity) > 30) startInertia();
+        });
 
-        el.addEventListener("wheel", (e) => {
-          e.preventDefault();
-          const factor = e.deltaY > 0 ? 0.92 : 1.08;
-          state.scale = clamp(state.scale * factor, 0.2, 6);
-          onUpdate();
-        }, { passive: false });
+        el.addEventListener("pointercancel", () => {
+          pointers.clear();
+          dragStart = null;
+          gestureStart = null;
+        });
+
+        el.addEventListener(
+          "wheel",
+          (e) => {
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.92 : 1.08;
+            state.scale = clamp(state.scale * factor, 0.2, 6);
+            onUpdate();
+          },
+          { passive: false }
+        );
       }
 
       /* =========================
@@ -1346,16 +1567,19 @@
       enableTouchDragPinch(puffEl, puffState, updatePuff);
 
       /* =========================
-         MULTI-STICKERS (manual stickers, unchanged)
+         MULTI-STICKERS
       ========================= */
       let stickersLoaded = false;
       const stickerStates = new Map();
       let selectedStickerEl = null;
 
       function setSelectedSticker(el) {
-        if (selectedStickerEl && selectedStickerEl !== el) selectedStickerEl.classList.remove("selected");
+        if (selectedStickerEl && selectedStickerEl !== el) {
+          selectedStickerEl.classList.remove("selected");
+        }
         selectedStickerEl = el;
         if (selectedStickerEl) selectedStickerEl.classList.add("selected");
+
         stickerRemove.disabled = !selectedStickerEl;
         stickerClear.disabled = stickerStates.size === 0;
       }
@@ -1393,7 +1617,10 @@
         stickerPanel.setAttribute("aria-hidden", "true");
       }
 
-      stickersBtn.addEventListener("click", () => { if (!stickersBtn.disabled) openStickerPanel(); });
+      stickersBtn.addEventListener("click", () => {
+        if (stickersBtn.disabled) return;
+        openStickerPanel();
+      });
       stickerClose.addEventListener("click", closeStickerPanel);
 
       stickerRemove.addEventListener("click", () => {
@@ -1401,8 +1628,10 @@
         stickerStates.delete(selectedStickerEl);
         selectedStickerEl.remove();
         selectedStickerEl = null;
+
         const last = Array.from(stickerStates.keys()).pop() || null;
         setSelectedSticker(last);
+
         stickerClear.disabled = stickerStates.size === 0;
       });
 
@@ -1413,17 +1642,14 @@
         stickerClear.disabled = true;
       });
 
-      // We also reuse stickers.json for export-random-stickers.
-      let stickerCatalog = []; // {src, ...maybe color/tags}
       async function loadStickers() {
         try {
-          const res = await fetch(vq("./stickers.json"));
+          const res = await fetch(`./stickers.json?v=${encodeURIComponent(ASSET_VERSION)}`);
           const list = await res.json();
           stickersLoaded = true;
-          stickerCatalog = Array.isArray(list) ? list : [];
 
           stickerGrid.innerHTML = "";
-          stickerCatalog.forEach((item) => {
+          list.forEach((item) => {
             const cell = document.createElement("button");
             cell.className = "stickerItem";
             cell.type = "button";
@@ -1434,7 +1660,7 @@
             img.loading = "lazy";
             img.alt = item.name || item.id || "sticker";
             const encodedSrc = encodeURI(item.src);
-            img.src = vq(encodedSrc);
+            img.src = `${encodedSrc}?v=${encodeURIComponent(ASSET_VERSION)}`;
             img.crossOrigin = "anonymous";
 
             cell.appendChild(img);
@@ -1456,7 +1682,10 @@
       }
 
       document.addEventListener("pointerdown", (e) => {
-        const isSticker = e.target?.classList?.contains("sticker");
+        const isSticker =
+          e.target &&
+          e.target.classList &&
+          e.target.classList.contains("sticker");
         const clickedPanel = stickerPanel.contains(e.target);
         const clickedFilter = filterPanel.contains(e.target);
         const clickedUI = document.getElementById("ui").contains(e.target);
@@ -1471,10 +1700,11 @@
       });
 
       /* =========================
-         CAPTURE HELPERS
+         CAPTURE (viewport-accurate, matches what user sees)
       ========================= */
       function applyRecipeToImageData(imageData, r) {
         const d = imageData.data;
+
         const sat = 1 + r.saturation * 0.9;
         const exposureGain = Math.pow(2, r.exposure);
         const brightnessGain = 1 + r.brightness * 0.35;
@@ -1521,114 +1751,84 @@
         return imageData;
       }
 
-      // Capture EXACTLY what user sees on screen (full-screen preview framing)
       function captureToBlob(cb) {
         if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
           alert("Start AR first.");
           return;
         }
 
+        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        const W = Math.round(window.innerWidth * dpr);
+        const H = Math.round(window.innerHeight * dpr);
+
         const out = document.createElement("canvas");
-        out.width = cameraEl.videoWidth;
-        out.height = cameraEl.videoHeight;
+        out.width = W;
+        out.height = H;
         const ctx = out.getContext("2d", { willReadFrequently: true });
 
-        const vw = cameraEl.videoWidth, vh = cameraEl.videoHeight;
-
-        // We want: match preview ("object-fit: cover") cropping, then render at native res.
-        // Compute visible crop in video space based on viewport aspect ratio.
-        const viewAR = innerWidth / innerHeight;
-        const vidAR = vw / vh;
-        let sx = 0, sy = 0, sw = vw, sh = vh;
-
-        if (vidAR > viewAR) {
-          // video wider => crop left/right
-          sh = vh;
-          sw = vh * viewAR;
-          sx = (vw - sw) / 2;
-        } else {
-          // video taller => crop top/bottom
-          sw = vw;
-          sh = vw / viewAR;
-          sy = (vh - sh) / 2;
-        }
-
         const mirrorOutput = shouldMirrorPreview();
+        const camSrcW = cameraEl.videoWidth;
+        const camSrcH = cameraEl.videoHeight;
+        const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
 
-        // Draw camera crop to full canvas
+        // helper for mirroring screen rects
+        const rectToCanvas = (rect) => {
+          const x = rect.left * dpr;
+          const y = rect.top * dpr;
+          const w = rect.width * dpr;
+          const h = rect.height * dpr;
+          return { x, y, w, h };
+        };
+        const mirrorX = (x, w) => (mirrorOutput ? (W - (x + w)) : x);
+
+        // camera base
         ctx.save();
-        if (mirrorOutput) { ctx.translate(vw, 0); ctx.scale(-1, 1); }
-        ctx.drawImage(cameraEl, sx, sy, sw, sh, 0, 0, vw, vh);
+        if (mirrorOutput) {
+          ctx.translate(W, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(
+          cameraEl,
+          crop.sx,
+          crop.sy,
+          crop.sw,
+          crop.sh,
+          0,
+          0,
+          W,
+          H
+        );
         ctx.restore();
 
-        // Apply filter to the final output (not only preview)
+        // filter (apply in output pixels)
         if (currentFilterId !== "none") {
-          const imgData = ctx.getImageData(0, 0, vw, vh);
+          const imgData = ctx.getImageData(0, 0, W, H);
           applyRecipeToImageData(imgData, currentRecipe);
           ctx.putImageData(imgData, 0, 0);
         }
 
-        // Helper: map DOM element center/size from screen->output pixels
-        // Because output is the "cover" result, we map using viewport directly.
-        function mapScreenToOut(px, py) {
-          // Screen (0..innerWidth/innerHeight) -> within crop region -> output (0..vw/vh)
-          // Since we rendered crop to full output, mapping is:
-          // if vid wider: screen x maps to sx..sx+sw, else y maps to sy..sy+sh.
-          const nx = px / innerWidth;
-          const ny = py / innerHeight;
-
-          const xVid = sx + nx * sw;
-          const yVid = sy + ny * sh;
-
-          // Now map to out, but we drew crop stretched to full canvas
-          const xOut = ((xVid - sx) / sw) * vw;
-          const yOut = ((yVid - sy) / sh) * vh;
-          return { xOut, yOut };
-        }
-
-        // Map sizes: use element bounding box in screen px -> output px
-        function mapRectToOut(domRect, aspectW, aspectH) {
-          const cx = domRect.left + domRect.width / 2;
-          const cy = domRect.top + domRect.height / 2;
-          const center = mapScreenToOut(cx, cy);
-
-          const wOut = (domRect.width / innerWidth) * vw;
-          const hOut = (domRect.height / innerHeight) * vh;
-
-          // Keep AR of actual media content where possible
-          const ar = aspectW && aspectH ? (aspectW / aspectH) : (wOut / hOut);
-          let drawW = wOut;
-          let drawH = drawW / ar;
-          if (drawH > hOut) {
-            drawH = hOut;
-            drawW = drawH * ar;
-          }
-          return { centerX: center.xOut, centerY: center.yOut, drawW, drawH };
-        }
-
-        function mirrorX(x) { return mirrorOutput ? vw - x : x; }
-
-        // Puff
-        const puffRect = puffEl.getBoundingClientRect();
-        const puffDraw = mapRectToOut(puffRect, puffEl.videoWidth, puffEl.videoHeight);
-
+        // puff
+        const puffRect = rectToCanvas(puffEl.getBoundingClientRect());
         ctx.save();
-        ctx.translate(mirrorX(puffDraw.centerX), puffDraw.centerY);
-        const puffRotation = mirrorOutput ? -puffState.rotation : puffState.rotation;
-        ctx.rotate((puffRotation * Math.PI) / 180);
-        ctx.drawImage(puffEl, -puffDraw.drawW / 2, -puffDraw.drawH / 2, puffDraw.drawW, puffDraw.drawH);
+        const px = mirrorX(puffRect.x, puffRect.w) + puffRect.w / 2;
+        const py = puffRect.y + puffRect.h / 2;
+        ctx.translate(px, py);
+        const puffRot = (mirrorOutput ? -puffState.rotation : puffState.rotation) * Math.PI / 180;
+        ctx.rotate(puffRot);
+        ctx.drawImage(puffEl, -puffRect.w / 2, -puffRect.h / 2, puffRect.w, puffRect.h);
         ctx.restore();
 
-        // Stickers
+        // stickers
         for (const [el, st] of stickerStates.entries()) {
           if (!el.complete || !el.naturalWidth) continue;
-          const r = el.getBoundingClientRect();
-          const d = mapRectToOut(r, el.naturalWidth, el.naturalHeight);
+          const r = rectToCanvas(el.getBoundingClientRect());
           ctx.save();
-          ctx.translate(mirrorX(d.centerX), d.centerY);
-          const stickerRotation = mirrorOutput ? -st.rotation : st.rotation;
-          ctx.rotate((stickerRotation * Math.PI) / 180);
-          ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
+          const sx = mirrorX(r.x, r.w) + r.w / 2;
+          const sy = r.y + r.h / 2;
+          ctx.translate(sx, sy);
+          const rot = (mirrorOutput ? -st.rotation : st.rotation) * Math.PI / 180;
+          ctx.rotate(rot);
+          ctx.drawImage(el, -r.w / 2, -r.h / 2, r.w, r.h);
           ctx.restore();
         }
 
@@ -1648,7 +1848,10 @@
 
       function openDownloadWindow(blob) {
         const win = window.open("about:blank", "_blank");
-        if (!win) { alert("Popup blocked. Please allow popups for this site."); return; }
+        if (!win) {
+          alert("Popup blocked. Please allow popups for this site.");
+          return;
+        }
         const filename = nextCaptureFilename();
         const url = URL.createObjectURL(blob);
 
@@ -1656,8 +1859,11 @@
           <title>${filename}</title>
           <div style="margin:0;background:#000;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;">
             <img src="${url}" style="max-width:100%;height:auto;display:block;" />
-            <a href="${url}" download="${filename}"
-               style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none">
+            <a
+              href="${url}"
+              download="${filename}"
+              style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
+            >
               Download (${filename})
             </a>
           </div>
@@ -1678,7 +1884,6 @@
       const clearCapturedBtn = document.getElementById("clearCapturedBtn");
 
       const capturedItems = []; // { blob, url }
-      let selectedCaptureIndex = -1;
 
       function setPhotoboothMode(on) {
         photoboothOn = on;
@@ -1701,17 +1906,13 @@
 
       function updateCapturedUI() {
         capturedList.innerHTML = "";
-        capturedItems.forEach((it, idx) => {
+        capturedItems.forEach((it) => {
           const cell = document.createElement("div");
-          cell.className = "capThumb" + (idx === selectedCaptureIndex ? " selected" : "");
+          cell.className = "capThumb";
           const img = document.createElement("img");
           img.src = it.url;
           img.alt = "capture";
           cell.appendChild(img);
-          cell.addEventListener("click", () => {
-            selectedCaptureIndex = idx;
-            updateCapturedUI();
-          });
           capturedList.appendChild(cell);
         });
         cueBtn.disabled = capturedItems.length === 0;
@@ -1720,7 +1921,6 @@
       clearCapturedBtn.addEventListener("click", () => {
         for (const it of capturedItems) URL.revokeObjectURL(it.url);
         capturedItems.length = 0;
-        selectedCaptureIndex = -1;
         updateCapturedUI();
       });
 
@@ -1771,17 +1971,22 @@
           return;
         }
 
+        // photobooth ON: store in panel
         captureToBlob((blob) => {
           if (!blob) { alert("Capture failed."); return; }
           const url = URL.createObjectURL(blob);
           capturedItems.push({ blob, url });
-          selectedCaptureIndex = capturedItems.length - 1;
           updateCapturedUI();
         });
       });
 
       /* =========================
          BUILDER (customize page)
+         - Text removed everywhere (per request)
+         - Frame is single solid color (no stroke/shadow overlays)
+         - Smaller panel gaps, top margin > bottom margin to photos
+         - Fix selecting image -> now user assigns per slot
+         - Add 4 extra layouts
       ========================= */
       const builderOverlay = document.getElementById("builderOverlay");
       const builderCloseBtn = document.getElementById("builderCloseBtn");
@@ -1790,98 +1995,47 @@
 
       const frameColorRow = document.getElementById("frameColorRow");
       const layoutRow = document.getElementById("layoutRow");
+      const slotRow = document.getElementById("slotRow");
+      const photoPickGrid = document.getElementById("photoPickGrid");
       const exportStripBtn = document.getElementById("exportStripBtn");
 
       cueBtn.addEventListener("click", () => openBuilder());
-      builderCloseBtn.addEventListener("click", closeBuilder);
+      builderCloseBtn.addEventListener("click", () => closeBuilder());
+      builderOverlay.addEventListener("pointerdown", (e) => {
+        if (e.target === builderOverlay) closeBuilder();
+      });
 
-      function openBuilder() {
-        if (capturedItems.length === 0) return;
-        builderOverlay.classList.remove("hidden");
-        builderOverlay.setAttribute("aria-hidden", "false");
-        syncCanvasToLayout();
-        renderBuilderUI();
-        drawStrip(false);
-      }
-
-      function closeBuilder() {
-        builderOverlay.classList.add("hidden");
-        builderOverlay.setAttribute("aria-hidden", "true");
-        selectedSlotIndex = -1;
-      }
-
-      // Frame colors (ONLY 5)
+      // frame colors (+ pure black uses puff-logo-3.png)
       const FRAME_COLORS = [
         { id: "red",   name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
-        { id: "blue",  name: "Dark Blue",    value: "#060d3d", logo: "puff-logo-3.png" },
-        { id: "grey",  name: "Bright Grey",  value: "#e8eef1", logo: "puff-logo-1.png" },
-        { id: "white", name: "White",        value: "#ffffff", logo: "puff-logo-1.png" },
-        { id: "black", name: "Pure Black",   value: "#000000", logo: "puff-logo-3.png" }, // treat as Dark Blue rule
+        { id: "blue",  name: "Dark Blue",   value: "#060d3d", logo: "puff-logo-3.png" },
+        { id: "grey",  name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
+        { id: "white", name: "White",       value: "#ffffff", logo: "puff-logo-1.png" },
+        { id: "black", name: "Pure Black",  value: "#000000", logo: "puff-logo-3.png" },
       ];
 
-      // Layouts (L1–L11)
+      // layouts (3 original + 4 new)
       const LAYOUTS = [
-        { id: "L1",  name: "Layout 1" },
-        { id: "L2",  name: "Layout 2" },
-        { id: "L3",  name: "Layout 3" },
-        { id: "L4",  name: "Layout 4" },
-        { id: "L5",  name: "Layout 5" },
-        { id: "L6",  name: "Layout 6" },
-        { id: "L7",  name: "Layout 7" },
-        { id: "L8",  name: "Layout 8" },
-        { id: "L9",  name: "Layout 9" },
-        { id: "L10", name: "Layout 10" },
-        { id: "L11", name: "Layout 11" },
+        { id: "L1", name: "Layout 1 (3 horizontal strip)" }, // 2x6 horizontal, 3 photos
+        { id: "L2", name: "Layout 2 (3 vertical strip)" },   // 2x6 vertical, 3 photos
+        { id: "L3", name: "Layout 3 (4 grid 2x2)" },         // 4x6 vertical, 4 photos
+
+        // NEW:
+        { id: "L4", name: "Layout 4 (2 horizontal, left bar)" },    // like Layout 8
+        { id: "L5", name: "Layout 5 (2 horizontal, center bar)" },  // like Layout 9
+        { id: "L6", name: "Layout 6 (4x6 landscape, 2 stacked + right bar)" }, // like Layout 11
+        { id: "L7", name: "Layout 7 (4x6 landscape, 1 photo)" },    // like Layout 10
       ];
 
-      // Each slot has transform for scaling/positioning (mobile pinch)
-      // slotState: { capIndex, scale, ox, oy } where ox/oy are offsets in [-1..1] relative to slot size
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        slots: [], // dynamically sized
+        slotToCapture: [], // slot index -> capturedItems index (or -1)
       };
 
-      function slotsNeeded() {
-        if (builderState.layoutId === "L3") return 4;
-        if (builderState.layoutId === "L4" || builderState.layoutId === "L5") return 2;
-        if (builderState.layoutId === "L6") return 2;
-        if (builderState.layoutId === "L7") return 1;
-        if (builderState.layoutId === "L8" || builderState.layoutId === "L9") return 2;
-        if (builderState.layoutId === "L10") return 1;
-        if (builderState.layoutId === "L11") return 2;
-        return 3;
-      }
+      let activeSlot = 0;
 
-      function ensureSlotStateCount() {
-        const n = slotsNeeded();
-        while (builderState.slots.length < n) builderState.slots.push({ capIndex: -1, scale: 1, ox: 0, oy: 0 });
-        if (builderState.slots.length > n) builderState.slots = builderState.slots.slice(0, n);
-      }
-
-      // Canvas sizes
-      function syncCanvasToLayout() {
-        if (builderState.layoutId === "L1")  { stripCanvas.width = 1200; stripCanvas.height = 400;  return; } // 2x6 horizontal
-        if (builderState.layoutId === "L2")  { stripCanvas.width = 400;  stripCanvas.height = 1200; return; } // 2x6 vertical
-        if (builderState.layoutId === "L3")  { stripCanvas.width = 900;  stripCanvas.height = 1350; return; } // 4x6 vertical
-        if (builderState.layoutId === "L4" || builderState.layoutId === "L5") { stripCanvas.width = 1200; stripCanvas.height = 400;  return; } // 2x6 horizontal 2 pose
-        if (builderState.layoutId === "L6" || builderState.layoutId === "L7") { stripCanvas.width = 1350; stripCanvas.height = 900;  return; } // 4x6 horizontal
-        if (builderState.layoutId === "L8" || builderState.layoutId === "L9") { stripCanvas.width = 1200; stripCanvas.height = 400;  return; } // 2x6 horizontal 2 pose + bar
-        if (builderState.layoutId === "L10" || builderState.layoutId === "L11") { stripCanvas.width = 1200; stripCanvas.height = 900; return; } // 4x6 horizontal
-      }
-
-      // Logo cache
       const logoImgCache = new Map();
-      function loadImage(src) {
-        return new Promise((resolve) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => resolve(img);
-          img.onerror = () => resolve(null);
-          img.src = vq(src);
-        });
-      }
-
       async function getLogoImage() {
         const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
         const src = c.logo;
@@ -1896,505 +2050,330 @@
         return c.value;
       }
 
-      function renderBuilderUI() {
-        ensureSlotStateCount();
+      function syncCanvasToLayout() {
+        // keep photobooth proportions
+        if (builderState.layoutId === "L1") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
+        if (builderState.layoutId === "L2") { stripCanvas.width = 400;  stripCanvas.height = 1200; return; }
+        if (builderState.layoutId === "L3") { stripCanvas.width = 900;  stripCanvas.height = 1350; return; }
 
+        // New 2x6 horizontal variants
+        if (builderState.layoutId === "L4" || builderState.layoutId === "L5") {
+          stripCanvas.width = 1200; stripCanvas.height = 400; return;
+        }
+
+        // New 4x6 landscape variants
+        if (builderState.layoutId === "L6" || builderState.layoutId === "L7") {
+          stripCanvas.width = 1350; stripCanvas.height = 900; return;
+        }
+      }
+
+      function slotsNeeded() {
+        if (builderState.layoutId === "L3") return 4;
+        if (builderState.layoutId === "L4" || builderState.layoutId === "L5") return 2;
+        if (builderState.layoutId === "L6") return 2;
+        if (builderState.layoutId === "L7") return 1;
+        return 3;
+      }
+
+      function ensureSlotMapping() {
+        const n = slotsNeeded();
+        const arr = builderState.slotToCapture || [];
+        const next = new Array(n).fill(-1);
+        for (let i = 0; i < n; i++) next[i] = (arr[i] ?? i);
+        // clamp to available captures
+        for (let i = 0; i < n; i++) {
+          if (next[i] >= capturedItems.length) next[i] = -1;
+        }
+        builderState.slotToCapture = next;
+        activeSlot = clamp(activeSlot, 0, n - 1);
+      }
+
+      function renderBuilderUI() {
+        // frame colors
         frameColorRow.innerHTML = "";
         FRAME_COLORS.forEach((c) => {
           const p = document.createElement("div");
           p.className = "pill" + (builderState.frameColorId === c.id ? " active" : "");
           p.textContent = c.name;
-          p.addEventListener("click", () => {
+          p.addEventListener("click", async () => {
             builderState.frameColorId = c.id;
             renderBuilderUI();
-            drawStrip(false);
+            await drawStrip();
           });
           frameColorRow.appendChild(p);
         });
 
+        // layouts
         layoutRow.innerHTML = "";
         LAYOUTS.forEach((l) => {
           const p = document.createElement("div");
           p.className = "pill" + (builderState.layoutId === l.id ? " active" : "");
           p.textContent = l.name;
-          p.addEventListener("click", () => {
+          p.addEventListener("click", async () => {
             builderState.layoutId = l.id;
             syncCanvasToLayout();
-            ensureSlotStateCount();
+            ensureSlotMapping();
             renderBuilderUI();
-            drawStrip(false);
+            await drawStrip();
+            // scroll preview to top on layout change
+            document.getElementById("builderStageWrap").scrollTop = 0;
           });
           layoutRow.appendChild(p);
         });
+
+        // slots row
+        slotRow.innerHTML = "";
+        const nSlots = slotsNeeded();
+        for (let i = 0; i < nSlots; i++) {
+          const p = document.createElement("div");
+          p.className = "pill" + (activeSlot === i ? " active" : "");
+          p.textContent = `Slot ${i + 1}`;
+          p.addEventListener("click", () => {
+            activeSlot = i;
+            renderBuilderUI();
+          });
+          slotRow.appendChild(p);
+        }
+
+        // captured thumbs picker
+        photoPickGrid.innerHTML = "";
+        capturedItems.forEach((it, idx) => {
+          const cell = document.createElement("div");
+          cell.className = "pickThumb";
+          const img = document.createElement("img");
+          img.src = it.url;
+          img.alt = "pick";
+          cell.appendChild(img);
+
+          cell.addEventListener("click", async () => {
+            builderState.slotToCapture[activeSlot] = idx;
+            // advance slot automatically
+            const n = slotsNeeded();
+            activeSlot = (activeSlot + 1) % n;
+            renderBuilderUI();
+            await drawStrip();
+          });
+
+          photoPickGrid.appendChild(cell);
+        });
       }
 
-      // Layout geometry (single-color frame; tighter gaps; top margin > bottom)
-      function getLayoutSlots() {
-        const W = stripCanvas.width;
-        const H = stripCanvas.height;
-        const minSide = Math.min(W, H);
-
-        const outerLR = Math.round(minSide * 0.055);
-        const outerTop = Math.round(minSide * 0.075);   // top bigger
-        const outerBot = Math.round(minSide * 0.050);   // bottom smaller
-
-        const bar = Math.round(minSide * 0.13);         // top/bottom filled area
-        const gap = Math.round(minSide * 0.020);        // tighter spacing
-
-        const contentX = outerLR;
-        const contentY = outerTop + bar;
-        const contentW = W - outerLR * 2;
-        const contentH = H - outerTop - outerBot - bar * 2;
-
-        const topBarRect = { x: contentX, y: outerTop, w: contentW, h: bar };
-        const botBarRect = { x: contentX, y: H - outerBot - bar, w: contentW, h: bar };
-
-        // Helpers
-        const res = (slots, bars) => ({ outerLR, outerTop, outerBot, bar, gap, topBar: topBarRect, botBar: botBarRect, slots, bars: bars || [] });
-
-        if (builderState.layoutId === "L1") {
-          // 3 photos left-to-right
-          const slotW = Math.floor((contentW - gap * 2) / 3);
-          const slotH = contentH;
-          return res([
-            { x: contentX, y: contentY, w: slotW, h: slotH },
-            { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
-            { x: contentX + (slotW + gap) * 2, y: contentY, w: slotW, h: slotH },
-          ]);
-        }
-
-        if (builderState.layoutId === "L2") {
-          // 3 photos top-to-bottom
-          const slotH = Math.floor((contentH - gap * 2) / 3);
-          const slotW = contentW;
-          return res([
-            { x: contentX, y: contentY, w: slotW, h: slotH },
-            { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
-            { x: contentX, y: contentY + (slotH + gap) * 2, w: slotW, h: slotH },
-          ]);
-        }
-
-        if (builderState.layoutId === "L3") {
-          // 2x2 grid
-          const slotW = Math.floor((contentW - gap) / 2);
-          const slotH = Math.floor((contentH - gap) / 2);
-          return res([
-            { x: contentX, y: contentY, w: slotW, h: slotH },
-            { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
-            { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
-            { x: contentX + slotW + gap, y: contentY + slotH + gap, w: slotW, h: slotH },
-          ]);
-        }
-
-        if (builderState.layoutId === "L4") {
-          // 2 photos horizontal (like Layout 8/9 but without bar): 2 slots
-          const slotW = Math.floor((contentW - gap) / 2);
-          const slotH = contentH;
-          return res([
-            { x: contentX, y: contentY, w: slotW, h: slotH },
-            { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
-          ]);
-        }
-
-        if (builderState.layoutId === "L5") {
-          // 2 photos vertical: 2 stacked
-          const slotH = Math.floor((contentH - gap) / 2);
-          const slotW = contentW;
-          return res([
-            { x: contentX, y: contentY, w: slotW, h: slotH },
-            { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
-          ]);
-        }
-
-        if (builderState.layoutId === "L6") {
-          // 4x6 horizontal: 2 photos side-by-side
-          const slotW = Math.floor((contentW - gap) / 2);
-          const slotH = contentH;
-          return res([
-            { x: contentX, y: contentY, w: slotW, h: slotH },
-            { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
-          ]);
-        }
-
-        if (builderState.layoutId === "L7") {
-          // 4x6 horizontal: 1 photo centered with frame
-          const inset = Math.round(minSide * 0.04);
-          return res([
-            { x: contentX + inset, y: contentY + inset, w: contentW - inset * 2, h: contentH - inset * 2 },
-          ]);
-        }
-
-        if (builderState.layoutId === "L8") {
-          // Left black bar, two photos to the right
-          const barW = Math.floor(contentW * 0.26);
-          const photosW = contentW - barW - gap;
-          const slotW = Math.floor((photosW - gap) / 2);
-          const slotH = contentH;
-          return res(
-            [
-              { x: contentX + barW + gap, y: contentY, w: slotW, h: slotH },
-              { x: contentX + barW + gap + slotW + gap, y: contentY, w: slotW, h: slotH },
-            ],
-            [{ x: contentX, y: contentY, w: barW, h: slotH }]
-          );
-        }
-
-        if (builderState.layoutId === "L9") {
-          // Center black bar, two photos left/right
-          const barW = Math.floor(contentW * 0.22);
-          const photosW = contentW - barW - gap * 2;
-          const slotW = Math.floor(photosW / 2);
-          const slotH = contentH;
-
-          const leftX = contentX;
-          const barX = contentX + slotW + gap;
-          const rightX = barX + barW + gap;
-
-          return res(
-            [
-              { x: leftX, y: contentY, w: slotW, h: slotH },
-              { x: rightX, y: contentY, w: slotW, h: slotH },
-            ],
-            [{ x: barX, y: contentY, w: barW, h: slotH }]
-          );
-        }
-
-        if (builderState.layoutId === "L10") {
-          // One big photo
-          const inset = Math.round(minSide * 0.04);
-          return res([{ x: contentX + inset, y: contentY + inset, w: contentW - inset * 2, h: contentH - inset * 2 }]);
-        }
-
-        if (builderState.layoutId === "L11") {
-          // Two stacked photos on left + right bar
-          const barW = Math.floor(contentW * 0.38);
-          const leftW = contentW - barW - gap;
-          const slotH = Math.floor((contentH - gap) / 2);
-          return res(
-            [
-              { x: contentX, y: contentY, w: leftW, h: slotH },
-              { x: contentX, y: contentY + slotH + gap, w: leftW, h: slotH },
-            ],
-            [{ x: contentX + leftW + gap, y: contentY, w: barW, h: contentH }]
-          );
-        }
-
-        // fallback (shouldn't hit)
-        return res([]);
+      function openBuilder() {
+        if (capturedItems.length === 0) return;
+        builderOverlay.classList.remove("hidden");
+        builderOverlay.setAttribute("aria-hidden", "false");
+        syncCanvasToLayout();
+        ensureSlotMapping();
+        renderBuilderUI();
+        drawStrip();
+        // ensure preview starts visible
+        const wrap = document.getElementById("builderStageWrap");
+        wrap.scrollTop = 0;
       }
 
-      // Draw image into rect, with optional user scale/offset inside slot
-      function drawCoverWithTransform(ctx, img, slot, tr) {
+      function closeBuilder() {
+        builderOverlay.classList.add("hidden");
+        builderOverlay.setAttribute("aria-hidden", "true");
+      }
+
+      // cover draw into rect (fills each panel, clean)
+      function drawCover(ctx, img, rx, ry, rw, rh) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
         if (!iw || !ih) return;
 
-        const baseS = Math.max(slot.w / iw, slot.h / ih);
-        const extra = tr?.scale || 1;
-        const s = baseS * extra;
-
+        const s = Math.max(rw / iw, rh / ih);
         const dw = iw * s;
         const dh = ih * s;
-
-        const ox = (tr?.ox || 0) * (slot.w * 0.35);
-        const oy = (tr?.oy || 0) * (slot.h * 0.35);
-
-        const dx = slot.x + (slot.w - dw) / 2 + ox;
-        const dy = slot.y + (slot.h - dh) / 2 + oy;
-
+        const dx = rx + (rw - dw) / 2;
+        const dy = ry + (rh - dh) / 2;
         ctx.drawImage(img, dx, dy, dw, dh);
       }
 
-      // Selection/assignment on canvas
-      let selectedSlotIndex = -1;
-
-      function canvasPoint(e) {
-        const rect = stripCanvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) * (stripCanvas.width / rect.width);
-        const y = (e.clientY - rect.top) * (stripCanvas.height / rect.height);
-        return { x, y };
-      }
-
-      function hitSlot(pt, slots) {
-        for (let i = 0; i < slots.length; i++) {
-          const s = slots[i];
-          if (pt.x >= s.x && pt.x <= s.x + s.w && pt.y >= s.y && pt.y <= s.y + s.h) return i;
-        }
-        return -1;
-      }
-
-      function assignSelectedCaptureToSlot(slotIdx) {
-        if (slotIdx < 0) return;
-        if (selectedCaptureIndex < 0) return;
-
-        ensureSlotStateCount();
-        builderState.slots[slotIdx] = { capIndex: selectedCaptureIndex, scale: 1, ox: 0, oy: 0 };
-        selectedSlotIndex = slotIdx;
-        drawStrip(false);
-      }
-
-      /* =========================
-         RANDOM EXPORT STICKERS (3–5, unique, outer frame only, color-matched)
-      ========================= */
-
-      // Color tags (we try to read from stickers.json if provided; else infer from filename)
-      const COLOR_TAG = {
-        YELLOW: "yellow",
-        AZURE: "azure",
-        ORANGE: "orange",
-        WHITE: "white",
-        GREY: "grey",
-        RED: "red",
-        PINK: "pink",
-        MAGENTA: "magenta",
-        GREEN: "green",
-        PURPLE: "purple",
-        DARK: "dark",
-      };
-
-      function inferStickerTag(item) {
-        const src = (item?.src || "").toLowerCase();
-        const tags = (item?.tags || item?.tag || item?.color || item?.palette || "");
-        const t = Array.isArray(tags) ? tags.join(" ").toLowerCase() : String(tags).toLowerCase();
-        const s = `${src} ${t}`;
-        if (s.includes("yellow") || s.includes("fluorescent")) return COLOR_TAG.YELLOW;
-        if (s.includes("azure") || s.includes("blue1") || s.includes("cyan")) return COLOR_TAG.AZURE;
-        if (s.includes("orange") || s.includes("safety")) return COLOR_TAG.ORANGE;
-        if (s.includes("white")) return COLOR_TAG.WHITE;
-        if (s.includes("grey") || s.includes("gray")) return COLOR_TAG.GREY;
-        if (s.includes("vivid") || s.includes("imperial") || s.includes("red")) return COLOR_TAG.RED;
-        if (s.includes("candy") || s.includes("pink")) return COLOR_TAG.PINK;
-        if (s.includes("magenta") || s.includes("hot")) return COLOR_TAG.MAGENTA;
-        if (s.includes("green")) return COLOR_TAG.GREEN;
-        if (s.includes("purple")) return COLOR_TAG.PURPLE;
-        if (s.includes("dark")) return COLOR_TAG.DARK;
-        return "unknown";
-      }
-
-      // Frame -> allowed tags (your rules)
-      function allowedTagsForFrame(frameId) {
-        const f = frameId === "black" ? "blue" : frameId; // Pure Black behaves like Dark Blue
-        if (f === "red") {
-          return new Set([COLOR_TAG.YELLOW, COLOR_TAG.AZURE, COLOR_TAG.GREY, COLOR_TAG.WHITE]);
-        }
-        if (f === "blue") {
-          return new Set([COLOR_TAG.YELLOW, COLOR_TAG.ORANGE, COLOR_TAG.PINK, COLOR_TAG.WHITE, COLOR_TAG.AZURE]);
-        }
-        if (f === "grey") {
-          return new Set([COLOR_TAG.RED, COLOR_TAG.ORANGE, COLOR_TAG.MAGENTA, COLOR_TAG.AZURE, COLOR_TAG.GREEN, COLOR_TAG.PURPLE]);
-        }
-        if (f === "white") {
-          return new Set([COLOR_TAG.RED, COLOR_TAG.ORANGE, COLOR_TAG.YELLOW, COLOR_TAG.MAGENTA, COLOR_TAG.AZURE, COLOR_TAG.PURPLE, "blue"]);
-        }
-        // fallback
-        return new Set(["unknown", COLOR_TAG.YELLOW, COLOR_TAG.AZURE, COLOR_TAG.ORANGE, COLOR_TAG.RED, COLOR_TAG.PINK, COLOR_TAG.MAGENTA, COLOR_TAG.GREEN, COLOR_TAG.PURPLE, COLOR_TAG.WHITE]);
-      }
-
-      function avoidTagsForFrame(frameId) {
-        const f = frameId === "black" ? "blue" : frameId;
-        if (f === "red") return new Set(["deepcrimson", "coralpink", COLOR_TAG.PURPLE, COLOR_TAG.DARK]);
-        if (f === "blue") return new Set([COLOR_TAG.DARK, COLOR_TAG.PURPLE]);
-        if (f === "grey") return new Set([COLOR_TAG.WHITE]); // unless outline; we avoid by default
-        if (f === "white") return new Set([COLOR_TAG.GREY]);  // avoid bright grey if no border
-        return new Set();
-      }
-
-      function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-      function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-      function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
-
-      // Outer-only placement regions (exclude photo slots)
-      function buildOuterRegions(layout) {
+      function getLayoutSlots() {
         const W = stripCanvas.width;
         const H = stripCanvas.height;
-        const regions = [];
 
-        // top bar, bottom bar
-        regions.push({ ...layout.topBar });
-        regions.push({ ...layout.botBar });
+        // tighter gaps + clean single-color frame
+        const minSide = Math.min(W, H);
+        const outer = Math.round(minSide * 0.06);
 
-        // left margin area between bars
-        const leftW = layout.outerLR;
-        const midY = layout.outerTop;
-        const midH = H - layout.outerTop - layout.outerBot;
-        regions.push({ x: 0, y: midY, w: leftW, h: midH });
+        // IMPORTANT: top margin bigger than bottom (to first panel)
+        const topBar = Math.round(minSide * 0.16);
+        const bottomBar = Math.round(minSide * 0.10);
 
-        // right margin
-        regions.push({ x: W - layout.outerLR, y: midY, w: layout.outerLR, h: midH });
+        const gap = Math.max(6, Math.round(minSide * 0.012)); // smaller than before
 
-        // inner "bars" (black blocks inside content)
-        if (layout.bars?.length) {
-          layout.bars.forEach((b) => regions.push({ ...b }));
+        const contentX = outer;
+        const contentY = outer + topBar;
+        const contentW = W - outer * 2;
+        const contentH = H - outer - bottomBar - contentY;
+
+        const topBarRect = { x: outer, y: outer, w: contentW, h: topBar };
+        const botBarRect = { x: outer, y: H - outer - bottomBar, w: contentW, h: bottomBar };
+
+        // L1: 3 photos left-to-right
+        if (builderState.layoutId === "L1") {
+          const slotW = Math.floor((contentW - gap * 2) / 3);
+          const slotH = contentH;
+          return {
+            topBar: topBarRect, botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
+              { x: contentX + (slotW + gap) * 2, y: contentY, w: slotW, h: slotH },
+            ],
+            solidBlocks: [],
+          };
         }
 
-        // also allow slim strips around content area (outer frame around photos)
-        const contentTop = layout.topBar.y + layout.topBar.h;
-        const contentBot = layout.botBar.y;
-        regions.push({ x: layout.topBar.x, y: contentTop, w: layout.topBar.w, h: Math.max(0, layout.gap) }); // tiny band
-        regions.push({ x: layout.topBar.x, y: contentBot - layout.gap, w: layout.topBar.w, h: Math.max(0, layout.gap) });
+        // L2: 3 photos top-to-bottom
+        if (builderState.layoutId === "L2") {
+          const slotH = Math.floor((contentH - gap * 2) / 3);
+          const slotW = contentW;
+          return {
+            topBar: topBarRect, botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
+              { x: contentX, y: contentY + (slotH + gap) * 2, w: slotW, h: slotH },
+            ],
+            solidBlocks: [],
+          };
+        }
 
-        // Filter out too tiny regions
-        return regions.filter((r) => r.w > 20 && r.h > 20);
+        // L3: 2x2 grid
+        if (builderState.layoutId === "L3") {
+          const slotW = Math.floor((contentW - gap) / 2);
+          const slotH = Math.floor((contentH - gap) / 2);
+          return {
+            topBar: topBarRect, botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
+              { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
+              { x: contentX + slotW + gap, y: contentY + slotH + gap, w: slotW, h: slotH },
+            ],
+            solidBlocks: [],
+          };
+        }
+
+        // L4: 2 horizontal photos with left solid bar (like Layout 8)
+        if (builderState.layoutId === "L4") {
+          const barW = Math.floor(contentW * 0.22);
+          const photosW = contentW - barW - gap;
+          const slotW = Math.floor((photosW - gap) / 2);
+          const slotH = contentH;
+          return {
+            topBar: topBarRect, botBar: botBarRect,
+            slots: [
+              { x: contentX + barW + gap, y: contentY, w: slotW, h: slotH },
+              { x: contentX + barW + gap + slotW + gap, y: contentY, w: slotW, h: slotH },
+            ],
+            solidBlocks: [
+              { x: contentX, y: contentY, w: barW, h: contentH },
+            ],
+          };
+        }
+
+        // L5: 2 horizontal photos with center solid bar (like Layout 9)
+        if (builderState.layoutId === "L5") {
+          const barW = Math.floor(contentW * 0.24);
+          const slotW = Math.floor((contentW - barW - gap * 2) / 2);
+          const slotH = contentH;
+          return {
+            topBar: topBarRect, botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX + slotW + gap + barW + gap, y: contentY, w: slotW, h: slotH },
+            ],
+            solidBlocks: [
+              { x: contentX + slotW + gap, y: contentY, w: barW, h: contentH },
+            ],
+          };
+        }
+
+        // For landscape 4x6 variants, recompute bars based on minSide (still ok)
+        // L6: 2 stacked photos left + right solid block (like Layout 11)
+        if (builderState.layoutId === "L6") {
+          const rightW = Math.floor(contentW * 0.40);
+          const leftW = contentW - rightW - gap;
+          const slotH = Math.floor((contentH - gap) / 2);
+          return {
+            topBar: topBarRect, botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: leftW, h: slotH },
+              { x: contentX, y: contentY + slotH + gap, w: leftW, h: slotH },
+            ],
+            solidBlocks: [
+              { x: contentX + leftW + gap, y: contentY, w: rightW, h: contentH },
+            ],
+          };
+        }
+
+        // L7: 1 big photo centered (like Layout 10)
+        // keep strong frame border area (single color) by using content rect around the photo.
+        if (builderState.layoutId === "L7") {
+          const inset = Math.round(minSide * 0.04);
+          const slotX = contentX + inset;
+          const slotY = contentY + inset;
+          const slotW = contentW - inset * 2;
+          const slotH = contentH - inset * 2;
+          return {
+            topBar: topBarRect, botBar: botBarRect,
+            slots: [{ x: slotX, y: slotY, w: slotW, h: slotH }],
+            solidBlocks: [],
+          };
+        }
+
+        // fallback
+        return { topBar: topBarRect, botBar: botBarRect, slots: [], solidBlocks: [] };
       }
 
-      function rectsIntersect(a, b) {
-        return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
-      }
+      async function drawStrip() {
+        ensureSlotMapping();
 
-      async function pickStickerImagesForExport() {
-        if (!stickerCatalog.length) {
-          // Try load silently if not loaded yet
-          try {
-            const res = await fetch(vq("./stickers.json"));
-            const list = await res.json();
-            stickerCatalog = Array.isArray(list) ? list : [];
-          } catch (_) {}
-        }
-        const all = stickerCatalog.slice(0, 51); // ensure max 51 if file has more
-        if (!all.length) return [];
-
-        const allow = allowedTagsForFrame(builderState.frameColorId);
-        const avoid = avoidTagsForFrame(builderState.frameColorId);
-
-        // Build candidates by tag
-        const candidates = [];
-        for (const it of all) {
-          const tag = inferStickerTag(it);
-          // If we can match, great; else allow unknown but lower priority
-          const ok = allow.has(tag) || tag === "unknown";
-          if (!ok) continue;
-          if (avoid.has(tag)) continue;
-          candidates.push({ ...it, _tag: tag });
-        }
-        const pool = candidates.length ? candidates : all.map((it) => ({ ...it, _tag: inferStickerTag(it) }));
-
-        // Random count 3–5, unique
-        const count = Math.min(randInt(3, 5), pool.length);
-        shuffle(pool);
-
-        // Ensure unique by src
-        const used = new Set();
-        const chosen = [];
-        for (const it of pool) {
-          const key = it.src;
-          if (used.has(key)) continue;
-          used.add(key);
-          chosen.push(it);
-          if (chosen.length >= count) break;
-        }
-        return chosen;
-      }
-
-      async function renderRandomExportStickers(layout, slotRects) {
-        // Load sticker images
-        const picks = await pickStickerImagesForExport();
-        if (!picks.length) return;
-
-        const regions = buildOuterRegions(layout);
-        const minSide = Math.min(stripCanvas.width, stripCanvas.height);
-
-        // Place each sticker: small, random rotation, random scale; avoid slotRects.
-        for (const it of picks) {
-          const img = await loadImage(it.src);
-          if (!img) continue;
-
-          const iw = img.naturalWidth || img.width;
-          const ih = img.naturalHeight || img.height;
-          if (!iw || !ih) continue;
-
-          // Target size: small
-          const base = minSide * 0.14;
-          const scale = (0.75 + Math.random() * 0.35); // smaller & natural
-          const targetW = base * scale;
-          const targetH = (ih / iw) * targetW;
-
-          // Try multiple attempts to find safe placement
-          let placed = false;
-          for (let attempt = 0; attempt < 30 && !placed; attempt++) {
-            const reg = pickRandom(regions);
-
-            const pad = Math.round(minSide * 0.02);
-            const x = reg.x + pad + Math.random() * Math.max(1, reg.w - targetW - pad * 2);
-            const y = reg.y + pad + Math.random() * Math.max(1, reg.h - targetH - pad * 2);
-
-            const bbox = { x, y, w: targetW, h: targetH };
-
-            // Must NOT overlap photo slots (with a small buffer)
-            const buffer = Math.round(minSide * 0.015);
-            const expandedSlots = slotRects.map((s) => ({ x: s.x - buffer, y: s.y - buffer, w: s.w + buffer * 2, h: s.h + buffer * 2 }));
-
-            if (expandedSlots.some((s) => rectsIntersect(bbox, s))) continue;
-
-            // Lightly rotate
-            const rot = (Math.random() * 18 - 9) * (Math.PI / 180);
-
-            stripCtx.save();
-            stripCtx.translate(x + targetW / 2, y + targetH / 2);
-            stripCtx.rotate(rot);
-            stripCtx.drawImage(img, -targetW / 2, -targetH / 2, targetW, targetH);
-            stripCtx.restore();
-
-            placed = true;
-          }
-        }
-      }
-
-      async function drawStrip(withExportStickers) {
-        ensureSlotStateCount();
-
-        // Preload selected capture images (by capIndex)
-        const capImgs = await Promise.all(capturedItems.map((it) => loadImage(it.url)));
+        // preload selected images (IMPORTANT: selected images must display)
+        const selectedIdxs = builderState.slotToCapture.slice();
+        const imgs = await Promise.all(
+          selectedIdxs.map((ci) => (ci >= 0 ? loadImage(capturedItems[ci]?.url || "") : Promise.resolve(null)))
+        );
 
         const frameColor = getFrameColor();
         const layout = getLayoutSlots();
 
-        // Background: single frame color only (no overlays)
+        // single-color background (no extra overlays)
         stripCtx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
         stripCtx.fillStyle = frameColor;
         stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
 
-        // Black bars inside layout (if any)
-        if (layout.bars?.length) {
-          stripCtx.fillStyle = "#000000";
-          layout.bars.forEach((b) => stripCtx.fillRect(b.x, b.y, b.w, b.h));
-        }
+        // solid blocks (same frame color, but they exist as layout negative spaces)
+        // NOTE: since background is already frameColor, these blocks are implicit; kept for clarity.
+        // (We do nothing, because they are already the background.)
 
-        // Draw slots (only the slots that exist in this layout)
+        // draw photos into slots
         for (let i = 0; i < layout.slots.length; i++) {
           const slot = layout.slots[i];
-          const st = builderState.slots[i] || { capIndex: -1, scale: 1, ox: 0, oy: 0 };
-          const img = st.capIndex >= 0 ? capImgs[st.capIndex] : null;
+          const img = imgs[i];
 
-          // Empty slot: subtle dark fill ONLY (no stroke)
           if (!img) {
+            // empty (slightly darker but still single-color feel)
             stripCtx.fillStyle = "rgba(0,0,0,0.18)";
             stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
           } else {
-            // Clip to slot rect
-            stripCtx.save();
-            stripCtx.beginPath();
-            stripCtx.rect(slot.x, slot.y, slot.w, slot.h);
-            stripCtx.clip();
-            drawCoverWithTransform(stripCtx, img, slot, st);
-            stripCtx.restore();
-          }
-
-          // Selected slot highlight (very subtle; export unaffected)
-          if (!withExportStickers && i === selectedSlotIndex) {
-            stripCtx.save();
-            stripCtx.strokeStyle = "rgba(255,241,0,0.9)";
-            stripCtx.lineWidth = Math.max(2, Math.min(stripCanvas.width, stripCanvas.height) * 0.006);
-            stripCtx.strokeRect(slot.x + 2, slot.y + 2, slot.w - 4, slot.h - 4);
-            stripCtx.restore();
+            drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
           }
         }
 
-        // Logo bigger (top centered)
+        // logo (top centered, bigger)
         const logoImg = await getLogoImage();
         if (logoImg) {
           const top = layout.topBar;
-          const maxW = top.w * 0.38; // bigger
-          const maxH = top.h * 0.78; // bigger
+
+          // bigger than before
+          const maxW = top.w * 0.40;
+          const maxH = top.h * 0.80;
+
           const iw = logoImg.naturalWidth || logoImg.width;
           const ih = logoImg.naturalHeight || logoImg.height;
           if (iw && ih) {
@@ -2406,127 +2385,10 @@
             stripCtx.drawImage(logoImg, x, y, w, h);
           }
         }
-
-        // Export stickers (random 3–5) on outer frame only
-        if (withExportStickers) {
-          await renderRandomExportStickers(layout, layout.slots);
-        }
       }
 
-      // Canvas interactions:
-      // - Tap a slot to select it
-      // - If a capture thumbnail is selected: tap slot assigns it
-      // - Gesture on selected slot: 1-finger drag (move image), 2-finger pinch (scale + rotate? rotate NOT needed for photos)
-      (function enableSlotGestures() {
-        const pointers = new Map();
-        let dragStart = null;
-        let pinchStart = null;
-
-        function currentSlotRects() {
-          return getLayoutSlots().slots;
-        }
-
-        stripCanvas.addEventListener("pointerdown", (e) => {
-          if (builderOverlay.classList.contains("hidden")) return;
-          e.preventDefault();
-          stripCanvas.setPointerCapture?.(e.pointerId);
-
-          const pt = canvasPoint(e);
-          const slots = currentSlotRects();
-          const hit = hitSlot(pt, slots);
-
-          if (hit >= 0) {
-            // If user has selected a capture thumb, assign on tap
-            if (selectedCaptureIndex >= 0) {
-              assignSelectedCaptureToSlot(hit);
-            } else {
-              selectedSlotIndex = hit;
-              drawStrip(false);
-            }
-          } else {
-            selectedSlotIndex = -1;
-            drawStrip(false);
-          }
-
-          pointers.set(e.pointerId, pt);
-
-          if (selectedSlotIndex < 0) return;
-          const st = builderState.slots[selectedSlotIndex];
-          if (!st) return;
-
-          if (pointers.size === 1) {
-            dragStart = {
-              x: pt.x, y: pt.y,
-              baseOx: st.ox,
-              baseOy: st.oy,
-            };
-            pinchStart = null;
-          } else if (pointers.size === 2) {
-            const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
-            pinchStart = {
-              d: dist(a, b),
-              baseScale: st.scale,
-            };
-            dragStart = null;
-          }
-        }, { passive: false });
-
-        stripCanvas.addEventListener("pointermove", (e) => {
-          if (!pointers.has(e.pointerId)) return;
-          e.preventDefault();
-          const pt = canvasPoint(e);
-          pointers.set(e.pointerId, pt);
-
-          if (selectedSlotIndex < 0) return;
-          const st = builderState.slots[selectedSlotIndex];
-          if (!st) return;
-
-          const slots = currentSlotRects();
-          const slot = slots[selectedSlotIndex];
-          if (!slot) return;
-
-          if (pointers.size === 1 && dragStart) {
-            // move image offsets
-            const dx = (pt.x - dragStart.x) / slot.w;
-            const dy = (pt.y - dragStart.y) / slot.h;
-            st.ox = clamp(dragStart.baseOx + dx, -1, 1);
-            st.oy = clamp(dragStart.baseOy + dy, -1, 1);
-            drawStrip(false);
-          }
-
-          if (pointers.size === 2 && pinchStart) {
-            const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
-            const nd = dist(a, b);
-            const s = nd / Math.max(10, pinchStart.d);
-            st.scale = clamp(pinchStart.baseScale * s, 0.7, 3.0);
-            drawStrip(false);
-          }
-        }, { passive: false });
-
-        stripCanvas.addEventListener("pointerup", (e) => {
-          pointers.delete(e.pointerId);
-          if (pointers.size === 0) {
-            dragStart = null;
-            pinchStart = null;
-          } else if (pointers.size === 1 && selectedSlotIndex >= 0) {
-            const pt = Array.from(pointers.values())[0];
-            const st = builderState.slots[selectedSlotIndex];
-            dragStart = { x: pt.x, y: pt.y, baseOx: st.ox, baseOy: st.oy };
-            pinchStart = null;
-          }
-        });
-
-        stripCanvas.addEventListener("pointercancel", () => {
-          pointers.clear();
-          dragStart = null;
-          pinchStart = null;
-        });
-      })();
-
       exportStripBtn.addEventListener("click", async () => {
-        await drawStrip(true); // WITH random export stickers
+        await drawStrip();
 
         stripCanvas.toBlob((blob) => {
           if (!blob) { alert("Export failed."); return; }
@@ -2539,8 +2401,11 @@
             <title>${filename}</title>
             <div style="margin:0;background:#000;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;">
               <img src="${url}" style="max-width:100%;height:auto;display:block;background:#000" />
-              <a href="${url}" download="${filename}"
-                 style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none">
+              <a
+                href="${url}"
+                download="${filename}"
+                style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
+              >
                 Download (${filename})
               </a>
             </div>
@@ -2551,22 +2416,15 @@
       });
 
       /* =========================
-         Photobooth toggle availability after AR start
+         Photobooth toggle default
       ========================= */
       setPhotoboothMode(false);
       applyCameraFilterPreview();
 
       /* =========================
          Enable photobooth toggle only after AR starts
+         (done in startCamera)
       ========================= */
-      // done in startCamera()
-
-      /* =========================
-         Close builder on backdrop click
-      ========================= */
-      builderOverlay.addEventListener("pointerdown", (e) => {
-        if (e.target === builderOverlay) closeBuilder();
-      });
     </script>
   </body>
 </html>
