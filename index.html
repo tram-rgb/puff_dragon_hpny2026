@@ -30,19 +30,26 @@
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background: #fff; /* white background */
+        background: #fff; /* white background (top/bottom bars) */
         display: flex;
         align-items: center;
         justify-content: center;
+        overflow: hidden;
       }
 
+      /*
+        IMPORTANT:
+        - Full width always
+        - Height auto
+        - Any leftover space becomes white (top/bottom)
+      */
       #introVideo {
-        position: absolute;
-        inset: 0;
         width: 100vw;
-        height: 100vh;
-        object-fit: cover; /* full screen */
+        height: auto;
+        max-height: 100vh;
+        object-fit: contain; /* show the whole frame */
         background: #fff;
+        display: block;
       }
 
       /* TOP PUFF CLOSE BUTTON (always visible) */
@@ -118,9 +125,6 @@
         will-change: transform;
         z-index: 2;
         user-select: none;
-
-        /* ✅ NEW: iOS / Safari drag reliability */
-        -webkit-user-drag: none;
       }
 
       /* Stickers layer above puff */
@@ -358,8 +362,9 @@
         muted
         preload="auto"
       >
-        <source id="introMp4" src="" type="video/mp4" />
-        <source id="introWebm" src="" type="video/webm" />
+        <!-- Stronger codec hints help browser selection -->
+        <source id="introMp4" src="" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+        <source id="introWebm" src="" type='video/webm; codecs="vp09.00.10.08"' />
       </video>
 
       <!-- Always-visible top puff close button -->
@@ -536,6 +541,7 @@
         } catch (_) {}
       }
 
+      // Puff close works anytime; Explore works after the 1st play finished
       closePuff.addEventListener("click", closeIntro);
       exploreBtn.addEventListener("click", closeIntro);
 
@@ -990,125 +996,6 @@
         el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
       }
 
-      // ✅ NEW: touch-first drag/pinch for Puff (iOS reliable)
-      function enableTouchDragPinch(el, state, onUpdate) {
-        let mode = null; // "drag" | "pinch"
-        let start = null;
-
-        const getTouch = (t) => ({ x: t.clientX, y: t.clientY });
-        const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-        const ang2 = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
-
-        function toPct(dxPx, dyPx) {
-          return {
-            dx: (dxPx / window.innerWidth) * 100,
-            dy: (dyPx / window.innerHeight) * 100,
-          };
-        }
-
-        function onTouchStart(e) {
-          e.preventDefault();
-
-          if (e.touches.length === 1) {
-            mode = "drag";
-            const t = getTouch(e.touches[0]);
-            start = { x: t.x, y: t.y, baseX: state.x, baseY: state.y };
-          } else if (e.touches.length === 2) {
-            mode = "pinch";
-            const a = getTouch(e.touches[0]);
-            const b = getTouch(e.touches[1]);
-            start = {
-              d: dist2(a, b),
-              ang: ang2(a, b),
-              baseScale: state.scale,
-              baseRot: state.rotation,
-            };
-          }
-        }
-
-        function onTouchMove(e) {
-          if (!mode || !start) return;
-          e.preventDefault();
-
-          if (mode === "drag" && e.touches.length === 1) {
-            const t = getTouch(e.touches[0]);
-            const { dx, dy } = toPct(t.x - start.x, t.y - start.y);
-            state.x = clamp(start.baseX + dx, 0, 100);
-            state.y = clamp(start.baseY + dy, 0, 100);
-            onUpdate();
-          }
-
-          if (mode === "pinch" && e.touches.length === 2) {
-            const a = getTouch(e.touches[0]);
-            const b = getTouch(e.touches[1]);
-
-            const newD = dist2(a, b);
-            const newAng = ang2(a, b);
-
-            const s = newD / Math.max(10, start.d);
-            state.scale = clamp(start.baseScale * s, 0.2, 6);
-            state.rotation = start.baseRot + (newAng - start.ang);
-
-            onUpdate();
-          }
-        }
-
-        function onTouchEnd(e) {
-          if (e.touches.length === 0) {
-            mode = null;
-            start = null;
-          } else if (e.touches.length === 1) {
-            mode = "drag";
-            const t = getTouch(e.touches[0]);
-            start = { x: t.x, y: t.y, baseX: state.x, baseY: state.y };
-          }
-        }
-
-        // Mouse fallback (desktop)
-        let mouseDown = false;
-        let mouseStart = null;
-
-        function onMouseDown(e) {
-          e.preventDefault();
-          mouseDown = true;
-          mouseStart = { x: e.clientX, y: e.clientY, baseX: state.x, baseY: state.y };
-          window.addEventListener("mousemove", onMouseMove, { passive: false });
-          window.addEventListener("mouseup", onMouseUp, { passive: false });
-        }
-
-        function onMouseMove(e) {
-          if (!mouseDown || !mouseStart) return;
-          e.preventDefault();
-          const { dx, dy } = toPct(e.clientX - mouseStart.x, e.clientY - mouseStart.y);
-          state.x = clamp(mouseStart.baseX + dx, 0, 100);
-          state.y = clamp(mouseStart.baseY + dy, 0, 100);
-          onUpdate();
-        }
-
-        function onMouseUp() {
-          mouseDown = false;
-          mouseStart = null;
-          window.removeEventListener("mousemove", onMouseMove);
-          window.removeEventListener("mouseup", onMouseUp);
-        }
-
-        function onWheel(e) {
-          e.preventDefault();
-          const delta = -Math.sign(e.deltaY) * 0.08;
-          state.scale = clamp(state.scale * (1 + delta), 0.2, 6);
-          onUpdate();
-        }
-
-        el.addEventListener("touchstart", onTouchStart, { passive: false });
-        el.addEventListener("touchmove", onTouchMove, { passive: false });
-        el.addEventListener("touchend", onTouchEnd, { passive: false });
-        el.addEventListener("touchcancel", onTouchEnd, { passive: false });
-
-        el.addEventListener("mousedown", onMouseDown, { passive: false });
-        el.addEventListener("wheel", onWheel, { passive: false });
-      }
-
-      // Keep your original pointer-based for stickers (and anything else)
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
@@ -1254,9 +1141,7 @@
         applyTransform(puffEl, puffState);
       }
       updatePuff();
-
-      // ✅ CHANGED: use touch-first handler for Puff only
-      enableTouchDragPinch(puffEl, puffState, updatePuff);
+      makeTransformable(puffEl, puffState, updatePuff);
 
       /* =========================
          MULTI-STICKERS
