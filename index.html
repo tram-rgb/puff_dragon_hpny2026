@@ -2,10 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Puff Dragon AR Viewer</title>
 
     <style>
@@ -50,6 +47,9 @@
         object-fit: contain;
         background: #fff;
         display: block;
+
+        /* ✅ IMPORTANT: keep video from eating taps, so puff-close can be clicked */
+        pointer-events: none;
       }
 
       #introClosePuff {
@@ -63,6 +63,7 @@
         cursor: pointer;
         user-select: none;
         -webkit-tap-highlight-color: transparent;
+        pointer-events: auto; /* ✅ ensure clickable */
       }
 
       #introClosePuff:active {
@@ -166,11 +167,7 @@
         flex-direction: column;
         gap: 7px;
         padding-bottom: calc(12px + env(safe-area-inset-bottom));
-        background: linear-gradient(
-          to top,
-          rgba(0, 0, 0, 0.65),
-          rgba(0, 0, 0, 0)
-        );
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0));
         z-index: 10;
       }
 
@@ -351,7 +348,7 @@
       }
 
       /* =========================
-         CAPTURED PANEL (movable, scrollable)
+         CAPTURED PANEL
       ========================= */
       #capturedPanel {
         position: fixed;
@@ -414,10 +411,11 @@
         background: rgba(255, 255, 255, 0.06);
         aspect-ratio: 4 / 3;
       }
+
       .capThumb img {
         width: 100%;
         height: 100%;
-        object-fit: contain; /* show full (no zoom/crop) */
+        object-fit: contain;
         display: block;
         background: rgba(0, 0, 0, 0.55);
       }
@@ -438,12 +436,13 @@
         font-weight: 1000;
         min-width: unset;
       }
+
       #cueBtn:disabled {
         opacity: 0.5;
       }
 
       /* =========================
-         BUILDER OVERLAY (customize page)
+         BUILDER OVERLAY
       ========================= */
       #builderOverlay {
         position: fixed;
@@ -456,6 +455,7 @@
         justify-content: center;
         padding: 14px;
       }
+
       #builderOverlay.hidden {
         display: none !important;
       }
@@ -470,7 +470,7 @@
 
       #builderStageWrap {
         border-radius: 16px;
-        overflow: auto; /* allow scroll on mobile preview */
+        overflow: auto;
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: rgba(0, 0, 0, 0.25);
         display: flex;
@@ -494,7 +494,7 @@
         image-rendering: auto;
         border-radius: 0;
         background: transparent;
-        touch-action: manipulation; /* allow tap selection */
+        touch-action: manipulation;
       }
 
       #builderControls {
@@ -567,6 +567,7 @@
         cursor: pointer;
         user-select: none;
       }
+
       .pill.active {
         outline: 2px solid rgba(255, 255, 255, 0.7);
         outline-offset: 1px;
@@ -593,12 +594,13 @@
         cursor: pointer;
         touch-action: manipulation;
       }
+
       .pickThumb img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         display: block;
-        pointer-events: none; /* ensure tap hits the button */
+        pointer-events: none;
       }
 
       #exportStripBtn {
@@ -611,17 +613,16 @@
       }
 
       @media (max-width: 860px) {
-        /* Mobile: preview bigger, controls smaller */
         #builderShell {
           grid-template-columns: 1fr;
-          grid-template-rows: 1.35fr 0.65fr; /* preview > controls */
+          grid-template-rows: 1.35fr 0.65fr;
           height: 100%;
         }
         #builderStageWrap {
           padding: 10px;
         }
         #builderBody {
-          max-height: 34vh; /* keep controls smaller */
+          max-height: 34vh;
         }
       }
     </style>
@@ -632,24 +633,12 @@
          INTRO
     ========================= -->
     <div id="introOverlay">
-      <video
-        id="introVideo"
-        autoplay
-        playsinline
-        webkit-playsinline
-        muted
-        preload="auto"
-      >
+      <video id="introVideo" autoplay playsinline webkit-playsinline muted preload="auto">
         <source id="introMp4" src="" type="video/mp4" />
         <source id="introWebm" src="" type="video/webm" />
       </video>
 
-      <img
-        id="introClosePuff"
-        src="puff-close.png"
-        alt="Close intro"
-        role="button"
-      />
+      <img id="introClosePuff" src="puff-close.png" alt="Close intro" role="button" />
 
       <button id="exploreBtn" class="hidden" type="button">Explore</button>
     </div>
@@ -697,9 +686,7 @@
         </div>
 
         <div class="ui-row">
-          <button id="photoboothToggle" class="secondary" disabled>
-            Photobooth: OFF
-          </button>
+          <button id="photoboothToggle" class="secondary" disabled>Photobooth: OFF</button>
           <button id="stickers" class="secondary" disabled>Sticker</button>
           <button id="filterBtn" class="secondary" disabled>Filter</button>
           <button id="capture" disabled>Puff It!</button>
@@ -717,20 +704,9 @@
           <div id="stickerGrid"></div>
 
           <div class="panelFooter">
-            <div
-              style="
-                display: flex;
-                gap: 8px;
-                justify-content: center;
-                flex-wrap: wrap;
-              "
-            >
-              <button id="stickerRemove" class="secondary" disabled>
-                Remove selected
-              </button>
-              <button id="stickerClear" class="secondary" disabled>
-                Clear all
-              </button>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+              <button id="stickerRemove" class="secondary" disabled>Remove selected</button>
+              <button id="stickerClear" class="secondary" disabled>Clear all</button>
             </div>
           </div>
         </div>
@@ -770,9 +746,7 @@
             <div class="ctrlGroup">
               <div class="ctrlTitle">Frame color</div>
               <div class="pillRow" id="frameColorRow"></div>
-              <div class="hint" style="margin-top:8px">
-                Logo auto-applies based on frame color.
-              </div>
+              <div class="hint" style="margin-top:8px">Logo auto-applies based on frame color.</div>
             </div>
 
             <div class="ctrlGroup">
@@ -819,7 +793,8 @@
       const clamp01 = (v) => clamp(v, 0, 1);
       const clamp255 = (v) => clamp(v, 0, 255);
       const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-      const angleDeg = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+      const angleDeg = (a, b) =>
+        (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 
       function applyTransform(el, state) {
         el.style.left = state.x + "%";
@@ -848,14 +823,20 @@
 
       // ✅ FIX: do NOT append cache-bust to blob:/data: URLs
       function loadImage(src) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
-  });
-}
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+
+          if (src.startsWith("blob:") || src.startsWith("data:")) {
+            img.src = src;
+          } else {
+            const joiner = src.includes("?") ? "&" : "?";
+            img.src = `${src}${joiner}v=${encodeURIComponent(ASSET_VERSION)}`;
+          }
+        });
+      }
 
       /* =========================
          MAIN APP ELEMENTS
@@ -890,10 +871,8 @@
       const exploreBtn = document.getElementById("exploreBtn");
       const closePuff = document.getElementById("introClosePuff");
       const app = document.getElementById("app");
-      const introMp4 = document.getElementById("introMp4");
-      const introWebm = document.getElementById("introWebm");
 
-     function setIntroSources() {
+      function setIntroSources() {
         const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
         introVideo.innerHTML = `
           <source src="intro.mp4?${v}" type="video/mp4">
@@ -901,13 +880,7 @@
         `;
         introVideo.load();
       }
-      
       setIntroSources();
-
-      #introVideo {
-        pointer-events: none;
-      }
-
 
       let introLoopStarted = false;
       introVideo.addEventListener("ended", async () => {
@@ -923,7 +896,9 @@
       });
 
       const tryPlayIntro = async () => {
-        try { await introVideo.play(); } catch (_) {}
+        try {
+          await introVideo.play();
+        } catch (_) {}
         window.removeEventListener("pointerdown", tryPlayIntro, true);
       };
       window.addEventListener("pointerdown", tryPlayIntro, true);
@@ -931,13 +906,19 @@
       async function closeIntro() {
         introOverlay.classList.add("hidden");
         app.classList.remove("hidden");
-        try { await puffEl.play(); } catch (_) {}
+        try {
+          await puffEl.play();
+        } catch (_) {}
       }
+
+      // ✅ iOS reliability: use pointerup (and click fallback)
+      closePuff.addEventListener("pointerup", closeIntro);
       closePuff.addEventListener("click", closeIntro);
+      exploreBtn.addEventListener("pointerup", closeIntro);
       exploreBtn.addEventListener("click", closeIntro);
 
       /* =========================================================
-         FILTERS (unchanged logic)
+         FILTERS
       ========================================================= */
       function srgbToLin(c) {
         c /= 255;
@@ -945,7 +926,8 @@
       }
       function linToSrgb(c) {
         c = clamp01(c);
-        const v = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+        const v =
+          c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
         return clamp255(v * 255);
       }
       function lumaLin(rLin, gLin, bLin) {
@@ -990,7 +972,10 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0, g = 0, b = 0, n = 0;
+            let r = 0,
+              g = 0,
+              b = 0,
+              n = 0;
             for (let dy = -radius; dy <= radius; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -1005,7 +990,9 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n, bg = g / n, bb = b / n;
+            const br = r / n,
+              bg = g / n,
+              bb = b / n;
 
             data[p] = clamp255(src[p] + amount * (src[p] - br));
             data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
@@ -1022,7 +1009,10 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0, g = 0, b = 0, n = 0;
+            let r = 0,
+              g = 0,
+              b = 0,
+              n = 0;
             for (let dy = -1; dy <= 1; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -1037,7 +1027,9 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n, bg = g / n, bb = b / n;
+            const br = r / n,
+              bg = g / n,
+              bb = b / n;
 
             data[p] = clamp255(src[p] * (1 - strength) + br * strength);
             data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
@@ -1068,72 +1060,135 @@
           id: "35mm04",
           name: "35mm 04",
           recipe: recipe({
-            exposure: -5, brilliance: -10, highlights: -30, shadows: +18,
-            brightness: -10, contrast: -8, saturation: -6, warmth: -6,
-            fade: +12, sharpness: -5, noiseReduce: +8,
+            exposure: -5,
+            brilliance: -10,
+            highlights: -30,
+            shadows: +18,
+            brightness: -10,
+            contrast: -8,
+            saturation: -6,
+            warmth: -6,
+            fade: +12,
+            sharpness: -5,
+            noiseReduce: +8,
           }),
         },
         {
           id: "vi4",
           name: "VI4",
           recipe: recipe({
-            exposure: +10, brilliance: +18, highlights: -35, shadows: +14,
-            brightness: +6, contrast: -6, saturation: +10, warmth: +10,
-            fade: +10, sharpness: +6, noiseReduce: +10,
+            exposure: +10,
+            brilliance: +18,
+            highlights: -35,
+            shadows: +14,
+            brightness: +6,
+            contrast: -6,
+            saturation: +10,
+            warmth: +10,
+            fade: +10,
+            sharpness: +6,
+            noiseReduce: +10,
           }),
         },
         {
           id: "cm1",
           name: "CM1",
           recipe: recipe({
-            exposure: +8, brilliance: +22, highlights: -25, shadows: +12,
-            brightness: +4, contrast: -4, saturation: +12, warmth: +6,
-            fade: +6, sharpness: +10, noiseReduce: +8,
+            exposure: +8,
+            brilliance: +22,
+            highlights: -25,
+            shadows: +12,
+            brightness: +4,
+            contrast: -4,
+            saturation: +12,
+            warmth: +6,
+            fade: +6,
+            sharpness: +10,
+            noiseReduce: +8,
           }),
         },
         {
           id: "sapa",
           name: "Sapa",
           recipe: recipe({
-            exposure: +12, brilliance: +10, highlights: -22, shadows: +18,
-            brightness: +8, contrast: -10, saturation: +6, warmth: -10,
-            fade: +16, sharpness: +6, noiseReduce: +10,
+            exposure: +12,
+            brilliance: +10,
+            highlights: -22,
+            shadows: +18,
+            brightness: +8,
+            contrast: -10,
+            saturation: +6,
+            warmth: -10,
+            fade: +16,
+            sharpness: +6,
+            noiseReduce: +10,
           }),
         },
         {
           id: "salt",
           name: "Salt",
           recipe: recipe({
-            exposure: +18, brilliance: +18, highlights: -40, shadows: +10,
-            brightness: +10, contrast: -8, saturation: +14, warmth: +14,
-            fade: +8, sharpness: +8, noiseReduce: +8,
+            exposure: +18,
+            brilliance: +18,
+            highlights: -40,
+            shadows: +10,
+            brightness: +10,
+            contrast: -8,
+            saturation: +14,
+            warmth: +14,
+            fade: +8,
+            sharpness: +8,
+            noiseReduce: +8,
           }),
         },
         {
           id: "in2",
           name: "IN2",
           recipe: recipe({
-            exposure: +10, brilliance: +8, highlights: -30, shadows: +16,
-            brightness: +4, contrast: -12, saturation: -4, warmth: -8,
-            fade: +18, sharpness: +6, noiseReduce: +12,
+            exposure: +10,
+            brilliance: +8,
+            highlights: -30,
+            shadows: +16,
+            brightness: +4,
+            contrast: -12,
+            saturation: -4,
+            warmth: -8,
+            fade: +18,
+            sharpness: +6,
+            noiseReduce: +12,
           }),
         },
         {
           id: "fl2",
           name: "FL2",
           recipe: recipe({
-            exposure: +14, brilliance: +14, highlights: -28, shadows: +10,
-            brightness: +8, contrast: -6, saturation: +10, warmth: +8,
-            fade: +10, sharpness: +8, noiseReduce: +10,
+            exposure: +14,
+            brilliance: +14,
+            highlights: -28,
+            shadows: +10,
+            brightness: +8,
+            contrast: -6,
+            saturation: +10,
+            warmth: +8,
+            fade: +10,
+            sharpness: +8,
+            noiseReduce: +10,
           }),
         },
         {
           id: "bwfilm",
           name: "B&W Film",
           recipe: recipe({
-            exposure: +6, brilliance: +10, highlights: -20, shadows: +10,
-            brightness: +4, contrast: +10, saturation: -100, fade: +8,
-            sharpness: +10, noiseReduce: +10,
+            exposure: +6,
+            brilliance: +10,
+            highlights: -20,
+            shadows: +10,
+            brightness: +4,
+            contrast: +10,
+            saturation: -100,
+            fade: +8,
+            sharpness: +10,
+            noiseReduce: +10,
           }),
         },
       ];
@@ -1147,7 +1202,11 @@
         const sat = 1 + r.saturation * 0.75;
         const hue = r.warmth * -18;
         const sep = clamp01(r.warmth * 0.35 + 0.05);
-        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(3)}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(3)}) hue-rotate(${hue.toFixed(1)}deg)`;
+        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(
+          3
+        )}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(
+          3
+        )}) hue-rotate(${hue.toFixed(1)}deg)`;
       }
 
       function applyCameraFilterPreview() {
@@ -1167,14 +1226,19 @@
         filterListEl.innerHTML = "";
         FILTERS.forEach((f) => {
           const b = document.createElement("button");
-          b.className = "filterItem" + (f.id === currentFilterId ? " active" : "");
+          b.className =
+            "filterItem" + (f.id === currentFilterId ? " active" : "");
           b.type = "button";
 
           const r = f.recipe;
           const recLine =
             f.id === "none"
               ? "no recipe"
-              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(r.highlights * 100)} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(r.saturation * 100)}`;
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(
+                  r.highlights * 100
+                )} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(
+                  r.saturation * 100
+                )}`;
 
           b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
 
@@ -1198,10 +1262,18 @@
 
       /* =========================
          PUFF RANDOM (weighted)
-         - puff is more frequent than puff2/puff3
       ========================= */
-      const puffBasesWeighted = ["puff","puff","puff","puff","puff","puff2","puff3"];
-      const chosenBase = puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
+      const puffBasesWeighted = [
+        "puff",
+        "puff",
+        "puff",
+        "puff",
+        "puff",
+        "puff2",
+        "puff3",
+      ];
+      const chosenBase =
+        puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
 
       function setPuffSource(base) {
         const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
@@ -1234,8 +1306,7 @@
 
       function shouldMirrorPreview() {
         return (
-          mirrorMode === "on" ||
-          (mirrorMode === "auto" && currentFacingMode === "user")
+          mirrorMode === "on" || (mirrorMode === "auto" && currentFacingMode === "user")
         );
       }
 
@@ -1325,16 +1396,21 @@
           currentFacingMode === "environment" ? "user" : "environment";
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
-        try { await startCamera(); } catch (e) { console.error(e); }
+        try {
+          await startCamera();
+        } catch (e) {
+          console.error(e);
+        }
       });
 
       mirrorBtn.addEventListener("click", () => {
-        mirrorMode = mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
+        mirrorMode =
+          mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
         applyMirrorToPreview();
       });
 
       /* =========================
-         TRANSFORMS (Puff: touch drag/pinch + 2-finger rotate)
+         TRANSFORMS (Puff)
       ========================= */
       function enableTouchDragPinch(el, state, onUpdate) {
         let mode = null;
@@ -1342,7 +1418,8 @@
 
         const getTouch = (t) => ({ x: t.clientX, y: t.clientY });
         const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-        const ang2 = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+        const ang2 = (a, b) =>
+          (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 
         function toPct(dxPx, dyPx) {
           return { dx: (dxPx / innerWidth) * 100, dy: (dyPx / innerHeight) * 100 };
@@ -1358,7 +1435,12 @@
             mode = "pinch";
             const a = getTouch(e.touches[0]);
             const b = getTouch(e.touches[1]);
-            start = { d: dist2(a, b), ang: ang2(a, b), baseScale: state.scale, baseRot: state.rotation };
+            start = {
+              d: dist2(a, b),
+              ang: ang2(a, b),
+              baseScale: state.scale,
+              baseRot: state.rotation,
+            };
           }
         }
 
@@ -1388,8 +1470,10 @@
         }
 
         function onTouchEnd(e) {
-          if (e.touches.length === 0) { mode = null; start = null; }
-          else if (e.touches.length === 1) {
+          if (e.touches.length === 0) {
+            mode = null;
+            start = null;
+          } else if (e.touches.length === 1) {
             mode = "drag";
             const t = getTouch(e.touches[0]);
             start = { x: t.x, y: t.y, baseX: state.x, baseY: state.y };
@@ -1437,7 +1521,7 @@
         el.addEventListener("wheel", onWheel, { passive: false });
       }
 
-      // Sticker transform (keeps 2-finger rotate support via pointer gestures)
+      // Sticker transform
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
@@ -1494,7 +1578,8 @@
             lastTime = null;
           } else if (pointers.size === 2) {
             const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
+            const a = pts[0],
+              b = pts[1];
             const ang = angleDeg(a, b);
             gestureStart = {
               distance: dist(a, b),
@@ -1527,7 +1612,8 @@
 
           if (pointers.size === 2 && gestureStart) {
             const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
+            const a = pts[0],
+              b = pts[1];
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
 
@@ -1536,8 +1622,7 @@
               0.2,
               6
             );
-            state.rotation =
-              gestureStart.rotation + (newAngle - gestureStart.angle);
+            state.rotation = gestureStart.rotation + (newAngle - gestureStart.angle);
 
             const now = performance.now();
             const dt = (now - lastTime) / 1000;
@@ -1578,7 +1663,9 @@
          PUFF transform
       ========================= */
       const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
-      function updatePuff() { applyTransform(puffEl, puffState); }
+      function updatePuff() {
+        applyTransform(puffEl, puffState);
+      }
       updatePuff();
       enableTouchDragPinch(puffEl, puffState, updatePuff);
 
@@ -1612,7 +1699,9 @@
         const state = { x: 50, y: 40, scale: 1.0, rotation: 0 };
         stickerStates.set(el, state);
 
-        function update() { applyTransform(el, state); }
+        function update() {
+          applyTransform(el, state);
+        }
         update();
 
         el.addEventListener("pointerdown", () => setSelectedSticker(el), true);
@@ -1690,18 +1779,15 @@
           });
         } catch (e) {
           console.error(e);
-          stickerGrid.innerHTML =
-            `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
-              Could not load stickers.json. Check ./stickers.json is deployed.
-            </div>`;
+          stickerGrid.innerHTML = `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
+            Could not load stickers.json. Check ./stickers.json is deployed.
+          </div>`;
         }
       }
 
       document.addEventListener("pointerdown", (e) => {
         const isSticker =
-          e.target &&
-          e.target.classList &&
-          e.target.classList.contains("sticker");
+          e.target && e.target.classList && e.target.classList.contains("sticker");
         const clickedPanel = stickerPanel.contains(e.target);
         const clickedFilter = filterPanel.contains(e.target);
         const clickedUI = document.getElementById("ui").contains(e.target);
@@ -1716,7 +1802,7 @@
       });
 
       /* =========================
-         CAPTURE (viewport-accurate, matches what user sees)
+         CAPTURE (viewport-accurate)
       ========================= */
       function applyRecipeToImageData(imageData, r) {
         const d = imageData.data;
@@ -1743,7 +1829,9 @@
 
           const y0 = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
           const sc = y / y0;
-          rLin *= sc; gLin *= sc; bLin *= sc;
+          rLin *= sc;
+          gLin *= sc;
+          bLin *= sc;
 
           [rLin, gLin, bLin] = applySaturationLin(rLin, gLin, bLin, sat);
 
@@ -1755,15 +1843,19 @@
           const yFade = applyFadeLin(lumaLin(rLin, gLin, bLin), r.fade);
           const yNow = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
           const s2 = yFade / yNow;
-          rLin *= s2; gLin *= s2; bLin *= s2;
+          rLin *= s2;
+          gLin *= s2;
+          bLin *= s2;
 
           d[i] = linToSrgb(rLin);
           d[i + 1] = linToSrgb(gLin);
           d[i + 2] = linToSrgb(bLin);
         }
 
-        if (r.noiseReduce > 0.01) noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
-        if (r.sharpness > 0.01) unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
+        if (r.noiseReduce > 0.01)
+          noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
+        if (r.sharpness > 0.01)
+          unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
         return imageData;
       }
 
@@ -1787,7 +1879,6 @@
         const camSrcH = cameraEl.videoHeight;
         const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
 
-        // helper for mirroring screen rects
         const rectToCanvas = (rect) => {
           const x = rect.left * dpr;
           const y = rect.top * dpr;
@@ -1795,7 +1886,7 @@
           const h = rect.height * dpr;
           return { x, y, w, h };
         };
-        const mirrorX = (x, w) => (mirrorOutput ? (W - (x + w)) : x);
+        const mirrorX = (x, w) => (mirrorOutput ? W - (x + w) : x);
 
         // camera base
         ctx.save();
@@ -1803,20 +1894,10 @@
           ctx.translate(W, 0);
           ctx.scale(-1, 1);
         }
-        ctx.drawImage(
-          cameraEl,
-          crop.sx,
-          crop.sy,
-          crop.sw,
-          crop.sh,
-          0,
-          0,
-          W,
-          H
-        );
+        ctx.drawImage(cameraEl, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
         ctx.restore();
 
-        // filter (apply in output pixels)
+        // filter
         if (currentFilterId !== "none") {
           const imgData = ctx.getImageData(0, 0, W, H);
           applyRecipeToImageData(imgData, currentRecipe);
@@ -1829,7 +1910,9 @@
         const px = mirrorX(puffRect.x, puffRect.w) + puffRect.w / 2;
         const py = puffRect.y + puffRect.h / 2;
         ctx.translate(px, py);
-        const puffRot = (mirrorOutput ? -puffState.rotation : puffState.rotation) * Math.PI / 180;
+        const puffRot =
+          (mirrorOutput ? -puffState.rotation : puffState.rotation) *
+          (Math.PI / 180);
         ctx.rotate(puffRot);
         ctx.drawImage(puffEl, -puffRect.w / 2, -puffRect.h / 2, puffRect.w, puffRect.h);
         ctx.restore();
@@ -1842,7 +1925,8 @@
           const sx = mirrorX(r.x, r.w) + r.w / 2;
           const sy = r.y + r.h / 2;
           ctx.translate(sx, sy);
-          const rot = (mirrorOutput ? -st.rotation : st.rotation) * Math.PI / 180;
+          const rot =
+            (mirrorOutput ? -st.rotation : st.rotation) * (Math.PI / 180);
           ctx.rotate(rot);
           ctx.drawImage(el, -r.w / 2, -r.h / 2, r.w, r.h);
           ctx.restore();
@@ -1852,7 +1936,7 @@
       }
 
       /* =========================
-         SINGLE CAPTURE (photobooth OFF)
+         SINGLE CAPTURE
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
@@ -1954,19 +2038,31 @@
           capturedHeader.style.cursor = "grabbing";
         });
 
-        window.addEventListener("pointermove", (e) => {
-          if (!dragging || !start) return;
-          e.preventDefault();
-          const dx = e.clientX - start.x;
-          const dy = e.clientY - start.y;
+        window.addEventListener(
+          "pointermove",
+          (e) => {
+            if (!dragging || !start) return;
+            e.preventDefault();
+            const dx = e.clientX - start.x;
+            const dy = e.clientY - start.y;
 
-          const newLeft = clamp(start.left + dx, 6, innerWidth - capturedPanel.offsetWidth - 6);
-          const newTop = clamp(start.top + dy, 6, innerHeight - capturedPanel.offsetHeight - 6);
+            const newLeft = clamp(
+              start.left + dx,
+              6,
+              innerWidth - capturedPanel.offsetWidth - 6
+            );
+            const newTop = clamp(
+              start.top + dy,
+              6,
+              innerHeight - capturedPanel.offsetHeight - 6
+            );
 
-          capturedPanel.style.left = newLeft + "px";
-          capturedPanel.style.top = newTop + "px";
-          capturedPanel.style.right = "auto";
-        }, { passive: false });
+            capturedPanel.style.left = newLeft + "px";
+            capturedPanel.style.top = newTop + "px";
+            capturedPanel.style.right = "auto";
+          },
+          { passive: false }
+        );
 
         window.addEventListener("pointerup", () => {
           dragging = false;
@@ -1981,15 +2077,20 @@
       captureBtn.addEventListener("click", () => {
         if (!photoboothOn) {
           captureToBlob((blob) => {
-            if (!blob) { alert("Capture failed."); return; }
+            if (!blob) {
+              alert("Capture failed.");
+              return;
+            }
             openDownloadWindow(blob);
           });
           return;
         }
 
-        // photobooth ON: store in panel
         captureToBlob((blob) => {
-          if (!blob) { alert("Capture failed."); return; }
+          if (!blob) {
+            alert("Capture failed.");
+            return;
+          }
           const url = URL.createObjectURL(blob);
           capturedItems.push({ blob, url });
           updateCapturedUI();
@@ -1997,8 +2098,7 @@
       });
 
       /* =========================
-         BUILDER (customize page)
-         - FIX: can select images to add to each panel (tap panel OR slot pill)
+         BUILDER
       ========================= */
       const builderOverlay = document.getElementById("builderOverlay");
       const builderCloseBtn = document.getElementById("builderCloseBtn");
@@ -2018,20 +2118,18 @@
         if (e.target === builderOverlay) closeBuilder();
       });
 
-      // frame colors (+ pure black uses puff-logo-3.png)
       const FRAME_COLORS = [
-        { id: "red",   name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
-        { id: "blue",  name: "Dark Blue",   value: "#060d3d", logo: "puff-logo-3.png" },
-        { id: "grey",  name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
-        { id: "white", name: "White",       value: "#ffffff", logo: "puff-logo-1.png" },
-        { id: "black", name: "Pure Black",  value: "#000000", logo: "puff-logo-3.png" },
+        { id: "red", name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
+        { id: "blue", name: "Dark Blue", value: "#060d3d", logo: "puff-logo-3.png" },
+        { id: "grey", name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
+        { id: "white", name: "White", value: "#ffffff", logo: "puff-logo-1.png" },
+        { id: "black", name: "Pure Black", value: "#000000", logo: "puff-logo-3.png" },
       ];
 
-      // layouts (3 original + 4 new)
       const LAYOUTS = [
-        { id: "L1", name: "Layout 1 (3 horizontal strip)" }, // 2x6 horizontal, 3 photos
-        { id: "L2", name: "Layout 2 (3 vertical strip)" },   // 2x6 vertical, 3 photos
-        { id: "L3", name: "Layout 3 (4 grid 2x2)" },         // 4x6 vertical, 4 photos
+        { id: "L1", name: "Layout 1 (3 horizontal strip)" },
+        { id: "L2", name: "Layout 2 (3 vertical strip)" },
+        { id: "L3", name: "Layout 3 (4 grid 2x2)" },
         { id: "L4", name: "Layout 4 (2 horizontal, left bar)" },
         { id: "L5", name: "Layout 5 (2 horizontal, center bar)" },
         { id: "L6", name: "Layout 6 (4x6 landscape, 2 stacked + right bar)" },
@@ -2041,17 +2139,17 @@
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        fitMode: "smart", // "contain" | "smart" | "cover"
+        fitMode: "smart", // contain | smart | cover
         slotToCapture: [],
       };
-
-
 
       let activeSlot = 0;
 
       const logoImgCache = new Map();
       async function getLogoImage() {
-        const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
+        const c =
+          FRAME_COLORS.find((x) => x.id === builderState.frameColorId) ||
+          FRAME_COLORS[1];
         const src = c.logo;
         if (logoImgCache.has(src)) return logoImgCache.get(src);
         const img = await loadImage(src);
@@ -2060,19 +2158,37 @@
       }
 
       function getFrameColor() {
-        const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
+        const c =
+          FRAME_COLORS.find((x) => x.id === builderState.frameColorId) ||
+          FRAME_COLORS[1];
         return c.value;
       }
 
       function syncCanvasToLayout() {
-        if (builderState.layoutId === "L1") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
-        if (builderState.layoutId === "L2") { stripCanvas.width = 400;  stripCanvas.height = 1200; return; }
-        if (builderState.layoutId === "L3") { stripCanvas.width = 900;  stripCanvas.height = 1350; return; }
+        if (builderState.layoutId === "L1") {
+          stripCanvas.width = 1200;
+          stripCanvas.height = 400;
+          return;
+        }
+        if (builderState.layoutId === "L2") {
+          stripCanvas.width = 400;
+          stripCanvas.height = 1200;
+          return;
+        }
+        if (builderState.layoutId === "L3") {
+          stripCanvas.width = 900;
+          stripCanvas.height = 1350;
+          return;
+        }
         if (builderState.layoutId === "L4" || builderState.layoutId === "L5") {
-          stripCanvas.width = 1200; stripCanvas.height = 400; return;
+          stripCanvas.width = 1200;
+          stripCanvas.height = 400;
+          return;
         }
         if (builderState.layoutId === "L6" || builderState.layoutId === "L7") {
-          stripCanvas.width = 1350; stripCanvas.height = 900; return;
+          stripCanvas.width = 1350;
+          stripCanvas.height = 900;
+          return;
         }
       }
 
@@ -2088,10 +2204,8 @@
         const n = slotsNeeded();
         const arr = builderState.slotToCapture || [];
         const next = new Array(n).fill(-1);
-        for (let i = 0; i < n; i++) next[i] = (arr[i] ?? i);
-        for (let i = 0; i < n; i++) {
-          if (next[i] >= capturedItems.length) next[i] = -1;
-        }
+        for (let i = 0; i < n; i++) next[i] = arr[i] ?? i;
+        for (let i = 0; i < n; i++) if (next[i] >= capturedItems.length) next[i] = -1;
         builderState.slotToCapture = next;
         activeSlot = clamp(activeSlot, 0, n - 1);
       }
@@ -2100,7 +2214,8 @@
         frameColorRow.innerHTML = "";
         FRAME_COLORS.forEach((c) => {
           const p = document.createElement("div");
-          p.className = "pill" + (builderState.frameColorId === c.id ? " active" : "");
+          p.className =
+            "pill" + (builderState.frameColorId === c.id ? " active" : "");
           p.textContent = c.name;
           p.addEventListener("click", async () => {
             builderState.frameColorId = c.id;
@@ -2126,7 +2241,7 @@
           layoutRow.appendChild(p);
         });
 
-          // fit modes
+        // fit modes
         fitModeRow.innerHTML = "";
         [
           { id: "contain", label: "Contain (no crop)" },
@@ -2139,7 +2254,7 @@
           p.addEventListener("click", async () => {
             builderState.fitMode = m.id;
             renderBuilderUI();
-            await drawStrip();
+            await drawStrip({ forExport: false });
           });
           fitModeRow.appendChild(p);
         });
@@ -2198,48 +2313,45 @@
         builderOverlay.setAttribute("aria-hidden", "true");
       }
 
-     function drawCover(ctx, img, rx, ry, rw, rh) {
-  const iw = img.naturalWidth || img.width;
-  const ih = img.naturalHeight || img.height;
-  if (!iw || !ih) return;
+      /* ===== FIT DRAWERS (contain / cover / smart) ===== */
+      function drawCover(ctx, img, rx, ry, rw, rh) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
 
-  const s = Math.max(rw / iw, rh / ih);
-  const dw = iw * s;
-  const dh = ih * s;
-  const dx = rx + (rw - dw) / 2;
-  const dy = ry + (rh - dh) / 2;
-  ctx.drawImage(img, dx, dy, dw, dh);
-}
+        const s = Math.max(rw / iw, rh / ih);
+        const dw = iw * s;
+        const dh = ih * s;
+        const dx = rx + (rw - dw) / 2;
+        const dy = ry + (rh - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+      }
 
-  function drawContain(ctx, img, rx, ry, rw, rh) {
-    const iw = img.naturalWidth || img.width;
-    const ih = img.naturalHeight || img.height;
-    if (!iw || !ih) return;
-  
-    const s = Math.min(rw / iw, rh / ih); // ✅ no crop
-    const dw = iw * s;
-    const dh = ih * s;
-    const dx = rx + (rw - dw) / 2;
-    const dy = ry + (rh - dh) / 2;
-    ctx.drawImage(img, dx, dy, dw, dh);
-  }
-  
-  function drawSmart(ctx, img, rx, ry, rw, rh) {
-    const iw = img.naturalWidth || img.width;
-    const ih = img.naturalHeight || img.height;
-    if (!iw || !ih) return;
-  
-    const imgAR = iw / ih;
-    const slotAR = rw / rh;
-  
-    // if aspect ratios are close -> cover looks better; otherwise contain
-    const ratio = imgAR / slotAR;
-    const closeEnough = ratio > 0.82 && ratio < 1.22; // tweakable threshold
-  
-    if (closeEnough) drawCover(ctx, img, rx, ry, rw, rh);
-    else drawContain(ctx, img, rx, ry, rw, rh);
-  }    
+      function drawContain(ctx, img, rx, ry, rw, rh) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
 
+        const s = Math.min(rw / iw, rh / ih);
+        const dw = iw * s;
+        const dh = ih * s;
+        const dx = rx + (rw - dw) / 2;
+        const dy = ry + (rh - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+      }
+
+      function drawSmart(ctx, img, rx, ry, rw, rh) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+
+        const imgAR = iw / ih;
+        const slotAR = rw / rh;
+        const ratio = imgAR / slotAR;
+
+        const closeEnough = ratio > 0.82 && ratio < 1.22;
+        if (closeEnough) drawCover(ctx, img, rx, ry, rw, rh);
+        else drawContain(ctx, img, rx, ry, rw, rh);
       }
 
       function getLayoutSlots() {
@@ -2266,7 +2378,8 @@
           const slotW = Math.floor((contentW - gap * 2) / 3);
           const slotH = contentH;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2279,7 +2392,8 @@
           const slotH = Math.floor((contentH - gap * 2) / 3);
           const slotW = contentW;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
@@ -2292,7 +2406,8 @@
           const slotW = Math.floor((contentW - gap) / 2);
           const slotH = Math.floor((contentH - gap) / 2);
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2308,7 +2423,8 @@
           const slotW = Math.floor((photosW - gap) / 2);
           const slotH = contentH;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX + barW + gap, y: contentY, w: slotW, h: slotH },
               { x: contentX + barW + gap + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2321,7 +2437,8 @@
           const slotW = Math.floor((contentW - barW - gap * 2) / 2);
           const slotH = contentH;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap + barW + gap, y: contentY, w: slotW, h: slotH },
@@ -2334,7 +2451,8 @@
           const leftW = contentW - rightW - gap;
           const slotH = Math.floor((contentH - gap) / 2);
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: leftW, h: slotH },
               { x: contentX, y: contentY + slotH + gap, w: leftW, h: slotH },
@@ -2349,7 +2467,8 @@
           const slotW = contentW - inset * 2;
           const slotH = contentH - inset * 2;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [{ x: slotX, y: slotY, w: slotW, h: slotH }],
           };
         }
@@ -2357,7 +2476,7 @@
         return { topBar: topBarRect, botBar: botBarRect, slots: [] };
       }
 
-      // ✅ NEW: tap preview panel to select slot
+      // tap preview panel to select slot
       function canvasPointToSlotIndex(clientX, clientY) {
         const rect = stripCanvas.getBoundingClientRect();
         const x = ((clientX - rect.left) / rect.width) * stripCanvas.width;
@@ -2390,7 +2509,9 @@
 
         const selectedIdxs = builderState.slotToCapture.slice();
         const imgs = await Promise.all(
-          selectedIdxs.map((ci) => (ci >= 0 ? loadImage(capturedItems[ci]?.url || "") : Promise.resolve(null)))
+          selectedIdxs.map((ci) =>
+            ci >= 0 ? loadImage(capturedItems[ci]?.url || "") : Promise.resolve(null)
+          )
         );
 
         const frameColor = getFrameColor();
@@ -2400,26 +2521,23 @@
         stripCtx.fillStyle = frameColor;
         stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
 
+        // draw slots
         for (let i = 0; i < layout.slots.length; i++) {
           const slot = layout.slots[i];
           const img = imgs[i];
 
-          // always fill panel background first
-        stripCtx.fillStyle = frameColor;
-        stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
+          stripCtx.fillStyle = frameColor;
+          stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
 
-        if (img) {
-          const mode = builderState.fitMode || "smart";
-          if (mode === "contain") drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
-          else if (mode === "cover") drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
-          else drawSmart(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
-        }
-
-
+          if (img) {
+            const mode = builderState.fitMode || "smart";
+            if (mode === "contain") drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+            else if (mode === "cover") drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+            else drawSmart(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
           }
         }
 
-        // ✅ highlight active slot (preview only, not in export)
+        // highlight active slot (preview only)
         if (!forExport) {
           const active = layout.slots[activeSlot];
           if (active) {
@@ -2434,10 +2552,10 @@
           }
         }
 
+        // logo
         const logoImg = await getLogoImage();
         if (logoImg) {
           const top = layout.topBar;
-
           const maxW = top.w * 0.40;
           const maxH = top.h * 0.80;
 
@@ -2458,10 +2576,16 @@
         await drawStrip({ forExport: true });
 
         stripCanvas.toBlob((blob) => {
-          if (!blob) { alert("Export failed."); return; }
+          if (!blob) {
+            alert("Export failed.");
+            return;
+          }
           const url = URL.createObjectURL(blob);
           const win = window.open("about:blank", "_blank");
-          if (!win) { alert("Popup blocked."); return; }
+          if (!win) {
+            alert("Popup blocked.");
+            return;
+          }
           const filename = `Puff_Dragon_Photobooth_${Date.now()}.png`;
 
           win.document.write(`
