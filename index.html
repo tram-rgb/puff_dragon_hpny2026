@@ -9,6 +9,12 @@
     <title>Puff Dragon AR Viewer</title>
 
     <style>
+      @font-face {
+        font-family: "BeautifulFreak";
+        src: url("BeautifulFreak.otf") format("opentype");
+        font-display: swap;
+      }
+
       html,
       body {
         margin: 0;
@@ -23,7 +29,7 @@
         display: none !important;
       }
 
-      /* =========================
+     /* =========================
          INTRO OVERLAY
       ========================= */
       #introOverlay {
@@ -106,7 +112,6 @@
         transform-origin: center;
       }
 
-      /* Mirror ONLY the live preview if needed */
       #camera.mirror {
         transform: scaleX(-1);
       }
@@ -125,9 +130,9 @@
         will-change: transform;
         z-index: 2;
         user-select: none;
+        -webkit-user-drag: none;
       }
 
-      /* Stickers layer above puff */
       #stickerLayer {
         position: fixed;
         inset: 0;
@@ -157,7 +162,7 @@
       }
 
       /* =========================
-         UI: smaller buttons
+         UI
       ========================= */
       #ui {
         position: fixed;
@@ -194,7 +199,7 @@
         letter-spacing: 0.2px;
         color: #fff;
         background: #e11d2e;
-        min-width: 76px;
+        min-width: 92px;
       }
 
       #start {
@@ -213,7 +218,13 @@
         background: #fff100;
         color: #060d3d;
         font-weight: 900;
-        min-width: 92px;
+        min-width: 110px;
+      }
+
+      #photoboothToggle.on {
+        background: #01b7ff;
+        color: #00131c;
+        font-weight: 900;
       }
 
       /* Panels */
@@ -346,12 +357,278 @@
           display: block;
         }
       }
+
+      /* =========================
+         CAPTURED PANEL (movable, scrollable)
+      ========================= */
+      #capturedPanel {
+        position: fixed;
+        right: 14px;
+        top: calc(14px + env(safe-area-inset-top));
+        width: min(42vw, 240px);
+        height: min(48vh, 360px);
+        z-index: 50;
+        border-radius: 14px;
+        background: rgba(10, 10, 10, 0.65);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #capturedPanel.hidden {
+        display: none !important;
+      }
+
+      #capturedHeader {
+        padding: 10px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        background: rgba(0, 0, 0, 0.35);
+        cursor: grab;
+        user-select: none;
+      }
+
+      #capturedHeader .title {
+        color: #fff;
+        font: 900 12px system-ui;
+        letter-spacing: 0.2px;
+      }
+
+      #capturedHeader button {
+        min-width: unset;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      #capturedList {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .capThumb {
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        aspect-ratio: 4 / 3;
+      }
+      .capThumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      #capturedFooter {
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.35);
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+      }
+
+      #cueBtn {
+        width: 100%;
+        border-radius: 12px;
+        background: #fff100;
+        color: #060d3d;
+        font-weight: 1000;
+        min-width: unset;
+      }
+      #cueBtn:disabled {
+        opacity: 0.5;
+      }
+
+      /* =========================
+         BUILDER OVERLAY (customize page)
+      ========================= */
+      #builderOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: rgba(0, 0, 0, 0.72);
+        backdrop-filter: blur(14px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+      }
+      #builderOverlay.hidden {
+        display: none !important;
+      }
+
+      #builderShell {
+        width: min(980px, 100%);
+        height: min(720px, 100%);
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 12px;
+      }
+
+      @media (max-width: 860px) {
+        #builderShell {
+          grid-template-columns: 1fr;
+          grid-template-rows: 1fr auto;
+          height: 100%;
+        }
+      }
+
+      #builderStageWrap {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+      }
+
+      #builderStage {
+        position: relative;
+        width: min(520px, 92vw);
+        height: min(620px, 62vh);
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #stripCanvas {
+        max-width: 100%;
+        max-height: 100%;
+        image-rendering: auto;
+        border-radius: 0;
+        background: transparent;
+      }
+
+      #builderControls {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.35);
+        display: flex;
+        flex-direction: column;
+      }
+
+      #builderTopbar {
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        background: rgba(0, 0, 0, 0.35);
+      }
+
+      #builderTopbar .label {
+        color: #fff;
+        font: 900 12px system-ui;
+        opacity: 0.95;
+      }
+
+      #builderTopbar button {
+        min-width: unset;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.14);
+      }
+
+      #builderBody {
+        padding: 10px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .ctrlGroup {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .ctrlTitle {
+        color: rgba(255, 255, 255, 0.92);
+        font: 900 12px system-ui;
+        margin-bottom: 8px;
+      }
+
+      .pillRow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .pill {
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.92);
+        padding: 7px 10px;
+        border-radius: 999px;
+        font: 900 11px system-ui;
+        cursor: pointer;
+        user-select: none;
+      }
+      .pill.active {
+        outline: 2px solid rgba(255, 255, 255, 0.7);
+        outline-offset: 1px;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(0, 0, 0, 0.35);
+        color: #fff;
+        font: 800 13px system-ui;
+        outline: none;
+      }
+
+      input[type="range"] {
+        width: 100%;
+      }
+
+      #exportStripBtn {
+        width: 100%;
+        border-radius: 12px;
+        background: #fff100;
+        color: #060d3d;
+        font-weight: 1000;
+        padding: 10px 12px;
+      }
+
+      /* text gizmo selection */
+      .hint {
+        color: rgba(255, 255, 255, 0.75);
+        font: 700 11px system-ui;
+        line-height: 1.25;
+      }
     </style>
   </head>
 
   <body>
     <!-- =========================
-         INTRO (shows every visit)
+         INTRO
     ========================= -->
     <div id="introOverlay">
       <video
@@ -362,12 +639,10 @@
         muted
         preload="auto"
       >
-        <!-- Stronger codec hints help browser selection -->
-        <source id="introMp4" src="" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
-        <source id="introWebm" src="" type='video/webm; codecs="vp09.00.10.08"' />
+        <source id="introMp4" src="" type="video/mp4" />
+        <source id="introWebm" src="" type="video/webm" />
       </video>
 
-      <!-- Always-visible top puff close button -->
       <img
         id="introClosePuff"
         src="puff-close.png"
@@ -375,12 +650,11 @@
         role="button"
       />
 
-      <!-- Explore shows only after full intro watched once -->
       <button id="exploreBtn" class="hidden" type="button">Explore</button>
     </div>
 
     <!-- =========================
-         MAIN APP (hidden until closed)
+         MAIN APP
     ========================= -->
     <div id="app" class="hidden">
       <div id="desktopHint">
@@ -402,6 +676,18 @@
 
       <div id="stickerLayer"></div>
 
+      <!-- Captured floating panel (photobooth ON) -->
+      <div id="capturedPanel" class="hidden" aria-hidden="true">
+        <div id="capturedHeader">
+          <div class="title">Captured</div>
+          <button id="clearCapturedBtn" type="button">Clear</button>
+        </div>
+        <div id="capturedList"></div>
+        <div id="capturedFooter">
+          <button id="cueBtn" type="button" disabled>Visuals, cue!</button>
+        </div>
+      </div>
+
       <div id="ui">
         <div class="ui-row">
           <button id="start">Start AR</button>
@@ -410,6 +696,9 @@
         </div>
 
         <div class="ui-row">
+          <button id="photoboothToggle" class="secondary" disabled>
+            Photobooth: OFF
+          </button>
           <button id="stickers" class="secondary" disabled>Sticker</button>
           <button id="filterBtn" class="secondary" disabled>Filter</button>
           <button id="capture" disabled>Puff It!</button>
@@ -459,11 +748,84 @@
       </div>
     </div>
 
+    <!-- =========================
+         BUILDER OVERLAY
+    ========================= -->
+    <div id="builderOverlay" class="hidden" aria-hidden="true">
+      <div id="builderShell">
+        <div id="builderStageWrap">
+          <div id="builderStage">
+            <canvas id="stripCanvas" width="900" height="1350"></canvas>
+          </div>
+        </div>
+
+        <div id="builderControls">
+          <div id="builderTopbar">
+            <div class="label">Photoshoot Customize</div>
+            <button id="builderCloseBtn" type="button">Close</button>
+          </div>
+
+          <div id="builderBody">
+            <div class="ctrlGroup">
+              <div class="ctrlTitle">Frame color</div>
+              <div class="pillRow" id="frameColorRow"></div>
+              <div class="hint" style="margin-top:8px">
+                Logo auto-applies based on frame color.
+              </div>
+            </div>
+
+            <div class="ctrlGroup">
+              <div class="ctrlTitle">Layout</div>
+              <div class="pillRow" id="layoutRow"></div>
+              <div class="hint" style="margin-top:8px">
+                Layout 1: 3 poses strip (horizontal) • Layout 2: 3 poses strip (vertical) • Layout 3: 4 poses grid (2x2)
+              </div>
+            </div>
+
+            <div class="ctrlGroup">
+              <div class="ctrlTitle">Text</div>
+              <div class="row">
+                <button id="addTextBtn" type="button" class="secondary" style="min-width:unset">
+                  + Add text
+                </button>
+                <button id="deleteTextBtn" type="button" class="secondary" style="min-width:unset" disabled>
+                  Delete selected
+                </button>
+              </div>
+              <div style="height:8px"></div>
+
+              <input id="textInput" type="text" placeholder="Type your text…" disabled />
+
+              <div style="height:10px"></div>
+
+              <div class="ctrlTitle" style="margin-bottom:6px">Text color</div>
+              <div class="pillRow" id="textColorRow"></div>
+
+              <div style="height:10px"></div>
+
+              <div class="ctrlTitle" style="margin-bottom:6px">Font size</div>
+              <input id="fontSizeRange" type="range" min="18" max="110" value="56" disabled />
+              <div class="hint" style="margin-top:8px">
+                Tip: drag text on the strip • pinch to scale • two-finger rotate.
+              </div>
+            </div>
+
+            <div class="ctrlGroup">
+              <button id="exportStripBtn" type="button">Export strip PNG</button>
+              <div class="hint" style="margin-top:8px">
+                Uses captured photos (no extra stickers added here).
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
       /* =========================
          CACHE BUSTING
       ========================= */
-      const ASSET_VERSION = "26";
+      const ASSET_VERSION = "27";
 
       /* =========================
          MAIN APP ELEMENTS
@@ -477,6 +839,7 @@
       const mirrorBtn = document.getElementById("mirror");
       const stickersBtn = document.getElementById("stickers");
       const captureBtn = document.getElementById("capture");
+      const photoboothToggleBtn = document.getElementById("photoboothToggle");
 
       const filterBtn = document.getElementById("filterBtn");
       const filterPanel = document.getElementById("filterPanel");
@@ -490,32 +853,26 @@
       const stickerClear = document.getElementById("stickerClear");
 
       /* =========================
-         INTRO LOGIC (ALWAYS SHOW INTRO EACH VISIT)
+         INTRO
       ========================= */
       const introOverlay = document.getElementById("introOverlay");
       const introVideo = document.getElementById("introVideo");
       const exploreBtn = document.getElementById("exploreBtn");
       const closePuff = document.getElementById("introClosePuff");
       const app = document.getElementById("app");
-
-      // Multi-source intro video (MP4 required, WEBM optional)
       const introMp4 = document.getElementById("introMp4");
       const introWebm = document.getElementById("introWebm");
 
       introMp4.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
       introWebm.src = `intro.webm?v=${encodeURIComponent(ASSET_VERSION)}`;
-
       introVideo.load();
 
       let introLoopStarted = false;
 
-      // After first full play, show Explore and loop forever
       introVideo.addEventListener("ended", async () => {
         if (!introLoopStarted) {
           introLoopStarted = true;
-
           exploreBtn.classList.remove("hidden");
-
           introVideo.loop = true;
           try {
             introVideo.currentTime = 0;
@@ -524,11 +881,8 @@
         }
       });
 
-      // If autoplay is blocked, try on first interaction
       const tryPlayIntro = async () => {
-        try {
-          await introVideo.play();
-        } catch (_) {}
+        try { await introVideo.play(); } catch (_) {}
         window.removeEventListener("pointerdown", tryPlayIntro, true);
       };
       window.addEventListener("pointerdown", tryPlayIntro, true);
@@ -536,17 +890,13 @@
       async function closeIntro() {
         introOverlay.classList.add("hidden");
         app.classList.remove("hidden");
-        try {
-          await puffEl.play();
-        } catch (_) {}
+        try { await puffEl.play(); } catch (_) {}
       }
-
-      // Puff close works anytime; Explore works after the 1st play finished
       closePuff.addEventListener("click", closeIntro);
       exploreBtn.addEventListener("click", closeIntro);
 
       /* =========================================================
-         FOODIE-LIKE FILTER RECIPES
+         FILTERS
       ========================================================= */
       const clamp01 = (v) => Math.max(0, Math.min(1, v));
       const clamp255 = (v) => Math.max(0, Math.min(255, v));
@@ -572,17 +922,14 @@
 
       function adjustShadowsHighlightsLin(y, shadows, highlights) {
         let out = y;
-
         if (shadows !== 0) {
           const t = clamp01((0.45 - y) / 0.45);
           out += shadows * t * 0.35;
         }
-
         if (highlights !== 0) {
           const t = clamp01((y - 0.55) / 0.45);
           out += highlights * t * 0.35;
         }
-
         return clamp01(out);
       }
 
@@ -829,7 +1176,7 @@
       filterClose.addEventListener("click", closeFilterPanel);
 
       /* =========================
-         PUFF RANDOM (3 videos)
+         PUFF RANDOM
       ========================= */
       const puffBases = ["puff", "puff2", "puff3"];
       const chosenBase = puffBases[Math.floor(Math.random() * puffBases.length)];
@@ -871,7 +1218,6 @@
       ========================= */
       let currentFacingMode = "environment";
       let stream = null;
-
       let mirrorMode = "auto";
 
       function shouldMirrorPreview() {
@@ -915,6 +1261,7 @@
         stickersBtn.disabled = true;
         mirrorBtn.disabled = true;
         filterBtn.disabled = true;
+        photoboothToggleBtn.disabled = true;
 
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -943,6 +1290,7 @@
         stickersBtn.disabled = false;
         mirrorBtn.disabled = false;
         filterBtn.disabled = false;
+        photoboothToggleBtn.disabled = false;
 
         applyMirrorToPreview();
         applyCameraFilterPreview();
@@ -965,11 +1313,7 @@
           currentFacingMode === "environment" ? "user" : "environment";
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
-        try {
-          await startCamera();
-        } catch (e) {
-          console.error(e);
-        }
+        try { await startCamera(); } catch (e) { console.error(e); }
       });
 
       mirrorBtn.addEventListener("click", () => {
@@ -980,15 +1324,9 @@
       /* =========================
          TRANSFORM HELPERS
       ========================= */
-      function clamp(v, min, max) {
-        return Math.max(min, Math.min(max, v));
-      }
-      function dist(a, b) {
-        return Math.hypot(a.x - b.x, a.y - b.y);
-      }
-      function angleDeg(a, b) {
-        return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
-      }
+      function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+      function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+      function angleDeg(a, b) { return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI; }
 
       function applyTransform(el, state) {
         el.style.left = state.x + "%";
@@ -996,6 +1334,109 @@
         el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
       }
 
+      // Touch-first drag/pinch for Puff (reliable on iOS)
+      function enableTouchDragPinch(el, state, onUpdate) {
+        let mode = null;
+        let start = null;
+
+        const getTouch = (t) => ({ x: t.clientX, y: t.clientY });
+        const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+        const ang2 = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+
+        function toPct(dxPx, dyPx) {
+          return { dx: (dxPx / innerWidth) * 100, dy: (dyPx / innerHeight) * 100 };
+        }
+
+        function onTouchStart(e) {
+          e.preventDefault();
+          if (e.touches.length === 1) {
+            mode = "drag";
+            const t = getTouch(e.touches[0]);
+            start = { x: t.x, y: t.y, baseX: state.x, baseY: state.y };
+          } else if (e.touches.length === 2) {
+            mode = "pinch";
+            const a = getTouch(e.touches[0]);
+            const b = getTouch(e.touches[1]);
+            start = { d: dist2(a, b), ang: ang2(a, b), baseScale: state.scale, baseRot: state.rotation };
+          }
+        }
+
+        function onTouchMove(e) {
+          if (!mode || !start) return;
+          e.preventDefault();
+
+          if (mode === "drag" && e.touches.length === 1) {
+            const t = getTouch(e.touches[0]);
+            const { dx, dy } = toPct(t.x - start.x, t.y - start.y);
+            state.x = clamp(start.baseX + dx, 0, 100);
+            state.y = clamp(start.baseY + dy, 0, 100);
+            onUpdate();
+          }
+
+          if (mode === "pinch" && e.touches.length === 2) {
+            const a = getTouch(e.touches[0]);
+            const b = getTouch(e.touches[1]);
+            const newD = dist2(a, b);
+            const newAng = ang2(a, b);
+
+            const s = newD / Math.max(10, start.d);
+            state.scale = clamp(start.baseScale * s, 0.2, 6);
+            state.rotation = start.baseRot + (newAng - start.ang);
+            onUpdate();
+          }
+        }
+
+        function onTouchEnd(e) {
+          if (e.touches.length === 0) { mode = null; start = null; }
+          else if (e.touches.length === 1) {
+            mode = "drag";
+            const t = getTouch(e.touches[0]);
+            start = { x: t.x, y: t.y, baseX: state.x, baseY: state.y };
+          }
+        }
+
+        // Mouse fallback
+        let mouseDown = false;
+        let mouseStart = null;
+
+        function onMouseDown(e) {
+          e.preventDefault();
+          mouseDown = true;
+          mouseStart = { x: e.clientX, y: e.clientY, baseX: state.x, baseY: state.y };
+          window.addEventListener("mousemove", onMouseMove, { passive: false });
+          window.addEventListener("mouseup", onMouseUp, { passive: false });
+        }
+        function onMouseMove(e) {
+          if (!mouseDown || !mouseStart) return;
+          e.preventDefault();
+          const { dx, dy } = toPct(e.clientX - mouseStart.x, e.clientY - mouseStart.y);
+          state.x = clamp(mouseStart.baseX + dx, 0, 100);
+          state.y = clamp(mouseStart.baseY + dy, 0, 100);
+          onUpdate();
+        }
+        function onMouseUp() {
+          mouseDown = false;
+          mouseStart = null;
+          window.removeEventListener("mousemove", onMouseMove);
+          window.removeEventListener("mouseup", onMouseUp);
+        }
+
+        function onWheel(e) {
+          e.preventDefault();
+          const delta = -Math.sign(e.deltaY) * 0.08;
+          state.scale = clamp(state.scale * (1 + delta), 0.2, 6);
+          onUpdate();
+        }
+
+        el.addEventListener("touchstart", onTouchStart, { passive: false });
+        el.addEventListener("touchmove", onTouchMove, { passive: false });
+        el.addEventListener("touchend", onTouchEnd, { passive: false });
+        el.addEventListener("touchcancel", onTouchEnd, { passive: false });
+        el.addEventListener("mousedown", onMouseDown, { passive: false });
+        el.addEventListener("wheel", onWheel, { passive: false });
+      }
+
+      // Original pointer-based (stickers)
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
@@ -1086,7 +1527,6 @@
           if (pointers.size === 2 && gestureStart) {
             const pts = Array.from(pointers.values());
             const a = pts[0], b = pts[1];
-
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
 
@@ -1137,11 +1577,9 @@
          PUFF transform
       ========================= */
       const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
-      function updatePuff() {
-        applyTransform(puffEl, puffState);
-      }
+      function updatePuff() { applyTransform(puffEl, puffState); }
       updatePuff();
-      makeTransformable(puffEl, puffState, updatePuff);
+      enableTouchDragPinch(puffEl, puffState, updatePuff);
 
       /* =========================
          MULTI-STICKERS
@@ -1173,14 +1611,11 @@
         const state = { x: 50, y: 40, scale: 1.0, rotation: 0 };
         stickerStates.set(el, state);
 
-        function update() {
-          applyTransform(el, state);
-        }
+        function update() { applyTransform(el, state); }
         update();
 
         el.addEventListener("pointerdown", () => setSelectedSticker(el), true);
         el.addEventListener("click", () => setSelectedSticker(el));
-
         makeTransformable(el, state, update);
 
         setSelectedSticker(el);
@@ -1192,7 +1627,6 @@
         stickerPanel.setAttribute("aria-hidden", "false");
         if (!stickersLoaded) loadStickers();
       }
-
       function closeStickerPanel() {
         stickerPanel.classList.remove("open");
         stickerPanel.setAttribute("aria-hidden", "true");
@@ -1202,7 +1636,6 @@
         if (stickersBtn.disabled) return;
         openStickerPanel();
       });
-
       stickerClose.addEventListener("click", closeStickerPanel);
 
       stickerRemove.addEventListener("click", () => {
@@ -1282,16 +1715,8 @@
       });
 
       /* =========================
-         CAPTURE HELPERS + FILTER APPLY
+         CAPTURE HELPERS
       ========================= */
-      function nextCaptureFilename() {
-        const key = "puff_capture_counter";
-        const current = parseInt(localStorage.getItem(key) || "0", 10) + 1;
-        localStorage.setItem(key, String(current));
-        const num = String(current).padStart(3, "0");
-        return `Puff Dragon_HPNY2026_${num}.png`;
-      }
-
       function getCoverTransform(srcW, srcH, dstW, dstH) {
         const scale = Math.max(dstW / srcW, dstH / srcH);
         const drawW = srcW * scale;
@@ -1355,143 +1780,827 @@
         if (r.sharpness > 0.01) {
           unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
         }
-
         return imageData;
       }
 
-      captureBtn.addEventListener("click", () => {
+      function computeDrawRect(domRect, camRect, cover, aspectW, aspectH) {
+        const centerX_screen = domRect.left + domRect.width / 2 - camRect.left;
+        const centerY_screen = domRect.top + domRect.height / 2 - camRect.top;
+
+        const centerX_cam = (centerX_screen - cover.offsetX) / cover.scale;
+        const centerY_cam = (centerY_screen - cover.offsetY) / cover.scale;
+
+        const w_cam = domRect.width / cover.scale;
+        const h_cam = domRect.height / cover.scale;
+
+        const ar = aspectW && aspectH ? aspectW / aspectH : domRect.width / domRect.height;
+
+        let drawW = w_cam;
+        let drawH = drawW / ar;
+        if (drawH > h_cam) {
+          drawH = h_cam;
+          drawW = drawH * ar;
+        }
+        return { centerX_cam, centerY_cam, drawW, drawH };
+      }
+
+      function captureToBlob(cb) {
+        if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
+          alert("Start AR first.");
+          return;
+        }
+
+        const out = document.createElement("canvas");
+        out.width = cameraEl.videoWidth;
+        out.height = cameraEl.videoHeight;
+        const ctx = out.getContext("2d", { willReadFrequently: true });
+
+        const camRect = cameraEl.getBoundingClientRect();
+        const cover = getCoverTransform(out.width, out.height, camRect.width, camRect.height);
+
+        const mirrorOutput = shouldMirrorPreview();
+
+        ctx.save();
+        if (mirrorOutput) {
+          ctx.translate(out.width, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(cameraEl, 0, 0, out.width, out.height);
+        ctx.restore();
+
+        if (currentFilterId !== "none") {
+          const imgData = ctx.getImageData(0, 0, out.width, out.height);
+          applyRecipeToImageData(imgData, currentRecipe);
+          ctx.putImageData(imgData, 0, 0);
+        }
+
+        function mirrorX(xCam) {
+          return mirrorOutput ? out.width - xCam : xCam;
+        }
+
+        // puff
+        const puffRect = puffEl.getBoundingClientRect();
+        const puffDraw = computeDrawRect(
+          puffRect,
+          camRect,
+          cover,
+          puffEl.videoWidth,
+          puffEl.videoHeight
+        );
+
+        ctx.save();
+        ctx.translate(mirrorX(puffDraw.centerX_cam), puffDraw.centerY_cam);
+        const puffRotation = mirrorOutput ? -puffState.rotation : puffState.rotation;
+        ctx.rotate((puffRotation * Math.PI) / 180);
+        ctx.drawImage(
+          puffEl,
+          -puffDraw.drawW / 2,
+          -puffDraw.drawH / 2,
+          puffDraw.drawW,
+          puffDraw.drawH
+        );
+        ctx.restore();
+
+        // stickers
+        for (const [el, st] of stickerStates.entries()) {
+          if (!el.complete || !el.naturalWidth) continue;
+          const r = el.getBoundingClientRect();
+          const d = computeDrawRect(r, camRect, cover, el.naturalWidth, el.naturalHeight);
+
+          ctx.save();
+          ctx.translate(mirrorX(d.centerX_cam), d.centerY_cam);
+          const stickerRotation = mirrorOutput ? -st.rotation : st.rotation;
+          ctx.rotate((stickerRotation * Math.PI) / 180);
+          ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
+          ctx.restore();
+        }
+
+        out.toBlob((blob) => cb(blob), "image/png");
+      }
+
+      /* =========================
+         SINGLE CAPTURE (photobooth OFF)
+      ========================= */
+      function nextCaptureFilename() {
+        const key = "puff_capture_counter";
+        const current = parseInt(localStorage.getItem(key) || "0", 10) + 1;
+        localStorage.setItem(key, String(current));
+        const num = String(current).padStart(3, "0");
+        return `Puff Dragon_HPNY2026_${num}.png`;
+      }
+
+      function openDownloadWindow(blob) {
         const win = window.open("about:blank", "_blank");
         if (!win) {
           alert("Popup blocked. Please allow popups for this site.");
           return;
         }
+        const filename = nextCaptureFilename();
+        const url = URL.createObjectURL(blob);
 
-        try {
-          if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
-            win.close();
-            alert("Start AR first.");
-            return;
-          }
+        win.document.write(`
+          <title>${filename}</title>
+          <div style="margin:0;background:#000;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;">
+            <img src="${url}" style="max-width:100%;height:auto;display:block;" />
+            <a
+              href="${url}"
+              download="${filename}"
+              style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
+            >
+              Download (${filename})
+            </a>
+          </div>
+        `);
+        win.document.close();
+        setTimeout(() => URL.revokeObjectURL(url), 15000);
+      }
 
-          const out = document.createElement("canvas");
-          out.width = cameraEl.videoWidth;
-          out.height = cameraEl.videoHeight;
-          const ctx = out.getContext("2d", { willReadFrequently: true });
+      /* =========================
+         PHOTOBOOTH MODE
+      ========================= */
+      let photoboothOn = false;
 
-          const camRect = cameraEl.getBoundingClientRect();
-          const cover = getCoverTransform(out.width, out.height, camRect.width, camRect.height);
+      const capturedPanel = document.getElementById("capturedPanel");
+      const capturedHeader = document.getElementById("capturedHeader");
+      const capturedList = document.getElementById("capturedList");
+      const cueBtn = document.getElementById("cueBtn");
+      const clearCapturedBtn = document.getElementById("clearCapturedBtn");
 
-          const mirrorOutput = shouldMirrorPreview();
+      const capturedItems = []; // { blob, url, img }
 
-          ctx.save();
-          if (mirrorOutput) {
-            ctx.translate(out.width, 0);
-            ctx.scale(-1, 1);
-          }
-          ctx.drawImage(cameraEl, 0, 0, out.width, out.height);
-          ctx.restore();
+      function setPhotoboothMode(on) {
+        photoboothOn = on;
+        photoboothToggleBtn.textContent = on ? "Photobooth: ON" : "Photobooth: OFF";
+        photoboothToggleBtn.classList.toggle("on", on);
 
-          if (currentFilterId !== "none") {
-            const imgData = ctx.getImageData(0, 0, out.width, out.height);
-            applyRecipeToImageData(imgData, currentRecipe);
-            ctx.putImageData(imgData, 0, 0);
-          }
-
-          function computeDrawRect(domRect, aspectW, aspectH) {
-            const centerX_screen = domRect.left + domRect.width / 2 - camRect.left;
-            const centerY_screen = domRect.top + domRect.height / 2 - camRect.top;
-
-            const centerX_cam = (centerX_screen - cover.offsetX) / cover.scale;
-            const centerY_cam = (centerY_screen - cover.offsetY) / cover.scale;
-
-            const w_cam = domRect.width / cover.scale;
-            const h_cam = domRect.height / cover.scale;
-
-            const ar = aspectW && aspectH ? aspectW / aspectH : domRect.width / domRect.height;
-
-            let drawW = w_cam;
-            let drawH = drawW / ar;
-            if (drawH > h_cam) {
-              drawH = h_cam;
-              drawW = drawH * ar;
-            }
-            return { centerX_cam, centerY_cam, drawW, drawH };
-          }
-
-          function mirrorX(xCam) {
-            return mirrorOutput ? out.width - xCam : xCam;
-          }
-
-          const puffRect = puffEl.getBoundingClientRect();
-          const puffDraw = computeDrawRect(puffRect, puffEl.videoWidth, puffEl.videoHeight);
-
-          ctx.save();
-          ctx.translate(mirrorX(puffDraw.centerX_cam), puffDraw.centerY_cam);
-          const puffRotation = mirrorOutput ? -puffState.rotation : puffState.rotation;
-          ctx.rotate((puffRotation * Math.PI) / 180);
-          ctx.drawImage(
-            puffEl,
-            -puffDraw.drawW / 2,
-            -puffDraw.drawH / 2,
-            puffDraw.drawW,
-            puffDraw.drawH
-          );
-          ctx.restore();
-
-          for (const [el, st] of stickerStates.entries()) {
-            if (!el.complete || !el.naturalWidth) continue;
-            const r = el.getBoundingClientRect();
-            const d = computeDrawRect(r, el.naturalWidth, el.naturalHeight);
-
-            ctx.save();
-            ctx.translate(mirrorX(d.centerX_cam), d.centerY_cam);
-            const stickerRotation = mirrorOutput ? -st.rotation : st.rotation;
-            ctx.rotate((stickerRotation * Math.PI) / 180);
-            ctx.drawImage(el, -d.drawW / 2, -d.drawH / 2, d.drawW, d.drawH);
-            ctx.restore();
-          }
-
-          out.toBlob((blob) => {
-            if (!blob) {
-              win.document.write("<h3>Capture failed</h3>");
-              win.document.close();
-              return;
-            }
-
-            const filename = nextCaptureFilename();
-            const url = URL.createObjectURL(blob);
-
-            win.document.write(`
-              <title>${filename}</title>
-              <div style="margin:0;background:#000;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;">
-                <img src="${url}" style="max-width:100%;height:auto;display:block;" />
-                <a
-                  href="${url}"
-                  download="${filename}"
-                  style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
-                >
-                  Download (${filename})
-                </a>
-              </div>
-            `);
-
-            win.document.close();
-            setTimeout(() => URL.revokeObjectURL(url), 15000);
-          }, "image/png");
-        } catch (err) {
-          console.error(err);
-          win.document.write(
-            `<h3>Capture Error</h3><pre style="white-space:pre-wrap">${String(err)}</pre>`
-          );
-          win.document.close();
-          alert("Capture failed. Try again.");
+        if (on) {
+          capturedPanel.classList.remove("hidden");
+          capturedPanel.setAttribute("aria-hidden", "false");
+        } else {
+          capturedPanel.classList.add("hidden");
+          capturedPanel.setAttribute("aria-hidden", "true");
         }
+        updateCapturedUI();
+      }
+
+      photoboothToggleBtn.addEventListener("click", () => {
+        setPhotoboothMode(!photoboothOn);
+      });
+
+      function updateCapturedUI() {
+        capturedList.innerHTML = "";
+        capturedItems.forEach((it) => {
+          const cell = document.createElement("div");
+          cell.className = "capThumb";
+          const img = document.createElement("img");
+          img.src = it.url;
+          img.alt = "capture";
+          cell.appendChild(img);
+          capturedList.appendChild(cell);
+        });
+        cueBtn.disabled = capturedItems.length === 0;
+      }
+
+      clearCapturedBtn.addEventListener("click", () => {
+        for (const it of capturedItems) URL.revokeObjectURL(it.url);
+        capturedItems.length = 0;
+        updateCapturedUI();
+      });
+
+      /* make captured panel movable */
+      (function enableDragPanel() {
+        let dragging = false;
+        let start = null;
+
+        capturedHeader.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          dragging = true;
+          capturedHeader.setPointerCapture?.(e.pointerId);
+          const rect = capturedPanel.getBoundingClientRect();
+          start = {
+            x: e.clientX,
+            y: e.clientY,
+            left: rect.left,
+            top: rect.top,
+          };
+          capturedHeader.style.cursor = "grabbing";
+        });
+
+        window.addEventListener("pointermove", (e) => {
+          if (!dragging || !start) return;
+          e.preventDefault();
+          const dx = e.clientX - start.x;
+          const dy = e.clientY - start.y;
+
+          const newLeft = clamp(start.left + dx, 6, innerWidth - capturedPanel.offsetWidth - 6);
+          const newTop = clamp(start.top + dy, 6, innerHeight - capturedPanel.offsetHeight - 6);
+
+          capturedPanel.style.left = newLeft + "px";
+          capturedPanel.style.top = newTop + "px";
+          capturedPanel.style.right = "auto";
+        }, { passive: false });
+
+        window.addEventListener("pointerup", () => {
+          dragging = false;
+          start = null;
+          capturedHeader.style.cursor = "grab";
+        });
+      })();
+
+      /* =========================
+         CAPTURE BUTTON
+      ========================= */
+      captureBtn.addEventListener("click", () => {
+        if (!photoboothOn) {
+          captureToBlob((blob) => {
+            if (!blob) { alert("Capture failed."); return; }
+            openDownloadWindow(blob);
+          });
+          return;
+        }
+
+        // photobooth ON: store in panel (no popup)
+        captureToBlob((blob) => {
+          if (!blob) { alert("Capture failed."); return; }
+          const url = URL.createObjectURL(blob);
+          capturedItems.push({ blob, url });
+          updateCapturedUI();
+        });
       });
 
       /* =========================
-         IMPORTANT: apply initial preview filter
+         BUILDER (customize page)
+      ========================= */
+      const builderOverlay = document.getElementById("builderOverlay");
+      const builderCloseBtn = document.getElementById("builderCloseBtn");
+      const stripCanvas = document.getElementById("stripCanvas");
+      const stripCtx = stripCanvas.getContext("2d");
+
+      const frameColorRow = document.getElementById("frameColorRow");
+      const layoutRow = document.getElementById("layoutRow");
+
+      const addTextBtn = document.getElementById("addTextBtn");
+      const deleteTextBtn = document.getElementById("deleteTextBtn");
+      const textInput = document.getElementById("textInput");
+      const textColorRow = document.getElementById("textColorRow");
+      const fontSizeRange = document.getElementById("fontSizeRange");
+      const exportStripBtn = document.getElementById("exportStripBtn");
+
+      cueBtn.addEventListener("click", () => {
+        openBuilder();
+      });
+
+      builderCloseBtn.addEventListener("click", () => closeBuilder());
+
+      function openBuilder() {
+        if (capturedItems.length === 0) return;
+        builderOverlay.classList.remove("hidden");
+        builderOverlay.setAttribute("aria-hidden", "false");
+        syncCanvasToLayout();
+        renderBuilderUI();
+        drawStrip();
+      }
+
+      function closeBuilder() {
+        builderOverlay.classList.add("hidden");
+        builderOverlay.setAttribute("aria-hidden", "true");
+        setSelectedText(null);
+      }
+
+      // frame colors
+      const FRAME_COLORS = [
+        { id: "red", name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
+        { id: "blue", name: "Dark Blue", value: "#060d3d", logo: "puff-logo-3.png" },
+        { id: "grey", name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
+        { id: "white", name: "White", value: "#ffffff", logo: "puff-logo-1.png" },
+      ];
+
+      // layouts
+      const LAYOUTS = [
+        { id: "L1", name: "Layout 1 (3 horizontal)" },
+        { id: "L2", name: "Layout 2 (3 vertical)" },
+        { id: "L3", name: "Layout 3 (4 grid)" },
+      ];
+
+      let builderState = {
+        frameColorId: "blue",
+        layoutId: "L2",
+        texts: [], // {id, text, x,y,scale,rot,color,fontSize}
+      };
+
+      // text colors
+      const TEXT_COLORS = [
+        { name: "Imperial Red", value: "#fa213f" },
+        { name: "Dark Blue", value: "#060d3d" },
+        { name: "Bright Grey", value: "#e8eef1" },
+        { name: "Pure White", value: "#ffffff" },
+        { name: "Fluorescent Yellow", value: "#fff100" },
+        { name: "Safety Orange", value: "#ff7800" },
+        { name: "Azure Blue", value: "#01b7ff" },
+        { name: "Vivid Red", value: "#ff1212" },
+      ];
+
+      function renderBuilderUI() {
+        // frame color pills
+        frameColorRow.innerHTML = "";
+        FRAME_COLORS.forEach((c) => {
+          const p = document.createElement("div");
+          p.className = "pill" + (builderState.frameColorId === c.id ? " active" : "");
+          p.textContent = c.name;
+          p.addEventListener("click", () => {
+            builderState.frameColorId = c.id;
+            renderBuilderUI();
+            drawStrip();
+          });
+          frameColorRow.appendChild(p);
+        });
+
+        // layout pills
+        layoutRow.innerHTML = "";
+        LAYOUTS.forEach((l) => {
+          const p = document.createElement("div");
+          p.className = "pill" + (builderState.layoutId === l.id ? " active" : "");
+          p.textContent = l.name;
+          p.addEventListener("click", () => {
+            builderState.layoutId = l.id;
+            syncCanvasToLayout();
+            renderBuilderUI();
+            drawStrip();
+          });
+          layoutRow.appendChild(p);
+        });
+
+        // text colors pills
+        textColorRow.innerHTML = "";
+        TEXT_COLORS.forEach((c) => {
+          const p = document.createElement("div");
+          p.className = "pill";
+          p.textContent = c.name;
+          p.addEventListener("click", () => {
+            if (!selectedText) return;
+            selectedText.color = c.value;
+            drawStrip();
+          });
+          textColorRow.appendChild(p);
+        });
+
+        // selection UI
+        deleteTextBtn.disabled = !selectedText;
+        textInput.disabled = !selectedText;
+        fontSizeRange.disabled = !selectedText;
+
+        if (selectedText) {
+          textInput.value = selectedText.text;
+          fontSizeRange.value = String(selectedText.fontSize);
+        } else {
+          textInput.value = "";
+        }
+      }
+
+      function syncCanvasToLayout() {
+        // match common photobooth proportions
+        if (builderState.layoutId === "L1") {
+          // 2x6 horizontal strip => 3:1 aspect
+          stripCanvas.width = 1200;
+          stripCanvas.height = 400;
+        } else if (builderState.layoutId === "L2") {
+          // 2x6 vertical strip => 1:3 aspect
+          stripCanvas.width = 400;
+          stripCanvas.height = 1200;
+        } else {
+          // 4x6 => 2:3 aspect
+          stripCanvas.width = 900;
+          stripCanvas.height = 1350;
+        }
+      }
+
+      // Logo cache
+      const logoImgCache = new Map();
+      function loadImage(src) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+        });
+      }
+
+      async function getLogoImage() {
+        const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
+        const src = c.logo;
+        if (logoImgCache.has(src)) return logoImgCache.get(src);
+        const img = await loadImage(src);
+        logoImgCache.set(src, img);
+        return img;
+      }
+
+      function getFrameColor() {
+        const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
+        return c.value;
+      }
+
+      function getLayoutSlots() {
+        const W = stripCanvas.width;
+        const H = stripCanvas.height;
+
+        // margins: top/bottom colored bars, plus outer margins
+        const outer = Math.round(Math.min(W, H) * 0.06); // outer margin
+        const bar = Math.round(Math.min(W, H) * 0.13);   // top/bottom fill area
+        const gap = Math.round(Math.min(W, H) * 0.03);   // inner gaps
+
+        const contentX = outer;
+        const contentY = outer + bar;
+        const contentW = W - outer * 2;
+        const contentH = H - outer * 2 - bar * 2;
+
+        if (builderState.layoutId === "L1") {
+          // 3 photos left-to-right
+          const slotW = Math.floor((contentW - gap * 2) / 3);
+          const slotH = contentH;
+          return {
+            outer, bar, gap,
+            topBar: { x: outer, y: outer, w: contentW, h: bar },
+            botBar: { x: outer, y: H - outer - bar, w: contentW, h: bar },
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
+              { x: contentX + (slotW + gap) * 2, y: contentY, w: slotW, h: slotH },
+            ],
+          };
+        }
+
+        if (builderState.layoutId === "L2") {
+          // 3 photos top-to-bottom
+          const slotH = Math.floor((contentH - gap * 2) / 3);
+          const slotW = contentW;
+          return {
+            outer, bar, gap,
+            topBar: { x: outer, y: outer, w: contentW, h: bar },
+            botBar: { x: outer, y: H - outer - bar, w: contentW, h: bar },
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
+              { x: contentX, y: contentY + (slotH + gap) * 2, w: slotW, h: slotH },
+            ],
+          };
+        }
+
+        // L3: 2x2 grid
+        const slotW = Math.floor((contentW - gap) / 2);
+        const slotH = Math.floor((contentH - gap) / 2);
+        return {
+          outer, bar, gap,
+          topBar: { x: outer, y: outer, w: contentW, h: bar },
+          botBar: { x: outer, y: H - outer - bar, w: contentW, h: bar },
+          slots: [
+            { x: contentX, y: contentY, w: slotW, h: slotH },
+            { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
+            { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
+            { x: contentX + slotW + gap, y: contentY + slotH + gap, w: slotW, h: slotH },
+          ],
+        };
+      }
+
+      // draw photo cover into rect
+      function drawCover(ctx, img, rx, ry, rw, rh) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+
+        const s = Math.max(rw / iw, rh / ih);
+        const dw = iw * s;
+        const dh = ih * s;
+        const dx = rx + (rw - dw) / 2;
+        const dy = ry + (rh - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+      }
+
+      // text selection + transforms
+      let selectedText = null;
+
+      function setSelectedText(t) {
+        selectedText = t;
+        renderBuilderUI();
+        drawStrip();
+      }
+
+      function newId() {
+        return Math.random().toString(16).slice(2) + Date.now().toString(16);
+      }
+
+      addTextBtn.addEventListener("click", () => {
+        const t = {
+          id: newId(),
+          text: "PUFF",
+          x: 0.5, // normalized (0..1) in canvas space
+          y: 0.12,
+          scale: 1,
+          rot: 0,
+          color: "#ffffff",
+          fontSize: 56,
+        };
+        builderState.texts.push(t);
+        setSelectedText(t);
+      });
+
+      deleteTextBtn.addEventListener("click", () => {
+        if (!selectedText) return;
+        builderState.texts = builderState.texts.filter((x) => x.id !== selectedText.id);
+        setSelectedText(null);
+      });
+
+      textInput.addEventListener("input", () => {
+        if (!selectedText) return;
+        selectedText.text = textInput.value;
+        drawStrip();
+      });
+
+      fontSizeRange.addEventListener("input", () => {
+        if (!selectedText) return;
+        selectedText.fontSize = parseInt(fontSizeRange.value, 10);
+        drawStrip();
+      });
+
+      // Handle text drag/pinch/rotate on canvas
+      (function enableTextGestures() {
+        const pointers = new Map();
+        let gestureStart = null;
+        let dragStart = null;
+
+        function canvasPoint(e) {
+          const rect = stripCanvas.getBoundingClientRect();
+          const x = (e.clientX - rect.left) * (stripCanvas.width / rect.width);
+          const y = (e.clientY - rect.top) * (stripCanvas.height / rect.height);
+          return { x, y };
+        }
+
+        function hitTestText(pt) {
+          // simple bounding check: measure text width at current font size
+          // and allow selecting closest.
+          let best = null;
+          let bestD = Infinity;
+          for (const t of builderState.texts) {
+            const tx = t.x * stripCanvas.width;
+            const ty = t.y * stripCanvas.height;
+
+            const fontSize = t.fontSize * t.scale;
+            stripCtx.save();
+            stripCtx.font = `900 ${fontSize}px BeautifulFreak, system-ui`;
+            const w = stripCtx.measureText(t.text || "").width;
+            const h = fontSize * 1.1;
+            stripCtx.restore();
+
+            const dx = pt.x - tx;
+            const dy = pt.y - ty;
+            const d = Math.hypot(dx, dy);
+
+            // lenient hit
+            const pad = 18;
+            if (
+              pt.x >= tx - w / 2 - pad &&
+              pt.x <= tx + w / 2 + pad &&
+              pt.y >= ty - h / 2 - pad &&
+              pt.y <= ty + h / 2 + pad
+            ) {
+              if (d < bestD) {
+                bestD = d;
+                best = t;
+              }
+            }
+          }
+          return best;
+        }
+
+        stripCanvas.addEventListener("pointerdown", (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+          e.preventDefault();
+          stripCanvas.setPointerCapture?.(e.pointerId);
+
+          const pt = canvasPoint(e);
+          const hit = hitTestText(pt);
+          if (hit) {
+            setSelectedText(hit);
+          } else {
+            setSelectedText(null);
+          }
+
+          pointers.set(e.pointerId, { x: pt.x, y: pt.y });
+
+          if (!selectedText) return;
+
+          if (pointers.size === 1) {
+            dragStart = {
+              x: pt.x, y: pt.y,
+              baseX: selectedText.x,
+              baseY: selectedText.y,
+              baseRot: selectedText.rot,
+            };
+            gestureStart = null;
+          } else if (pointers.size === 2) {
+            const pts = Array.from(pointers.values());
+            const a = pts[0], b = pts[1];
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            const ang = angleDeg(a, b);
+            gestureStart = {
+              distance: d,
+              angle: ang,
+              scale: selectedText.scale,
+              rotation: selectedText.rot,
+            };
+            dragStart = null;
+          }
+        }, { passive: false });
+
+        stripCanvas.addEventListener("pointermove", (e) => {
+          if (!pointers.has(e.pointerId)) return;
+          e.preventDefault();
+          const pt = canvasPoint(e);
+          pointers.set(e.pointerId, { x: pt.x, y: pt.y });
+
+          if (!selectedText) return;
+
+          if (pointers.size === 1 && dragStart) {
+            const dx = (pt.x - dragStart.x) / stripCanvas.width;
+            const dy = (pt.y - dragStart.y) / stripCanvas.height;
+            selectedText.x = clamp(dragStart.baseX + dx, 0, 1);
+            selectedText.y = clamp(dragStart.baseY + dy, 0, 1);
+            drawStrip();
+          }
+
+          if (pointers.size === 2 && gestureStart) {
+            const pts = Array.from(pointers.values());
+            const a = pts[0], b = pts[1];
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            const ang = angleDeg(a, b);
+
+            selectedText.scale = clamp(gestureStart.scale * (d / gestureStart.distance), 0.3, 5);
+            selectedText.rot = gestureStart.rotation + (ang - gestureStart.angle);
+            drawStrip();
+          }
+        }, { passive: false });
+
+        stripCanvas.addEventListener("pointerup", (e) => {
+          pointers.delete(e.pointerId);
+          if (pointers.size === 0) {
+            dragStart = null;
+            gestureStart = null;
+          } else if (pointers.size === 1 && selectedText) {
+            const pt = Array.from(pointers.values())[0];
+            dragStart = {
+              x: pt.x, y: pt.y,
+              baseX: selectedText.x,
+              baseY: selectedText.y,
+              baseRot: selectedText.rot,
+            };
+            gestureStart = null;
+          }
+        });
+
+        stripCanvas.addEventListener("pointercancel", (e) => {
+          pointers.clear();
+          dragStart = null;
+          gestureStart = null;
+        });
+      })();
+
+      async function drawStrip() {
+        // preload images (captured) into Image objects
+        const imgs = await Promise.all(
+          capturedItems.map((it) => loadImage(it.url))
+        );
+
+        const frameColor = getFrameColor();
+        const layout = getLayoutSlots();
+
+        // background = frame color
+        stripCtx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
+        stripCtx.fillStyle = frameColor;
+        stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
+
+        // top/bottom bars (same frameColor, but we keep them as defined margins)
+        // (Already filled; bars are implicit. We place logo within top bar area)
+
+        // photos area background: use frameColor; slots will be photo only
+        // draw photos
+        const needed =
+          builderState.layoutId === "L3" ? 4 : 3;
+
+        for (let i = 0; i < layout.slots.length; i++) {
+          const slot = layout.slots[i];
+          // if no photo, draw empty block (slightly darker)
+          if (!imgs[i]) {
+            stripCtx.fillStyle = "rgba(0,0,0,0.18)";
+            stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
+          } else {
+            drawCover(stripCtx, imgs[i], slot.x, slot.y, slot.w, slot.h);
+          }
+        }
+
+        // If fewer captures than needed, remaining slots show empty.
+        // If more captures than needed, use first N by default. (simple)
+        // you can reorder later if you want.
+
+        // logo (top centered)
+        const logoImg = await getLogoImage();
+        if (logoImg) {
+          const top = layout.topBar;
+          const maxW = top.w * 0.28;
+          const maxH = top.h * 0.7;
+          const iw = logoImg.naturalWidth || logoImg.width;
+          const ih = logoImg.naturalHeight || logoImg.height;
+          if (iw && ih) {
+            const s = Math.min(maxW / iw, maxH / ih);
+            const w = iw * s;
+            const h = ih * s;
+            const x = top.x + (top.w - w) / 2;
+            const y = top.y + (top.h - h) / 2;
+            stripCtx.drawImage(logoImg, x, y, w, h);
+          }
+        }
+
+        // draw texts
+        for (const t of builderState.texts) {
+          const x = t.x * stripCanvas.width;
+          const y = t.y * stripCanvas.height;
+          const fontSize = (t.fontSize || 56) * (t.scale || 1);
+
+          stripCtx.save();
+          stripCtx.translate(x, y);
+          stripCtx.rotate(((t.rot || 0) * Math.PI) / 180);
+          stripCtx.fillStyle = t.color || "#fff";
+          stripCtx.font = `900 ${fontSize}px BeautifulFreak, system-ui`;
+          stripCtx.textAlign = "center";
+          stripCtx.textBaseline = "middle";
+          stripCtx.fillText(t.text || "", 0, 0);
+
+          // selection outline (minimal)
+          if (selectedText && selectedText.id === t.id) {
+            const w = stripCtx.measureText(t.text || "").width;
+            const h = fontSize * 1.1;
+            stripCtx.strokeStyle = "rgba(255,255,255,0.75)";
+            stripCtx.lineWidth = Math.max(2, fontSize * 0.04);
+            stripCtx.strokeRect(-w / 2 - 12, -h / 2 - 10, w + 24, h + 20);
+          }
+
+          stripCtx.restore();
+        }
+      }
+
+      exportStripBtn.addEventListener("click", async () => {
+        await drawStrip();
+
+        stripCanvas.toBlob((blob) => {
+          if (!blob) { alert("Export failed."); return; }
+          const url = URL.createObjectURL(blob);
+          const win = window.open("about:blank", "_blank");
+          if (!win) { alert("Popup blocked."); return; }
+          const filename = `Puff_Dragon_Photobooth_${Date.now()}.png`;
+
+          win.document.write(`
+            <title>${filename}</title>
+            <div style="margin:0;background:#000;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;">
+              <img src="${url}" style="max-width:100%;height:auto;display:block;background:#000" />
+              <a
+                href="${url}"
+                download="${filename}"
+                style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
+              >
+                Download (${filename})
+              </a>
+            </div>
+          `);
+          win.document.close();
+          setTimeout(() => URL.revokeObjectURL(url), 15000);
+        }, "image/png");
+      });
+
+      /* =========================
+         Photobooth toggle availability after AR start
+      ========================= */
+      setPhotoboothMode(false);
+
+      /* =========================
+         INIT filter preview
       ========================= */
       applyCameraFilterPreview();
+
+      /* =========================
+         Build filter list UI
+      ========================= */
+      // already rendered above via renderFilters()
+
+      /* =========================
+         Enable photobooth toggle only after AR starts
+      ========================= */
+      // (done in startCamera)
+
+      /* =========================
+         Close builder on backdrop click (optional)
+      ========================= */
+      builderOverlay.addEventListener("pointerdown", (e) => {
+        if (e.target === builderOverlay) closeBuilder();
+      });
     </script>
   </body>
 </html>
