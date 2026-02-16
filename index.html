@@ -2285,11 +2285,12 @@
         { id: "L7", name: "Layout 7 (4x6 landscape, 1 photo)" },
       ];
 
-      let builderState = {
+     let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        fitMode: "smart", // contain | smart | cover
+        fitMode: "smart", // contain | smart | cover | manual
         slotToCapture: [],
+        slotTransforms: [] // ✅ NEW
       };
 
       let activeSlot = 0;
@@ -2359,6 +2360,22 @@
         activeSlot = clamp(activeSlot, 0, n - 1);
       }
 
+      function ensureSlotTransforms() {
+        const n = slotsNeeded();
+        if (!builderState.slotTransforms)
+          builderState.slotTransforms = [];
+      
+        while (builderState.slotTransforms.length < n) {
+          builderState.slotTransforms.push({
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0
+          });
+        }
+
+  builderState.slotTransforms.length = n;
+}
+
       function renderBuilderUI() {
         frameColorRow.innerHTML = "";
         FRAME_COLORS.forEach((c) => {
@@ -2394,6 +2411,8 @@
           { id: "contain", label: "Contain (no crop)" },
           { id: "smart", label: "Smart (recommended)" },
           { id: "cover", label: "Cover (fill slot)" },
+          { id: "manual", label: "Manual (zoom & move)" }, // ✅ NEW
+        ]
         ].forEach((m) => {
           const p = document.createElement("div");
           p.className = "pill" + (builderState.fitMode === m.id ? " active" : "");
@@ -2638,7 +2657,7 @@
       }
 
       stripCanvas.addEventListener(
-        "pointerdown",
+      "pointerdown",
         (e) => {
           if (builderOverlay.classList.contains("hidden")) return;
           const idx = canvasPointToSlotIndex(e.clientX, e.clientY);
@@ -2651,6 +2670,102 @@
         { passive: true }
       );
 
+      /* =========================
+   MANUAL SLOT CONTROLS
+   (drag + pinch)
+========================= */
+(function enableManualSlotControls() {
+
+  let pointers = new Map();
+  let start = null;
+
+  stripCanvas.addEventListener("pointerdown", (e) => {
+
+    if (builderState.fitMode !== "manual") return;
+    if (builderOverlay.classList.contains("hidden")) return;
+
+    const idx = canvasPointToSlotIndex(e.clientX, e.clientY);
+    if (idx !== activeSlot) return;
+
+    stripCanvas.setPointerCapture?.(e.pointerId);
+
+    pointers.set(e.pointerId, {
+      x: e.clientX,
+      y: e.clientY
+    });
+
+    const t = builderState.slotTransforms[activeSlot];
+
+    // single finger drag
+    if (pointers.size === 1) {
+      start = {
+        x: e.clientX,
+        y: e.clientY,
+        offsetX: t.offsetX,
+        offsetY: t.offsetY
+      };
+    }
+
+    // two finger pinch
+   if (pointers.size === 2 && !start?.distance) {
+      const pts = Array.from(pointers.values());
+      const d = dist(pts[0], pts[1]);
+
+      start = {
+        distance: d,
+        scale: t.scale
+      };
+    }
+  });
+
+  stripCanvas.addEventListener("pointermove", (e) => {
+
+    if (builderState.fitMode !== "manual") return;
+    if (!pointers.has(e.pointerId)) return;
+
+    pointers.set(e.pointerId, {
+      x: e.clientX,
+      y: e.clientY
+    });
+
+    const t = builderState.slotTransforms[activeSlot];
+
+    // DRAG (pan)
+    if (pointers.size === 1 && start?.x !== undefined) {
+
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+
+      t.offsetX = start.offsetX + dx;
+      t.offsetY = start.offsetY + dy;
+
+      drawStrip({ forExport: false });
+    }
+
+    // PINCH (zoom)
+    if (pointers.size === 2 && start && start.distance !== undefined) {
+
+      const pts = Array.from(pointers.values());
+      const d = dist(pts[0], pts[1]);
+
+      const scaleFactor = d / start.distance;
+      t.scale = start.scale * scaleFactor;
+
+      drawStrip({ forExport: false });
+    }
+  });
+
+  stripCanvas.addEventListener("pointerup", (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size === 0) start = null;
+  });
+
+  stripCanvas.addEventListener("pointercancel", () => {
+    pointers.clear();
+    start = null;
+  });
+
+})();
       async function drawStrip({ forExport } = { forExport: false }) {
         ensureSlotMapping();
 
@@ -2675,13 +2790,64 @@
           stripCtx.fillStyle = frameColor;
           stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
 
-          if (img) {
-            const mode = builderState.fitMode || "smart";
-            if (mode === "contain") drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
-            else if (mode === "cover") drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
-            else drawSmart(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
-          }
-        }
+        if (img) {
+
+  const mode = builderState.fitMode || "smart";
+
+  // ===== MANUAL MODE =====
+  if (mode === "manual") {
+
+    ensureSlotTransforms();
+    const t = builderState.slotTransforms[i];
+
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+
+    // contain-fit base scale (minimum allowed)
+    const minScale = Math.max(slot.w / iw, slot.h / ih);
+
+    t.scale = Math.max(t.scale, minScale);
+
+    const drawW = iw * t.scale;
+    const drawH = ih * t.scale;
+
+    // clamp pan so image never leaves slot
+    const maxX = (drawW - slot.w) * 0.5;
+    const maxY = (drawH - slot.h) * 0.5;
+
+    t.offsetX = clamp(t.offsetX, -maxX, maxX);
+    t.offsetY = clamp(t.offsetY, -maxY, maxY);
+
+    stripCtx.save();
+
+    stripCtx.beginPath();
+    stripCtx.rect(slot.x, slot.y, slot.w, slot.h);
+    stripCtx.clip();
+
+    const cx = slot.x + slot.w / 2;
+    const cy = slot.y + slot.h / 2;
+
+    stripCtx.drawImage(
+      img,
+      cx - drawW / 2 - t.offsetX,
+      cy - drawH / 2 - t.offsetY,
+      drawW,
+      drawH
+    );
+
+    stripCtx.restore();
+  }
+
+  // ===== NORMAL MODES =====
+  else {
+    if (mode === "contain")
+      drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+    else if (mode === "cover")
+      drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+    else
+      drawSmart(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+  }
+}
 
         // active slot highlight (preview only)
         if (!forExport) {
