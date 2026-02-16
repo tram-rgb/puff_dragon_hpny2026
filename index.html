@@ -2156,17 +2156,21 @@
         builderOverlay.setAttribute("aria-hidden", "true");
       }
 
-      function drawCover(ctx, img, rx, ry, rw, rh) {
-        const iw = img.naturalWidth || img.width;
-        const ih = img.naturalHeight || img.height;
-        if (!iw || !ih) return;
+      function drawContain(ctx, img, rx, ry, rw, rh) {
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  if (!iw || !ih) return;
 
-        const s = Math.max(rw / iw, rh / ih);
-        const dw = iw * s;
-        const dh = ih * s;
-        const dx = rx + (rw - dw) / 2;
-        const dy = ry + (rh - dh) / 2;
-        ctx.drawImage(img, dx, dy, dw, dh);
+  const s = Math.min(rw / iw, rh / ih); // 👈 CHANGE: use MIN instead of MAX
+  const dw = iw * s;
+  const dh = ih * s;
+
+  const dx = rx + (rw - dw) / 2;
+  const dy = ry + (rh - dh) / 2;
+
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
       }
 
       function getLayoutSlots() {
@@ -2331,11 +2335,14 @@
           const slot = layout.slots[i];
           const img = imgs[i];
 
-          if (!img) {
-            stripCtx.fillStyle = "rgba(0,0,0,0.18)";
-            stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
-          } else {
-            drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+          // always fill panel background first
+        stripCtx.fillStyle = frameColor;
+        stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
+
+        if (img) {
+          drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+}
+
           }
         }
 
