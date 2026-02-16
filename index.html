@@ -30,19 +30,26 @@
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background: #fff; /* white background */
+        background: #fff; /* white background (top/bottom bars) */
         display: flex;
         align-items: center;
         justify-content: center;
+        overflow: hidden;
       }
 
+      /*
+        IMPORTANT:
+        - Full width always
+        - Height auto
+        - Any leftover space becomes white (top/bottom)
+      */
       #introVideo {
-        position: absolute;
-        inset: 0;
         width: 100vw;
-        height: 100vh;
-        object-fit: cover; /* full screen */
+        height: auto;
+        max-height: 100vh;
+        object-fit: contain; /* show the whole frame */
         background: #fff;
+        display: block;
       }
 
       /* TOP PUFF CLOSE BUTTON (always visible) */
@@ -355,8 +362,9 @@
         muted
         preload="auto"
       >
-        <source id="introMp4" src="" type="video/mp4" />
-        <source id="introWebm" src="" type="video/webm" />
+        <!-- Stronger codec hints help browser selection -->
+        <source id="introMp4" src="" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+        <source id="introWebm" src="" type='video/webm; codecs="vp09.00.10.08"' />
       </video>
 
       <!-- Always-visible top puff close button -->
@@ -495,8 +503,6 @@
       const introWebm = document.getElementById("introWebm");
 
       introMp4.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
-
-      // If you did NOT create intro.webm, comment the next line and also remove the <source id="introWebm"...> tag.
       introWebm.src = `intro.webm?v=${encodeURIComponent(ASSET_VERSION)}`;
 
       introVideo.load();
