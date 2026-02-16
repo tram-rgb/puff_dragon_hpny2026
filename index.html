@@ -494,7 +494,7 @@
         image-rendering: auto;
         border-radius: 0;
         background: transparent;
-        touch-action: none;
+        touch-action: manipulation; /* allow tap selection */
       }
 
       #builderControls {
@@ -591,12 +591,14 @@
         aspect-ratio: 4/3;
         background: rgba(0, 0, 0, 0.25);
         cursor: pointer;
+        touch-action: manipulation;
       }
       .pickThumb img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         display: block;
+        pointer-events: none; /* ensure tap hits the button */
       }
 
       #exportStripBtn {
@@ -776,16 +778,13 @@
             <div class="ctrlGroup">
               <div class="ctrlTitle">Layout</div>
               <div class="pillRow" id="layoutRow"></div>
-              <div class="hint" style="margin-top:8px">
-                Now includes 4 extra layouts (2-pose + 4x6 variants).
-              </div>
             </div>
 
             <div class="ctrlGroup">
               <div class="ctrlTitle">Select photos</div>
               <div class="pillRow" id="slotRow"></div>
               <div class="hint" style="margin-top:8px">
-                Tap a slot, then tap a captured photo to assign it.
+                Tap a slot (or tap a panel in preview), then tap a captured photo to assign it.
               </div>
               <div style="height:10px"></div>
               <div id="photoPickGrid"></div>
@@ -793,9 +792,6 @@
 
             <div class="ctrlGroup">
               <button id="exportStripBtn" type="button">Export strip PNG</button>
-              <div class="hint" style="margin-top:8px">
-                Uses selected captured photos (stickers only from capture step).
-              </div>
             </div>
           </div>
         </div>
@@ -842,13 +838,21 @@
         return isIOS || isSafari;
       }
 
+      // ✅ FIX: do NOT append cache-bust to blob:/data: URLs
       function loadImage(src) {
         return new Promise((resolve) => {
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.onload = () => resolve(img);
           img.onerror = () => resolve(null);
-          img.src = src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+
+          if (/^blob:|^data:/.test(src)) {
+            img.src = src;
+          } else {
+            img.src =
+              src +
+              (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+          }
         });
       }
 
@@ -1981,11 +1985,7 @@
 
       /* =========================
          BUILDER (customize page)
-         - Text removed everywhere (per request)
-         - Frame is single solid color (no stroke/shadow overlays)
-         - Smaller panel gaps, top margin > bottom margin to photos
-         - Fix selecting image -> now user assigns per slot
-         - Add 4 extra layouts
+         - FIX: can select images to add to each panel (tap panel OR slot pill)
       ========================= */
       const builderOverlay = document.getElementById("builderOverlay");
       const builderCloseBtn = document.getElementById("builderCloseBtn");
@@ -2018,12 +2018,10 @@
         { id: "L1", name: "Layout 1 (3 horizontal strip)" }, // 2x6 horizontal, 3 photos
         { id: "L2", name: "Layout 2 (3 vertical strip)" },   // 2x6 vertical, 3 photos
         { id: "L3", name: "Layout 3 (4 grid 2x2)" },         // 4x6 vertical, 4 photos
-
-        // NEW:
-        { id: "L4", name: "Layout 4 (2 horizontal, left bar)" },    // like Layout 8
-        { id: "L5", name: "Layout 5 (2 horizontal, center bar)" },  // like Layout 9
-        { id: "L6", name: "Layout 6 (4x6 landscape, 2 stacked + right bar)" }, // like Layout 11
-        { id: "L7", name: "Layout 7 (4x6 landscape, 1 photo)" },    // like Layout 10
+        { id: "L4", name: "Layout 4 (2 horizontal, left bar)" },
+        { id: "L5", name: "Layout 5 (2 horizontal, center bar)" },
+        { id: "L6", name: "Layout 6 (4x6 landscape, 2 stacked + right bar)" },
+        { id: "L7", name: "Layout 7 (4x6 landscape, 1 photo)" },
       ];
 
       let builderState = {
@@ -2050,17 +2048,12 @@
       }
 
       function syncCanvasToLayout() {
-        // keep photobooth proportions
         if (builderState.layoutId === "L1") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
         if (builderState.layoutId === "L2") { stripCanvas.width = 400;  stripCanvas.height = 1200; return; }
         if (builderState.layoutId === "L3") { stripCanvas.width = 900;  stripCanvas.height = 1350; return; }
-
-        // New 2x6 horizontal variants
         if (builderState.layoutId === "L4" || builderState.layoutId === "L5") {
           stripCanvas.width = 1200; stripCanvas.height = 400; return;
         }
-
-        // New 4x6 landscape variants
         if (builderState.layoutId === "L6" || builderState.layoutId === "L7") {
           stripCanvas.width = 1350; stripCanvas.height = 900; return;
         }
@@ -2079,7 +2072,6 @@
         const arr = builderState.slotToCapture || [];
         const next = new Array(n).fill(-1);
         for (let i = 0; i < n; i++) next[i] = (arr[i] ?? i);
-        // clamp to available captures
         for (let i = 0; i < n; i++) {
           if (next[i] >= capturedItems.length) next[i] = -1;
         }
@@ -2088,7 +2080,6 @@
       }
 
       function renderBuilderUI() {
-        // frame colors
         frameColorRow.innerHTML = "";
         FRAME_COLORS.forEach((c) => {
           const p = document.createElement("div");
@@ -2097,12 +2088,11 @@
           p.addEventListener("click", async () => {
             builderState.frameColorId = c.id;
             renderBuilderUI();
-            await drawStrip();
+            await drawStrip({ forExport: false });
           });
           frameColorRow.appendChild(p);
         });
 
-        // layouts
         layoutRow.innerHTML = "";
         LAYOUTS.forEach((l) => {
           const p = document.createElement("div");
@@ -2113,14 +2103,12 @@
             syncCanvasToLayout();
             ensureSlotMapping();
             renderBuilderUI();
-            await drawStrip();
-            // scroll preview to top on layout change
+            await drawStrip({ forExport: false });
             document.getElementById("builderStageWrap").scrollTop = 0;
           });
           layoutRow.appendChild(p);
         });
 
-        // slots row
         slotRow.innerHTML = "";
         const nSlots = slotsNeeded();
         for (let i = 0; i < nSlots; i++) {
@@ -2130,15 +2118,18 @@
           p.addEventListener("click", () => {
             activeSlot = i;
             renderBuilderUI();
+            drawStrip({ forExport: false });
           });
           slotRow.appendChild(p);
         }
 
-        // captured thumbs picker
         photoPickGrid.innerHTML = "";
         capturedItems.forEach((it, idx) => {
-          const cell = document.createElement("div");
+          const cell = document.createElement("button");
           cell.className = "pickThumb";
+          cell.type = "button";
+          cell.style.border = "0";
+          cell.style.padding = "0";
           const img = document.createElement("img");
           img.src = it.url;
           img.alt = "pick";
@@ -2146,11 +2137,10 @@
 
           cell.addEventListener("click", async () => {
             builderState.slotToCapture[activeSlot] = idx;
-            // advance slot automatically
             const n = slotsNeeded();
             activeSlot = (activeSlot + 1) % n;
             renderBuilderUI();
-            await drawStrip();
+            await drawStrip({ forExport: false });
           });
 
           photoPickGrid.appendChild(cell);
@@ -2164,10 +2154,8 @@
         syncCanvasToLayout();
         ensureSlotMapping();
         renderBuilderUI();
-        drawStrip();
-        // ensure preview starts visible
-        const wrap = document.getElementById("builderStageWrap");
-        wrap.scrollTop = 0;
+        drawStrip({ forExport: false });
+        document.getElementById("builderStageWrap").scrollTop = 0;
       }
 
       function closeBuilder() {
@@ -2175,7 +2163,6 @@
         builderOverlay.setAttribute("aria-hidden", "true");
       }
 
-      // cover draw into rect (fills each panel, clean)
       function drawCover(ctx, img, rx, ry, rw, rh) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
@@ -2193,15 +2180,13 @@
         const W = stripCanvas.width;
         const H = stripCanvas.height;
 
-        // tighter gaps + clean single-color frame
         const minSide = Math.min(W, H);
         const outer = Math.round(minSide * 0.06);
 
-        // IMPORTANT: top margin bigger than bottom (to first panel)
         const topBar = Math.round(minSide * 0.16);
         const bottomBar = Math.round(minSide * 0.10);
 
-        const gap = Math.max(6, Math.round(minSide * 0.012)); // smaller than before
+        const gap = Math.max(6, Math.round(minSide * 0.012));
 
         const contentX = outer;
         const contentY = outer + topBar;
@@ -2211,7 +2196,6 @@
         const topBarRect = { x: outer, y: outer, w: contentW, h: topBar };
         const botBarRect = { x: outer, y: H - outer - bottomBar, w: contentW, h: bottomBar };
 
-        // L1: 3 photos left-to-right
         if (builderState.layoutId === "L1") {
           const slotW = Math.floor((contentW - gap * 2) / 3);
           const slotH = contentH;
@@ -2222,11 +2206,9 @@
               { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
               { x: contentX + (slotW + gap) * 2, y: contentY, w: slotW, h: slotH },
             ],
-            solidBlocks: [],
           };
         }
 
-        // L2: 3 photos top-to-bottom
         if (builderState.layoutId === "L2") {
           const slotH = Math.floor((contentH - gap * 2) / 3);
           const slotW = contentW;
@@ -2237,11 +2219,9 @@
               { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
               { x: contentX, y: contentY + (slotH + gap) * 2, w: slotW, h: slotH },
             ],
-            solidBlocks: [],
           };
         }
 
-        // L3: 2x2 grid
         if (builderState.layoutId === "L3") {
           const slotW = Math.floor((contentW - gap) / 2);
           const slotH = Math.floor((contentH - gap) / 2);
@@ -2253,11 +2233,9 @@
               { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
               { x: contentX + slotW + gap, y: contentY + slotH + gap, w: slotW, h: slotH },
             ],
-            solidBlocks: [],
           };
         }
 
-        // L4: 2 horizontal photos with left solid bar (like Layout 8)
         if (builderState.layoutId === "L4") {
           const barW = Math.floor(contentW * 0.22);
           const photosW = contentW - barW - gap;
@@ -2269,13 +2247,9 @@
               { x: contentX + barW + gap, y: contentY, w: slotW, h: slotH },
               { x: contentX + barW + gap + slotW + gap, y: contentY, w: slotW, h: slotH },
             ],
-            solidBlocks: [
-              { x: contentX, y: contentY, w: barW, h: contentH },
-            ],
           };
         }
 
-        // L5: 2 horizontal photos with center solid bar (like Layout 9)
         if (builderState.layoutId === "L5") {
           const barW = Math.floor(contentW * 0.24);
           const slotW = Math.floor((contentW - barW - gap * 2) / 2);
@@ -2286,14 +2260,9 @@
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap + barW + gap, y: contentY, w: slotW, h: slotH },
             ],
-            solidBlocks: [
-              { x: contentX + slotW + gap, y: contentY, w: barW, h: contentH },
-            ],
           };
         }
 
-        // For landscape 4x6 variants, recompute bars based on minSide (still ok)
-        // L6: 2 stacked photos left + right solid block (like Layout 11)
         if (builderState.layoutId === "L6") {
           const rightW = Math.floor(contentW * 0.40);
           const leftW = contentW - rightW - gap;
@@ -2304,14 +2273,9 @@
               { x: contentX, y: contentY, w: leftW, h: slotH },
               { x: contentX, y: contentY + slotH + gap, w: leftW, h: slotH },
             ],
-            solidBlocks: [
-              { x: contentX + leftW + gap, y: contentY, w: rightW, h: contentH },
-            ],
           };
         }
 
-        // L7: 1 big photo centered (like Layout 10)
-        // keep strong frame border area (single color) by using content rect around the photo.
         if (builderState.layoutId === "L7") {
           const inset = Math.round(minSide * 0.04);
           const slotX = contentX + inset;
@@ -2321,18 +2285,43 @@
           return {
             topBar: topBarRect, botBar: botBarRect,
             slots: [{ x: slotX, y: slotY, w: slotW, h: slotH }],
-            solidBlocks: [],
           };
         }
 
-        // fallback
-        return { topBar: topBarRect, botBar: botBarRect, slots: [], solidBlocks: [] };
+        return { topBar: topBarRect, botBar: botBarRect, slots: [] };
       }
 
-      async function drawStrip() {
+      // ✅ NEW: tap preview panel to select slot
+      function canvasPointToSlotIndex(clientX, clientY) {
+        const rect = stripCanvas.getBoundingClientRect();
+        const x = ((clientX - rect.left) / rect.width) * stripCanvas.width;
+        const y = ((clientY - rect.top) / rect.height) * stripCanvas.height;
+
+        const layout = getLayoutSlots();
+        for (let i = 0; i < layout.slots.length; i++) {
+          const s = layout.slots[i];
+          if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) return i;
+        }
+        return -1;
+      }
+
+      stripCanvas.addEventListener(
+        "pointerdown",
+        (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+          const idx = canvasPointToSlotIndex(e.clientX, e.clientY);
+          if (idx >= 0) {
+            activeSlot = idx;
+            renderBuilderUI();
+            drawStrip({ forExport: false });
+          }
+        },
+        { passive: true }
+      );
+
+      async function drawStrip({ forExport } = { forExport: false }) {
         ensureSlotMapping();
 
-        // preload selected images (IMPORTANT: selected images must display)
         const selectedIdxs = builderState.slotToCapture.slice();
         const imgs = await Promise.all(
           selectedIdxs.map((ci) => (ci >= 0 ? loadImage(capturedItems[ci]?.url || "") : Promise.resolve(null)))
@@ -2341,22 +2330,15 @@
         const frameColor = getFrameColor();
         const layout = getLayoutSlots();
 
-        // single-color background (no extra overlays)
         stripCtx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
         stripCtx.fillStyle = frameColor;
         stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
 
-        // solid blocks (same frame color, but they exist as layout negative spaces)
-        // NOTE: since background is already frameColor, these blocks are implicit; kept for clarity.
-        // (We do nothing, because they are already the background.)
-
-        // draw photos into slots
         for (let i = 0; i < layout.slots.length; i++) {
           const slot = layout.slots[i];
           const img = imgs[i];
 
           if (!img) {
-            // empty (slightly darker but still single-color feel)
             stripCtx.fillStyle = "rgba(0,0,0,0.18)";
             stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
           } else {
@@ -2364,12 +2346,25 @@
           }
         }
 
-        // logo (top centered, bigger)
+        // ✅ highlight active slot (preview only, not in export)
+        if (!forExport) {
+          const active = layout.slots[activeSlot];
+          if (active) {
+            stripCtx.save();
+            stripCtx.strokeStyle = "rgba(255,255,255,0.85)";
+            stripCtx.lineWidth = Math.max(
+              6,
+              Math.round(Math.min(stripCanvas.width, stripCanvas.height) * 0.006)
+            );
+            stripCtx.strokeRect(active.x, active.y, active.w, active.h);
+            stripCtx.restore();
+          }
+        }
+
         const logoImg = await getLogoImage();
         if (logoImg) {
           const top = layout.topBar;
 
-          // bigger than before
           const maxW = top.w * 0.40;
           const maxH = top.h * 0.80;
 
@@ -2387,7 +2382,7 @@
       }
 
       exportStripBtn.addEventListener("click", async () => {
-        await drawStrip();
+        await drawStrip({ forExport: true });
 
         stripCanvas.toBlob((blob) => {
           if (!blob) { alert("Export failed."); return; }
@@ -2419,11 +2414,6 @@
       ========================= */
       setPhotoboothMode(false);
       applyCameraFilterPreview();
-
-      /* =========================
-         Enable photobooth toggle only after AR starts
-         (done in startCamera)
-      ========================= */
     </script>
   </body>
 </html>
