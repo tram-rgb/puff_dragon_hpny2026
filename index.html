@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>Puff Dragon AR Viewer</title>
 
     <style>
@@ -48,7 +51,7 @@
         background: #fff;
         display: block;
 
-        /* ✅ IMPORTANT: keep video from eating taps, so puff-close can be clicked */
+        /* IMPORTANT: allow clicking close button above it */
         pointer-events: none;
       }
 
@@ -63,7 +66,7 @@
         cursor: pointer;
         user-select: none;
         -webkit-tap-highlight-color: transparent;
-        pointer-events: auto; /* ✅ ensure clickable */
+        pointer-events: auto;
       }
 
       #introClosePuff:active {
@@ -86,6 +89,7 @@
         cursor: pointer;
         z-index: 2;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        pointer-events: auto;
       }
 
       #exploreBtn:active {
@@ -167,7 +171,11 @@
         flex-direction: column;
         gap: 7px;
         padding-bottom: calc(12px + env(safe-area-inset-bottom));
-        background: linear-gradient(to top, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0));
+        background: linear-gradient(
+          to top,
+          rgba(0, 0, 0, 0.65),
+          rgba(0, 0, 0, 0)
+        );
         z-index: 10;
       }
 
@@ -348,7 +356,7 @@
       }
 
       /* =========================
-         CAPTURED PANEL
+         CAPTURED PANEL (movable, scrollable)
       ========================= */
       #capturedPanel {
         position: fixed;
@@ -411,7 +419,6 @@
         background: rgba(255, 255, 255, 0.06);
         aspect-ratio: 4 / 3;
       }
-
       .capThumb img {
         width: 100%;
         height: 100%;
@@ -436,13 +443,12 @@
         font-weight: 1000;
         min-width: unset;
       }
-
       #cueBtn:disabled {
         opacity: 0.5;
       }
 
       /* =========================
-         BUILDER OVERLAY
+         BUILDER OVERLAY (customize page)
       ========================= */
       #builderOverlay {
         position: fixed;
@@ -455,7 +461,6 @@
         justify-content: center;
         padding: 14px;
       }
-
       #builderOverlay.hidden {
         display: none !important;
       }
@@ -494,7 +499,7 @@
         image-rendering: auto;
         border-radius: 0;
         background: transparent;
-        touch-action: manipulation;
+        touch-action: manipulation; /* allow tap selection */
       }
 
       #builderControls {
@@ -567,7 +572,6 @@
         cursor: pointer;
         user-select: none;
       }
-
       .pill.active {
         outline: 2px solid rgba(255, 255, 255, 0.7);
         outline-offset: 1px;
@@ -594,7 +598,6 @@
         cursor: pointer;
         touch-action: manipulation;
       }
-
       .pickThumb img {
         width: 100%;
         height: 100%;
@@ -633,12 +636,21 @@
          INTRO
     ========================= -->
     <div id="introOverlay">
-      <video id="introVideo" autoplay playsinline webkit-playsinline muted preload="auto">
-        <source id="introMp4" src="" type="video/mp4" />
-        <source id="introWebm" src="" type="video/webm" />
-      </video>
+      <video
+        id="introVideo"
+        autoplay
+        playsinline
+        webkit-playsinline
+        muted
+        preload="auto"
+      ></video>
 
-      <img id="introClosePuff" src="puff-close.png" alt="Close intro" role="button" />
+      <img
+        id="introClosePuff"
+        src="puff-close.png"
+        alt="Close intro"
+        role="button"
+      />
 
       <button id="exploreBtn" class="hidden" type="button">Explore</button>
     </div>
@@ -686,7 +698,9 @@
         </div>
 
         <div class="ui-row">
-          <button id="photoboothToggle" class="secondary" disabled>Photobooth: OFF</button>
+          <button id="photoboothToggle" class="secondary" disabled>
+            Photobooth: OFF
+          </button>
           <button id="stickers" class="secondary" disabled>Sticker</button>
           <button id="filterBtn" class="secondary" disabled>Filter</button>
           <button id="capture" disabled>Puff It!</button>
@@ -704,9 +718,20 @@
           <div id="stickerGrid"></div>
 
           <div class="panelFooter">
-            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-              <button id="stickerRemove" class="secondary" disabled>Remove selected</button>
-              <button id="stickerClear" class="secondary" disabled>Clear all</button>
+            <div
+              style="
+                display: flex;
+                gap: 8px;
+                justify-content: center;
+                flex-wrap: wrap;
+              "
+            >
+              <button id="stickerRemove" class="secondary" disabled>
+                Remove selected
+              </button>
+              <button id="stickerClear" class="secondary" disabled>
+                Clear all
+              </button>
             </div>
           </div>
         </div>
@@ -746,7 +771,9 @@
             <div class="ctrlGroup">
               <div class="ctrlTitle">Frame color</div>
               <div class="pillRow" id="frameColorRow"></div>
-              <div class="hint" style="margin-top:8px">Logo auto-applies based on frame color.</div>
+              <div class="hint" style="margin-top:8px">
+                Logo auto-applies based on frame color.
+              </div>
             </div>
 
             <div class="ctrlGroup">
@@ -754,6 +781,7 @@
               <div class="pillRow" id="fitModeRow"></div>
               <div class="hint" style="margin-top:8px">
                 Smart = mostly full image (contain), but auto fills when aspect is close.
+                Manual = drag & pinch zoom inside the frame (clipped).
               </div>
             </div>
 
@@ -767,6 +795,7 @@
               <div class="pillRow" id="slotRow"></div>
               <div class="hint" style="margin-top:8px">
                 Tap a slot (or tap a panel in preview), then tap a captured photo to assign it.
+                In Manual fit mode: drag the preview panel to pan; pinch to zoom.
               </div>
               <div style="height:10px"></div>
               <div id="photoPickGrid"></div>
@@ -824,17 +853,15 @@
       // ✅ FIX: do NOT append cache-bust to blob:/data: URLs
       function loadImage(src) {
         return new Promise((resolve) => {
+          if (!src) return resolve(null);
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.onload = () => resolve(img);
           img.onerror = () => resolve(null);
 
-          if (src.startsWith("blob:") || src.startsWith("data:")) {
-            img.src = src;
-          } else {
-            const joiner = src.includes("?") ? "&" : "?";
-            img.src = `${src}${joiner}v=${encodeURIComponent(ASSET_VERSION)}`;
-          }
+          const isBlob = src.startsWith("blob:") || src.startsWith("data:");
+          if (isBlob) img.src = src;
+          else img.src = src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
         });
       }
 
@@ -910,15 +937,11 @@
           await puffEl.play();
         } catch (_) {}
       }
-
-      // ✅ iOS reliability: use pointerup (and click fallback)
-      closePuff.addEventListener("pointerup", closeIntro);
       closePuff.addEventListener("click", closeIntro);
-      exploreBtn.addEventListener("pointerup", closeIntro);
       exploreBtn.addEventListener("click", closeIntro);
 
       /* =========================================================
-         FILTERS
+         FILTERS (unchanged logic)
       ========================================================= */
       function srgbToLin(c) {
         c /= 255;
@@ -972,10 +995,7 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0,
-              g = 0,
-              b = 0,
-              n = 0;
+            let r = 0, g = 0, b = 0, n = 0;
             for (let dy = -radius; dy <= radius; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -1009,10 +1029,7 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0,
-              g = 0,
-              b = 0,
-              n = 0;
+            let r = 0, g = 0, b = 0, n = 0;
             for (let dy = -1; dy <= 1; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -1263,15 +1280,7 @@
       /* =========================
          PUFF RANDOM (weighted)
       ========================= */
-      const puffBasesWeighted = [
-        "puff",
-        "puff",
-        "puff",
-        "puff",
-        "puff",
-        "puff2",
-        "puff3",
-      ];
+      const puffBasesWeighted = ["puff", "puff", "puff", "puff", "puff", "puff2", "puff3"];
       const chosenBase =
         puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
 
@@ -1306,7 +1315,8 @@
 
       function shouldMirrorPreview() {
         return (
-          mirrorMode === "on" || (mirrorMode === "auto" && currentFacingMode === "user")
+          mirrorMode === "on" ||
+          (mirrorMode === "auto" && currentFacingMode === "user")
         );
       }
 
@@ -1410,7 +1420,7 @@
       });
 
       /* =========================
-         TRANSFORMS (Puff)
+         PUFF TRANSFORM
       ========================= */
       function enableTouchDragPinch(el, state, onUpdate) {
         let mode = null;
@@ -1659,9 +1669,6 @@
         );
       }
 
-      /* =========================
-         PUFF transform
-      ========================= */
       const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
       function updatePuff() {
         applyTransform(puffEl, puffState);
@@ -1780,14 +1787,16 @@
         } catch (e) {
           console.error(e);
           stickerGrid.innerHTML = `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
-            Could not load stickers.json. Check ./stickers.json is deployed.
-          </div>`;
+              Could not load stickers.json. Check ./stickers.json is deployed.
+            </div>`;
         }
       }
 
       document.addEventListener("pointerdown", (e) => {
         const isSticker =
-          e.target && e.target.classList && e.target.classList.contains("sticker");
+          e.target &&
+          e.target.classList &&
+          e.target.classList.contains("sticker");
         const clickedPanel = stickerPanel.contains(e.target);
         const clickedFilter = filterPanel.contains(e.target);
         const clickedUI = document.getElementById("ui").contains(e.target);
@@ -1802,7 +1811,7 @@
       });
 
       /* =========================
-         CAPTURE (viewport-accurate)
+         CAPTURE (viewport-accurate, matches what user sees)
       ========================= */
       function applyRecipeToImageData(imageData, r) {
         const d = imageData.data;
@@ -1852,10 +1861,8 @@
           d[i + 2] = linToSrgb(bLin);
         }
 
-        if (r.noiseReduce > 0.01)
-          noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
-        if (r.sharpness > 0.01)
-          unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
+        if (r.noiseReduce > 0.01) noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
+        if (r.sharpness > 0.01) unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
         return imageData;
       }
 
@@ -1911,10 +1918,15 @@
         const py = puffRect.y + puffRect.h / 2;
         ctx.translate(px, py);
         const puffRot =
-          (mirrorOutput ? -puffState.rotation : puffState.rotation) *
-          (Math.PI / 180);
+          (mirrorOutput ? -puffState.rotation : puffState.rotation) * (Math.PI / 180);
         ctx.rotate(puffRot);
-        ctx.drawImage(puffEl, -puffRect.w / 2, -puffRect.h / 2, puffRect.w, puffRect.h);
+        ctx.drawImage(
+          puffEl,
+          -puffRect.w / 2,
+          -puffRect.h / 2,
+          puffRect.w,
+          puffRect.h
+        );
         ctx.restore();
 
         // stickers
@@ -1925,8 +1937,7 @@
           const sx = mirrorX(r.x, r.w) + r.w / 2;
           const sy = r.y + r.h / 2;
           ctx.translate(sx, sy);
-          const rot =
-            (mirrorOutput ? -st.rotation : st.rotation) * (Math.PI / 180);
+          const rot = (mirrorOutput ? -st.rotation : st.rotation) * (Math.PI / 180);
           ctx.rotate(rot);
           ctx.drawImage(el, -r.w / 2, -r.h / 2, r.w, r.h);
           ctx.restore();
@@ -1936,7 +1947,7 @@
       }
 
       /* =========================
-         SINGLE CAPTURE
+         SINGLE CAPTURE (photobooth OFF)
       ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
@@ -2086,6 +2097,7 @@
           return;
         }
 
+        // photobooth ON: store in panel
         captureToBlob((blob) => {
           if (!blob) {
             alert("Capture failed.");
@@ -2098,7 +2110,7 @@
       });
 
       /* =========================
-         BUILDER
+         BUILDER (customize page)
       ========================= */
       const builderOverlay = document.getElementById("builderOverlay");
       const builderCloseBtn = document.getElementById("builderCloseBtn");
@@ -2139,8 +2151,9 @@
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        fitMode: "smart", // contain | smart | cover
+        fitMode: "smart", // "contain" | "smart" | "cover" | "manual"
         slotToCapture: [],
+        slotTransforms: {}, // ✅ per-slot pan/zoom for manual mode
       };
 
       let activeSlot = 0;
@@ -2205,9 +2218,19 @@
         const arr = builderState.slotToCapture || [];
         const next = new Array(n).fill(-1);
         for (let i = 0; i < n; i++) next[i] = arr[i] ?? i;
-        for (let i = 0; i < n; i++) if (next[i] >= capturedItems.length) next[i] = -1;
+        for (let i = 0; i < n; i++) {
+          if (next[i] >= capturedItems.length) next[i] = -1;
+        }
         builderState.slotToCapture = next;
         activeSlot = clamp(activeSlot, 0, n - 1);
+
+        // ✅ ensure transform exists per slot (manual mode)
+        builderState.slotTransforms = builderState.slotTransforms || {};
+        for (let i = 0; i < n; i++) {
+          if (!builderState.slotTransforms[i]) {
+            builderState.slotTransforms[i] = { scale: 1, offsetX: 0, offsetY: 0 };
+          }
+        }
       }
 
       function renderBuilderUI() {
@@ -2241,12 +2264,13 @@
           layoutRow.appendChild(p);
         });
 
-        // fit modes
+        // ✅ fit modes (added Manual)
         fitModeRow.innerHTML = "";
         [
           { id: "contain", label: "Contain (no crop)" },
           { id: "smart", label: "Smart (recommended)" },
           { id: "cover", label: "Cover (fill slot)" },
+          { id: "manual", label: "Manual (zoom & drag)" },
         ].forEach((m) => {
           const p = document.createElement("div");
           p.className = "pill" + (builderState.fitMode === m.id ? " active" : "");
@@ -2287,6 +2311,12 @@
 
           cell.addEventListener("click", async () => {
             builderState.slotToCapture[activeSlot] = idx;
+
+            // ✅ if switching photo in manual mode, reset that slot transform (optional but nicer)
+            if (builderState.fitMode === "manual") {
+              builderState.slotTransforms[activeSlot] = { scale: 1, offsetX: 0, offsetY: 0 };
+            }
+
             const n = slotsNeeded();
             activeSlot = (activeSlot + 1) % n;
             renderBuilderUI();
@@ -2313,7 +2343,9 @@
         builderOverlay.setAttribute("aria-hidden", "true");
       }
 
-      /* ===== FIT DRAWERS (contain / cover / smart) ===== */
+      /* =========================
+         DRAW HELPERS
+      ========================= */
       function drawCover(ctx, img, rx, ry, rw, rh) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
@@ -2347,11 +2379,49 @@
 
         const imgAR = iw / ih;
         const slotAR = rw / rh;
-        const ratio = imgAR / slotAR;
 
+        const ratio = imgAR / slotAR;
         const closeEnough = ratio > 0.82 && ratio < 1.22;
+
         if (closeEnough) drawCover(ctx, img, rx, ry, rw, rh);
         else drawContain(ctx, img, rx, ry, rw, rh);
+      }
+
+      // ✅ NEW: manual zoom/pan, clipped to slot frame
+      function drawManual(ctx, img, slot, slotIndex) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+
+        const t = builderState.slotTransforms[slotIndex] || { scale: 1, offsetX: 0, offsetY: 0 };
+
+        // Minimum scale = contain-fit (so you can never shrink smaller than contain)
+        const minScale = Math.min(slot.w / iw, slot.h / ih);
+        t.scale = Math.max(t.scale, minScale);
+
+        const dw = iw * t.scale;
+        const dh = ih * t.scale;
+
+        // Clamp pan offsets so image always covers center area but never leaves slot bounds
+        const maxOffsetX = Math.max(0, (dw - slot.w) / 2);
+        const maxOffsetY = Math.max(0, (dh - slot.h) / 2);
+
+        t.offsetX = clamp(t.offsetX, -maxOffsetX, maxOffsetX);
+        t.offsetY = clamp(t.offsetY, -maxOffsetY, maxOffsetY);
+
+        // Save clamped transform back
+        builderState.slotTransforms[slotIndex] = t;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(slot.x, slot.y, slot.w, slot.h);
+        ctx.clip();
+
+        const dx = slot.x + slot.w / 2 - dw / 2 + t.offsetX;
+        const dy = slot.y + slot.h / 2 - dh / 2 + t.offsetY;
+
+        ctx.drawImage(img, dx, dy, dw, dh);
+        ctx.restore();
       }
 
       function getLayoutSlots() {
@@ -2372,7 +2442,12 @@
         const contentH = H - outer - bottomBar - contentY;
 
         const topBarRect = { x: outer, y: outer, w: contentW, h: topBar };
-        const botBarRect = { x: outer, y: H - outer - bottomBar, w: contentW, h: bottomBar };
+        const botBarRect = {
+          x: outer,
+          y: H - outer - bottomBar,
+          w: contentW,
+          h: bottomBar,
+        };
 
         if (builderState.layoutId === "L1") {
           const slotW = Math.floor((contentW - gap * 2) / 3);
@@ -2504,6 +2579,96 @@
         { passive: true }
       );
 
+      // ✅ Manual mode gestures (drag pan + pinch zoom), clipped to panel
+      let manualDrag = null;
+      stripCanvas.addEventListener(
+        "pointerdown",
+        (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+          if (builderState.fitMode !== "manual") return;
+
+          const idx = canvasPointToSlotIndex(e.clientX, e.clientY);
+          if (idx < 0) return;
+
+          // set active slot on touch
+          if (idx !== activeSlot) {
+            activeSlot = idx;
+            renderBuilderUI();
+            drawStrip({ forExport: false });
+          }
+
+          manualDrag = {
+            startX: e.clientX,
+            startY: e.clientY,
+            baseX: builderState.slotTransforms[activeSlot]?.offsetX || 0,
+            baseY: builderState.slotTransforms[activeSlot]?.offsetY || 0,
+          };
+        },
+        { passive: true }
+      );
+
+      window.addEventListener("pointermove", (e) => {
+        if (!manualDrag) return;
+        if (builderState.fitMode !== "manual") return;
+
+        const dx = e.clientX - manualDrag.startX;
+        const dy = e.clientY - manualDrag.startY;
+
+        const t = builderState.slotTransforms[activeSlot];
+        t.offsetX = manualDrag.baseX + dx;
+        t.offsetY = manualDrag.baseY + dy;
+
+        drawStrip({ forExport: false });
+      });
+
+      window.addEventListener("pointerup", () => {
+        manualDrag = null;
+      });
+
+      // pinch zoom (touch)
+      let pinchStart = null;
+      stripCanvas.addEventListener(
+        "touchstart",
+        (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+          if (builderState.fitMode !== "manual") return;
+          if (e.touches.length === 2) {
+            const a = e.touches[0];
+            const b = e.touches[1];
+            pinchStart = {
+              dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+              baseScale: builderState.slotTransforms[activeSlot]?.scale || 1,
+            };
+          }
+        },
+        { passive: false }
+      );
+
+      stripCanvas.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!pinchStart) return;
+          if (builderState.fitMode !== "manual") return;
+          if (e.touches.length === 2) {
+            e.preventDefault();
+            const a = e.touches[0];
+            const b = e.touches[1];
+            const newDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+            const scaleFactor = newDist / pinchStart.dist;
+
+            builderState.slotTransforms[activeSlot].scale =
+              pinchStart.baseScale * scaleFactor;
+
+            drawStrip({ forExport: false });
+          }
+        },
+        { passive: false }
+      );
+
+      stripCanvas.addEventListener("touchend", () => {
+        pinchStart = null;
+      });
+
       async function drawStrip({ forExport } = { forExport: false }) {
         ensureSlotMapping();
 
@@ -2521,7 +2686,6 @@
         stripCtx.fillStyle = frameColor;
         stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
 
-        // draw slots
         for (let i = 0; i < layout.slots.length; i++) {
           const slot = layout.slots[i];
           const img = imgs[i];
@@ -2533,6 +2697,7 @@
             const mode = builderState.fitMode || "smart";
             if (mode === "contain") drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
             else if (mode === "cover") drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+            else if (mode === "manual") drawManual(stripCtx, img, slot, i);
             else drawSmart(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
           }
         }
@@ -2552,10 +2717,10 @@
           }
         }
 
-        // logo
         const logoImg = await getLogoImage();
         if (logoImg) {
           const top = layout.topBar;
+
           const maxW = top.w * 0.40;
           const maxH = top.h * 0.80;
 
