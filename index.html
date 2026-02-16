@@ -43,7 +43,6 @@
         overflow: hidden;
       }
 
-      /* Full width; top/bottom white bars if needed */
       #introVideo {
         width: 100vw;
         height: auto;
@@ -109,7 +108,6 @@
         transform: scaleX(-1);
       }
 
-      /* Filtered preview canvas (matches final output better) */
       #cameraFx {
         position: fixed;
         inset: 0;
@@ -117,7 +115,6 @@
         height: 100vh;
         z-index: 1;
         display: none;
-        object-fit: cover;
         background: #000;
       }
 
@@ -170,7 +167,6 @@
         border-radius: 14px;
       }
 
-      /* Text layer */
       #textLayer {
         position: fixed;
         inset: 0;
@@ -206,7 +202,7 @@
       }
 
       /* =========================
-         UI: smaller buttons
+         UI
       ========================= */
       #ui {
         position: fixed;
@@ -245,6 +241,7 @@
         background: #e11d2e;
         min-width: 74px;
         line-height: 1;
+        cursor: pointer;
       }
 
       #start {
@@ -257,23 +254,25 @@
 
       button:disabled {
         opacity: 0.5;
+        cursor: default;
       }
 
       #capture {
         background: #fff100;
         color: #060d3d;
         font-weight: 900;
-        min-width: 86px;
+        min-width: 90px;
       }
 
       #boothBtn {
-        min-width: 86px;
+        min-width: 110px;
       }
 
       /* Panels */
       #stickerPanel,
       #filterPanel,
-      #boothPanel {
+      #boothPanel,
+      #textPanel {
         position: fixed;
         left: 0;
         right: 0;
@@ -296,13 +295,15 @@
 
       #stickerPanel.open,
       #filterPanel.open,
-      #boothPanel.open {
+      #boothPanel.open,
+      #textPanel.open {
         transform: translateY(0);
       }
 
       #stickerPanelHeader,
       #filterPanelHeader,
-      #boothPanelHeader {
+      #boothPanelHeader,
+      #textPanelHeader {
         position: sticky;
         top: 0;
         z-index: 2;
@@ -337,6 +338,7 @@
         align-items: center;
         justify-content: center;
         aspect-ratio: 1 / 1;
+        border: 0;
       }
 
       .stickerItem img {
@@ -374,16 +376,6 @@
         outline-offset: 2px;
       }
 
-      .panelFooter {
-        position: sticky;
-        bottom: 0;
-        z-index: 2;
-        background: rgba(0, 0, 0, 0.75);
-        backdrop-filter: blur(10px);
-        padding-top: 10px;
-      }
-
-      /* Booth panel UI */
       .boothRow {
         display: flex;
         gap: 8px;
@@ -432,7 +424,7 @@
         padding: 10px 8px;
       }
 
-      /* On-screen capture hint for photobooth */
+      /* Pose hint */
       #poseHint {
         position: fixed;
         left: 50%;
@@ -441,12 +433,14 @@
         z-index: 50;
         padding: 10px 12px;
         border-radius: 999px;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.52);
         color: rgba(255, 255, 255, 0.92);
         font: 900 12px system-ui;
         display: none;
         user-select: none;
         pointer-events: none;
+        text-align: center;
+        max-width: min(92vw, 520px);
       }
 
       /* Desktop hint */
@@ -490,7 +484,11 @@
           src=""
           type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
         />
-        <source id="introWebm" src="" type='video/webm; codecs="vp09.00.10.08"' />
+        <source
+          id="introWebm"
+          src=""
+          type='video/webm; codecs="vp09.00.10.08"'
+        />
       </video>
 
       <img
@@ -538,9 +536,13 @@
         </div>
 
         <div class="ui-row">
-          <button id="stickers" class="secondary" disabled>Sticker</button>
           <button id="filterBtn" class="secondary" disabled>Filter</button>
           <button id="boothBtn" class="secondary" disabled>Photobooth: Off</button>
+
+          <!-- ONLY enabled during pose-edit steps (when capturing) -->
+          <button id="stickers" class="secondary" disabled>Sticker</button>
+          <button id="textBtn" class="secondary" disabled>Text</button>
+
           <button id="capture" disabled>Puff It!</button>
         </div>
       </div>
@@ -555,12 +557,45 @@
         <div class="panelBody">
           <div id="stickerGrid"></div>
 
-          <div class="panelFooter">
-            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-              <button id="stickerRemove" class="secondary" disabled>
-                Remove selected
-              </button>
-              <button id="stickerClear" class="secondary" disabled>Clear all</button>
+          <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button id="stickerRemove" class="secondary" disabled>Remove selected</button>
+            <button id="stickerClear" class="secondary" disabled>Clear all</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text panel -->
+      <div id="textPanel" aria-hidden="true">
+        <div id="textPanelHeader">
+          <div style="color:#fff;font:900 14px system-ui">Texts (Beautiful Freak)</div>
+          <button id="textClose" class="secondary">Close</button>
+        </div>
+
+        <div class="panelBody">
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button id="addText" class="secondary" type="button">Add Text</button>
+            <button id="removeText" class="secondary" type="button" disabled>Remove selected</button>
+            <button id="clearText" class="secondary" type="button" disabled>Clear all</button>
+          </div>
+
+          <div style="margin-top:10px;">
+            <div class="fieldLabel">Selected text content</div>
+            <input id="textContent" type="text" placeholder="Type your text…" />
+          </div>
+
+          <div style="margin-top:10px;">
+            <div class="fieldLabel">Text color</div>
+            <select id="textColor"></select>
+          </div>
+
+          <div style="margin-top:10px;">
+            <div class="fieldLabel">Text size</div>
+            <input id="textSize" type="range" min="18" max="120" value="44" />
+          </div>
+
+          <div style="margin-top:12px;">
+            <div style="color:rgba(255,255,255,0.82);font:700 12px system-ui;line-height:1.35;text-align:center;">
+              Tip: Drag/Pinch/Rotate texts on screen per pose.
             </div>
           </div>
         </div>
@@ -592,50 +627,9 @@
           <div class="fieldLabel">Frame color</div>
           <div class="boothRow" id="colorRow"></div>
 
-          <div class="fieldLabel">Texts (Beautiful Freak)</div>
-          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-            <button id="addText" class="secondary" type="button">Add Text</button>
-            <button id="removeText" class="secondary" type="button" disabled>
-              Remove selected
-            </button>
-            <button id="clearText" class="secondary" type="button" disabled>
-              Clear all
-            </button>
-          </div>
-
-          <div style="margin-top:10px;">
-            <div class="fieldLabel">Selected text content</div>
-            <input id="textContent" type="text" placeholder="Type your text…" />
-          </div>
-
-          <div style="margin-top:10px;">
-            <div class="fieldLabel">Text color</div>
-            <select id="textColor"></select>
-          </div>
-
-          <div style="margin-top:10px;">
-            <div class="fieldLabel">Text size</div>
-            <input id="textSize" type="range" min="18" max="120" value="44" />
-          </div>
-
           <div style="margin-top:14px;">
-            <div class="fieldLabel">
-              Stickers (only pick stickers when taking photos)
-            </div>
-            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-              <button id="openStickerFromBooth" class="secondary" type="button">
-                Choose stickers
-              </button>
-            </div>
-          </div>
-
-          <div style="margin-top:16px;">
-            <div class="fieldLabel">How it works</div>
-            <div
-              style="color:rgba(255,255,255,0.85);font:700 12px system-ui;line-height:1.4;text-align:center;"
-            >
-              Photobooth OFF: Puff It! takes 1 photo.<br />
-              Photobooth ON: Puff It! takes multiple poses and builds a strip.
+            <div style="color:rgba(255,255,255,0.85);font:700 12px system-ui;line-height:1.4;text-align:center;">
+              Stickers & Texts are ONLY editable during each pose step (when you press Puff It!).
             </div>
           </div>
         </div>
@@ -646,7 +640,7 @@
       /* =========================
          CACHE BUSTING
       ========================= */
-      const ASSET_VERSION = "27";
+      const ASSET_VERSION = "29";
 
       /* =========================
          COLORS / LOGOS
@@ -679,21 +673,17 @@
       /* =========================
          FONT LOADING (Canvas)
       ========================= */
-      let BEAUTIFUL_FREAK_READY = false;
       (async () => {
         try {
           const ff = new FontFace("BeautifulFreak", "url(BeautifulFreak.otf)");
           await ff.load();
           document.fonts.add(ff);
           await document.fonts.ready;
-          BEAUTIFUL_FREAK_READY = true;
-        } catch (_) {
-          BEAUTIFUL_FREAK_READY = false;
-        }
+        } catch (_) {}
       })();
 
       /* =========================
-         MAIN APP ELEMENTS
+         ELEMENTS
       ========================= */
       const cameraEl = document.getElementById("camera");
       const cameraFx = document.getElementById("cameraFx");
@@ -704,36 +694,38 @@
       const startBtn = document.getElementById("start");
       const flipBtn = document.getElementById("flip");
       const mirrorBtn = document.getElementById("mirror");
+
+      const filterBtn = document.getElementById("filterBtn");
+      const boothBtn = document.getElementById("boothBtn");
       const stickersBtn = document.getElementById("stickers");
+      const textBtn = document.getElementById("textBtn");
       const captureBtn = document.getElementById("capture");
 
-      const boothBtn = document.getElementById("boothBtn");
+      const filterPanel = document.getElementById("filterPanel");
+      const filterClose = document.getElementById("filterClose");
+      const filterListEl = document.getElementById("filterList");
+
       const boothPanel = document.getElementById("boothPanel");
       const boothClose = document.getElementById("boothClose");
       const layoutRow = document.getElementById("layoutRow");
       const colorRow = document.getElementById("colorRow");
-
-      const poseHint = document.getElementById("poseHint");
-
-      const filterBtn = document.getElementById("filterBtn");
-      const filterPanel = document.getElementById("filterPanel");
-      const filterClose = document.getElementById("filterClose");
-      const filterListEl = document.getElementById("filterList");
 
       const stickerPanel = document.getElementById("stickerPanel");
       const stickerGrid = document.getElementById("stickerGrid");
       const stickerClose = document.getElementById("stickerClose");
       const stickerRemove = document.getElementById("stickerRemove");
       const stickerClear = document.getElementById("stickerClear");
-      const openStickerFromBooth = document.getElementById("openStickerFromBooth");
 
-      /* Text UI */
+      const textPanel = document.getElementById("textPanel");
+      const textClose = document.getElementById("textClose");
       const addTextBtn = document.getElementById("addText");
       const removeTextBtn = document.getElementById("removeText");
       const clearTextBtn = document.getElementById("clearText");
       const textContentInput = document.getElementById("textContent");
       const textColorSelect = document.getElementById("textColor");
       const textSizeRange = document.getElementById("textSize");
+
+      const poseHint = document.getElementById("poseHint");
 
       /* =========================
          INTRO LOGIC
@@ -743,7 +735,6 @@
       const exploreBtn = document.getElementById("exploreBtn");
       const closePuff = document.getElementById("introClosePuff");
       const app = document.getElementById("app");
-
       const introMp4 = document.getElementById("introMp4");
       const introWebm = document.getElementById("introWebm");
 
@@ -782,9 +773,9 @@
       closePuff.addEventListener("click", closeIntro);
       exploreBtn.addEventListener("click", closeIntro);
 
-      /* =========================================================
-         FILTERS (same as your final processing)
-      ========================================================= */
+      /* =========================
+         FILTER PIPELINE (same as final)
+      ========================= */
       const clamp01 = (v) => Math.max(0, Math.min(1, v));
       const clamp255 = (v) => Math.max(0, Math.min(255, v));
 
@@ -801,12 +792,10 @@
       function lumaLin(rLin, gLin, bLin) {
         return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
       }
-
       function applySaturationLin(r, g, b, sat) {
         const y = lumaLin(r, g, b);
         return [y + (r - y) * sat, y + (g - y) * sat, y + (b - y) * sat];
       }
-
       function adjustShadowsHighlightsLin(y, shadows, highlights) {
         let out = y;
         if (shadows !== 0) {
@@ -819,20 +808,17 @@
         }
         return clamp01(out);
       }
-
       function applyBrillianceLin(y, brilliance) {
         if (brilliance === 0) return y;
         const k = brilliance * 0.55;
         const s = y * y * (3 - 2 * y);
         return clamp01(y + (s - y) * k);
       }
-
       function applyFadeLin(y, fade) {
         if (!fade) return y;
         const lift = fade * 0.10;
         return clamp01(y * (1 - fade * 0.15) + lift);
       }
-
       function applyWarmthLin(r, g, b, warmth) {
         if (!warmth) return [r, g, b];
         const w = warmth * 0.10;
@@ -861,7 +847,9 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n, bg = g / n, bb = b / n;
+            const br = r / n,
+              bg = g / n,
+              bb = b / n;
 
             data[p] = clamp255(src[p] + amount * (src[p] - br));
             data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
@@ -879,7 +867,10 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0, g = 0, b = 0, n = 0;
+            let r = 0,
+              g = 0,
+              b = 0,
+              n = 0;
             for (let dy = -1; dy <= 1; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -894,7 +885,9 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n, bg = g / n, bb = b / n;
+            const br = r / n,
+              bg = g / n,
+              bb = b / n;
 
             data[p] = clamp255(src[p] * (1 - strength) + br * strength);
             data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
@@ -926,72 +919,135 @@
           id: "35mm04",
           name: "35mm 04",
           recipe: recipe({
-            exposure: -5, brilliance: -10, highlights: -30, shadows: +18,
-            brightness: -10, contrast: -8, saturation: -6, warmth: -6,
-            fade: +12, sharpness: -5, noiseReduce: +8,
+            exposure: -5,
+            brilliance: -10,
+            highlights: -30,
+            shadows: +18,
+            brightness: -10,
+            contrast: -8,
+            saturation: -6,
+            warmth: -6,
+            fade: +12,
+            sharpness: -5,
+            noiseReduce: +8,
           }),
         },
         {
           id: "vi4",
           name: "VI4",
           recipe: recipe({
-            exposure: +10, brilliance: +18, highlights: -35, shadows: +14,
-            brightness: +6, contrast: -6, saturation: +10, warmth: +10,
-            fade: +10, sharpness: +6, noiseReduce: +10,
+            exposure: +10,
+            brilliance: +18,
+            highlights: -35,
+            shadows: +14,
+            brightness: +6,
+            contrast: -6,
+            saturation: +10,
+            warmth: +10,
+            fade: +10,
+            sharpness: +6,
+            noiseReduce: +10,
           }),
         },
         {
           id: "cm1",
           name: "CM1",
           recipe: recipe({
-            exposure: +8, brilliance: +22, highlights: -25, shadows: +12,
-            brightness: +4, contrast: -4, saturation: +12, warmth: +6,
-            fade: +6, sharpness: +10, noiseReduce: +8,
+            exposure: +8,
+            brilliance: +22,
+            highlights: -25,
+            shadows: +12,
+            brightness: +4,
+            contrast: -4,
+            saturation: +12,
+            warmth: +6,
+            fade: +6,
+            sharpness: +10,
+            noiseReduce: +8,
           }),
         },
         {
           id: "sapa",
           name: "Sapa",
           recipe: recipe({
-            exposure: +12, brilliance: +10, highlights: -22, shadows: +18,
-            brightness: +8, contrast: -10, saturation: +6, warmth: -10,
-            fade: +16, sharpness: +6, noiseReduce: +10,
+            exposure: +12,
+            brilliance: +10,
+            highlights: -22,
+            shadows: +18,
+            brightness: +8,
+            contrast: -10,
+            saturation: +6,
+            warmth: -10,
+            fade: +16,
+            sharpness: +6,
+            noiseReduce: +10,
           }),
         },
         {
           id: "salt",
           name: "Salt",
           recipe: recipe({
-            exposure: +18, brilliance: +18, highlights: -40, shadows: +10,
-            brightness: +10, contrast: -8, saturation: +14, warmth: +14,
-            fade: +8, sharpness: +8, noiseReduce: +8,
+            exposure: +18,
+            brilliance: +18,
+            highlights: -40,
+            shadows: +10,
+            brightness: +10,
+            contrast: -8,
+            saturation: +14,
+            warmth: +14,
+            fade: +8,
+            sharpness: +8,
+            noiseReduce: +8,
           }),
         },
         {
           id: "in2",
           name: "IN2",
           recipe: recipe({
-            exposure: +10, brilliance: +8, highlights: -30, shadows: +16,
-            brightness: +4, contrast: -12, saturation: -4, warmth: -8,
-            fade: +18, sharpness: +6, noiseReduce: +12,
+            exposure: +10,
+            brilliance: +8,
+            highlights: -30,
+            shadows: +16,
+            brightness: +4,
+            contrast: -12,
+            saturation: -4,
+            warmth: -8,
+            fade: +18,
+            sharpness: +6,
+            noiseReduce: +12,
           }),
         },
         {
           id: "fl2",
           name: "FL2",
           recipe: recipe({
-            exposure: +14, brilliance: +14, highlights: -28, shadows: +10,
-            brightness: +8, contrast: -6, saturation: +10, warmth: +8,
-            fade: +10, sharpness: +8, noiseReduce: +10,
+            exposure: +14,
+            brilliance: +14,
+            highlights: -28,
+            shadows: +10,
+            brightness: +8,
+            contrast: -6,
+            saturation: +10,
+            warmth: +8,
+            fade: +10,
+            sharpness: +8,
+            noiseReduce: +10,
           }),
         },
         {
           id: "bwfilm",
           name: "B&W Film",
           recipe: recipe({
-            exposure: +6, brilliance: +10, highlights: -20, shadows: +10,
-            brightness: +4, contrast: +10, saturation: -100, fade: +8,
-            sharpness: +10, noiseReduce: +10,
+            exposure: +6,
+            brilliance: +10,
+            highlights: -20,
+            shadows: +10,
+            brightness: +4,
+            contrast: +10,
+            saturation: -100,
+            fade: +8,
+            sharpness: +10,
+            noiseReduce: +10,
           }),
         },
       ];
@@ -1046,14 +1102,16 @@
           d[i + 2] = linToSrgb(bLin);
         }
 
-        if (r.noiseReduce > 0.01) noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
-        if (r.sharpness > 0.01) unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
+        if (r.noiseReduce > 0.01)
+          noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
+        if (r.sharpness > 0.01)
+          unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
 
         return imageData;
       }
 
       /* =========================
-         Filter preview (canvas) - closer to final
+         Filter preview (canvas)
       ========================= */
       let fxRunning = false;
       let fxRaf = null;
@@ -1079,7 +1137,6 @@
         const tick = (t) => {
           if (!fxRunning) return;
 
-          // throttle a bit for performance
           if (t - fxLast < 66) {
             fxRaf = requestAnimationFrame(tick);
             return;
@@ -1091,7 +1148,6 @@
             return;
           }
 
-          // render at reduced resolution for speed (still looks close)
           const maxW = 900;
           const vw = cameraEl.videoWidth;
           const vh = cameraEl.videoHeight;
@@ -1135,16 +1191,19 @@
         filterListEl.innerHTML = "";
         FILTERS.forEach((f) => {
           const b = document.createElement("button");
-          b.className = "filterItem" + (f.id === currentFilterId ? " active" : "");
+          b.className =
+            "filterItem" + (f.id === currentFilterId ? " active" : "");
           b.type = "button";
 
           const r = f.recipe;
           const recLine =
             f.id === "none"
               ? "no recipe"
-              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(r.highlights * 100)} • sh ${Math.round(
-                  r.shadows * 100
-                )} • sat ${Math.round(r.saturation * 100)}`;
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(
+                  r.highlights * 100
+                )} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(
+                  r.saturation * 100
+                )}`;
 
           b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
 
@@ -1213,14 +1272,21 @@
       let mirrorMode = "auto";
 
       function shouldMirrorPreview() {
-        return mirrorMode === "on" || (mirrorMode === "auto" && currentFacingMode === "user");
+        return (
+          mirrorMode === "on" ||
+          (mirrorMode === "auto" && currentFacingMode === "user")
+        );
       }
 
       function applyMirrorToPreview() {
         cameraEl.classList.toggle("mirror", shouldMirrorPreview());
         cameraFx.classList.toggle("mirror", shouldMirrorPreview());
         mirrorBtn.textContent =
-          mirrorMode === "auto" ? "Mirror: Auto" : mirrorMode === "on" ? "Mirror: On" : "Mirror: Off";
+          mirrorMode === "auto"
+            ? "Mirror: Auto"
+            : mirrorMode === "on"
+            ? "Mirror: On"
+            : "Mirror: Off";
       }
 
       function waitLoadedMetadata(videoEl, timeoutMs = 6000) {
@@ -1247,7 +1313,10 @@
         boothBtn.disabled = true;
         mirrorBtn.disabled = true;
         filterBtn.disabled = true;
+
+        // sticker/text buttons ONLY enabled during pose-edit steps
         stickersBtn.disabled = true;
+        textBtn.disabled = true;
 
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -1294,7 +1363,8 @@
       });
 
       flipBtn.addEventListener("click", async () => {
-        currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+        currentFacingMode =
+          currentFacingMode === "environment" ? "user" : "environment";
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
         try {
@@ -1305,13 +1375,13 @@
       });
 
       mirrorBtn.addEventListener("click", () => {
-        mirrorMode = mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
+        mirrorMode =
+          mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
         applyMirrorToPreview();
       });
 
       /* =========================
          TRANSFORM HELPERS (NO INERTIA)
-         Fixes “tap rotate a bit but spins a full turn”
       ========================= */
       function clamp(v, min, max) {
         return Math.max(min, Math.min(max, v));
@@ -1358,7 +1428,8 @@
             gestureStart = null;
           } else if (pointers.size === 2) {
             const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
+            const a = pts[0],
+              b = pts[1];
             const ang = angleDeg(a, b);
             gestureStart = {
               distance: dist(a, b),
@@ -1389,7 +1460,8 @@
 
           if (pointers.size === 2 && gestureStart) {
             const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
+            const a = pts[0],
+              b = pts[1];
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
 
@@ -1409,7 +1481,6 @@
           dragStart = null;
           gestureStart = null;
         });
-
         el.addEventListener("pointercancel", () => {
           pointers.clear();
           dragStart = null;
@@ -1429,7 +1500,7 @@
       }
 
       /* =========================
-         PUFF transform
+         PUFF state (live)
       ========================= */
       const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
       function updatePuff() {
@@ -1439,10 +1510,10 @@
       makeTransformable(puffEl, puffState, updatePuff);
 
       /* =========================
-         STICKERS (only enable when booth panel open, or during capture)
+         STICKERS (live pose)
       ========================= */
       let stickersLoaded = false;
-      const stickerStates = new Map();
+      const stickerStates = new Map(); // el -> state
       let selectedStickerEl = null;
 
       function setSelectedSticker(el) {
@@ -1451,21 +1522,21 @@
         }
         selectedStickerEl = el;
         if (selectedStickerEl) selectedStickerEl.classList.add("selected");
-
         stickerRemove.disabled = !selectedStickerEl;
         stickerClear.disabled = stickerStates.size === 0;
       }
 
-      function createSticker(src) {
+      function createStickerElement(src, initialState = null) {
         const el = document.createElement("img");
         el.className = "sticker";
         el.alt = "sticker";
         el.crossOrigin = "anonymous";
         el.src = src;
-        el.style.pointerEvents = "auto";
         stickerLayer.appendChild(el);
 
-        const state = { x: 50, y: 40, scale: 1.0, rotation: 0 };
+        const state = initialState
+          ? { ...initialState }
+          : { x: 50, y: 40, scale: 1.0, rotation: 0 };
         stickerStates.set(el, state);
 
         function update() {
@@ -1481,7 +1552,35 @@
         stickerClear.disabled = stickerStates.size === 0;
       }
 
+      function clearLiveStickers() {
+        for (const el of stickerStates.keys()) el.remove();
+        stickerStates.clear();
+        selectedStickerEl = null;
+        stickerRemove.disabled = true;
+        stickerClear.disabled = true;
+      }
+
+      function serializeLiveStickers() {
+        const arr = [];
+        for (const [el, st] of stickerStates.entries()) {
+          arr.push({
+            src: el.getAttribute("src") || "",
+            state: { ...st },
+          });
+        }
+        return arr;
+      }
+
+      function loadPoseStickers(stickerArr) {
+        clearLiveStickers();
+        (stickerArr || []).forEach((s) => {
+          if (!s?.src) return;
+          createStickerElement(s.src, s.state || null);
+        });
+      }
+
       function openStickerPanel() {
+        if (!poseEditing) return; // HARD RULE: only during pose steps
         stickerPanel.classList.add("open");
         stickerPanel.setAttribute("aria-hidden", "false");
         if (!stickersLoaded) loadStickers();
@@ -1494,10 +1593,6 @@
 
       stickersBtn.addEventListener("click", () => {
         if (stickersBtn.disabled) return;
-        openStickerPanel();
-      });
-
-      openStickerFromBooth.addEventListener("click", () => {
         openStickerPanel();
       });
 
@@ -1516,10 +1611,7 @@
       });
 
       stickerClear.addEventListener("click", () => {
-        for (const el of stickerStates.keys()) el.remove();
-        stickerStates.clear();
-        setSelectedSticker(null);
-        stickerClear.disabled = true;
+        clearLiveStickers();
       });
 
       async function loadStickers() {
@@ -1533,8 +1625,6 @@
             const cell = document.createElement("button");
             cell.className = "stickerItem";
             cell.type = "button";
-            cell.style.border = "0";
-            cell.style.cursor = "pointer";
 
             const img = document.createElement("img");
             img.loading = "lazy";
@@ -1546,7 +1636,8 @@
             cell.appendChild(img);
 
             cell.addEventListener("click", () => {
-              createSticker(img.src);
+              if (!poseEditing) return;
+              createStickerElement(img.src);
               closeStickerPanel();
             });
 
@@ -1562,7 +1653,7 @@
       }
 
       /* =========================
-         TEXTS (multi, draggable, scale/rotate, color/size)
+         TEXTS (live pose)
       ========================= */
       TEXT_COLORS.forEach((c) => {
         const opt = document.createElement("option");
@@ -1572,7 +1663,7 @@
       });
       textColorSelect.value = "#ffffff";
 
-      const textStates = new Map(); // el -> {x,y,scale,rotation, color, size, text}
+      const textStates = new Map(); // el -> state
       let selectedTextEl = null;
 
       function setSelectedText(el) {
@@ -1601,13 +1692,16 @@
         applyTransform(el, st);
       }
 
-      function createTextItem() {
+      function createTextItem(initialState = null) {
+        if (!poseEditing) return; // HARD RULE
         const el = document.createElement("div");
         el.className = "textItem";
-        el.textContent = "Hello";
         textLayer.appendChild(el);
 
-        const st = { x: 50, y: 28, scale: 1, rotation: 0, color: "#ffffff", size: 44, text: "Hello" };
+        const st = initialState
+          ? { ...initialState }
+          : { x: 50, y: 28, scale: 1, rotation: 0, color: "#ffffff", size: 44, text: "Hello" };
+
         textStates.set(el, st);
         updateTextEl(el);
 
@@ -1619,7 +1713,50 @@
         clearTextBtn.disabled = textStates.size === 0;
       }
 
-      addTextBtn.addEventListener("click", createTextItem);
+      function clearLiveTexts() {
+        for (const el of textStates.keys()) el.remove();
+        textStates.clear();
+        if (selectedTextEl) selectedTextEl.classList.remove("selected");
+        selectedTextEl = null;
+        removeTextBtn.disabled = true;
+        clearTextBtn.disabled = true;
+        textContentInput.value = "";
+      }
+
+      function serializeLiveTexts() {
+        const arr = [];
+        for (const [el, st] of textStates.entries()) {
+          arr.push({ state: { ...st } });
+        }
+        return arr;
+      }
+
+      function loadPoseTexts(textArr) {
+        clearLiveTexts();
+        (textArr || []).forEach((t) => {
+          if (!t?.state) return;
+          createTextItem(t.state);
+        });
+        clearTextBtn.disabled = textStates.size === 0;
+      }
+
+      function openTextPanel() {
+        if (!poseEditing) return;
+        textPanel.classList.add("open");
+        textPanel.setAttribute("aria-hidden", "false");
+      }
+      function closeTextPanel() {
+        textPanel.classList.remove("open");
+        textPanel.setAttribute("aria-hidden", "true");
+      }
+
+      textBtn.addEventListener("click", () => {
+        if (textBtn.disabled) return;
+        openTextPanel();
+      });
+      textClose.addEventListener("click", closeTextPanel);
+
+      addTextBtn.addEventListener("click", () => createTextItem(null));
 
       removeTextBtn.addEventListener("click", () => {
         if (!selectedTextEl) return;
@@ -1630,12 +1767,7 @@
         clearTextBtn.disabled = textStates.size === 0;
       });
 
-      clearTextBtn.addEventListener("click", () => {
-        for (const el of textStates.keys()) el.remove();
-        textStates.clear();
-        setSelectedText(null);
-        clearTextBtn.disabled = true;
-      });
+      clearTextBtn.addEventListener("click", clearLiveTexts);
 
       textContentInput.addEventListener("input", () => {
         if (!selectedTextEl) return;
@@ -1658,24 +1790,26 @@
         updateTextEl(selectedTextEl);
       });
 
-      /* click outside deselect */
+      /* Deselect on background click */
       document.addEventListener("pointerdown", (e) => {
+        const clickedPanel =
+          stickerPanel.contains(e.target) ||
+          filterPanel.contains(e.target) ||
+          boothPanel.contains(e.target) ||
+          textPanel.contains(e.target);
+        const clickedUI = document.getElementById("ui").contains(e.target);
         const isSticker = e.target?.classList?.contains("sticker");
         const isText = e.target?.classList?.contains("textItem");
-        const clickedPanel = stickerPanel.contains(e.target) || filterPanel.contains(e.target) || boothPanel.contains(e.target);
-        const clickedUI = document.getElementById("ui").contains(e.target);
         const clickedPuff = e.target === puffEl;
 
-        if (!isSticker && !isText && !clickedPanel && !clickedUI && !clickedPuff) {
+        if (!clickedPanel && !clickedUI && !isSticker && !isText && !clickedPuff) {
           if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
           selectedStickerEl = null;
           stickerRemove.disabled = true;
-          stickerClear.disabled = stickerStates.size === 0;
 
           if (selectedTextEl) selectedTextEl.classList.remove("selected");
           selectedTextEl = null;
           removeTextBtn.disabled = true;
-          clearTextBtn.disabled = textStates.size === 0;
         }
       });
 
@@ -1685,26 +1819,23 @@
       let photoboothOn = false;
 
       const LAYOUTS = [
+        { id: "single", name: "Layout 0 (1 Photo)", shots: 1 },
         { id: "h3", name: "Layout 1 (3 Horizontal)", shots: 3 },
         { id: "v3", name: "Layout 2 (3 Vertical)", shots: 3 },
         { id: "g4", name: "Layout 3 (2x2)", shots: 4 },
       ];
+
       let boothLayoutId = "v3";
       let boothColorHex = "#fa213f";
 
       function openBoothPanel() {
         boothPanel.classList.add("open");
         boothPanel.setAttribute("aria-hidden", "false");
-        // stickers only selectable when taking photos → allow it from booth panel
-        stickersBtn.disabled = false;
       }
       function closeBoothPanel() {
         boothPanel.classList.remove("open");
         boothPanel.setAttribute("aria-hidden", "true");
-        // keep sticker button locked unless booth panel open (or during capture)
-        stickersBtn.disabled = true;
       }
-
       boothClose.addEventListener("click", closeBoothPanel);
 
       function renderLayoutRow() {
@@ -1715,6 +1846,7 @@
           b.textContent = l.name;
           b.type = "button";
           b.addEventListener("click", () => {
+            if (poseEditing) return; // lock layout while session
             boothLayoutId = l.id;
             renderLayoutRow();
           });
@@ -1726,13 +1858,18 @@
         colorRow.innerHTML = "";
         BOOTH_COLORS.forEach((c) => {
           const b = document.createElement("button");
-          b.className = "pill" + (c.hex.toLowerCase() === boothColorHex.toLowerCase() ? " active" : "");
+          b.className =
+            "pill" +
+            (c.hex.toLowerCase() === boothColorHex.toLowerCase()
+              ? " active"
+              : "");
           b.type = "button";
           b.innerHTML = `<span style="display:inline-flex;align-items:center;gap:8px;">
             <span style="width:14px;height:14px;border-radius:4px;background:${c.hex};border:1px solid rgba(255,255,255,0.35)"></span>
             ${c.name}
           </span>`;
           b.addEventListener("click", () => {
+            if (poseEditing) return; // lock color while session
             boothColorHex = c.hex;
             renderColorRow();
           });
@@ -1745,11 +1882,121 @@
 
       boothBtn.addEventListener("click", () => {
         if (boothBtn.disabled) return;
+        if (poseEditing) return; // don't allow toggling while pose session
         photoboothOn = !photoboothOn;
         boothBtn.textContent = photoboothOn ? "Photobooth: On" : "Photobooth: Off";
         if (photoboothOn) openBoothPanel();
         else closeBoothPanel();
       });
+
+      /* =========================
+         POSE EDIT SESSION (per pose overlays)
+      ========================= */
+      let poseEditing = false;
+      let poseIndex = 0;
+      let poseCount = 0;
+      let poseConfigs = []; // per pose: { puffState, stickers, texts }
+      let poseFrames = [];  // per pose: composed canvas (outW x outH)
+
+      function showPoseHint(text) {
+        poseHint.textContent = text;
+        poseHint.style.display = "block";
+      }
+      function hidePoseHint() {
+        poseHint.style.display = "none";
+      }
+
+      function enablePoseTools(on) {
+        stickersBtn.disabled = !on;
+        textBtn.disabled = !on;
+        // also close panels if turning off
+        if (!on) {
+          closeStickerPanel();
+          closeTextPanel();
+        }
+      }
+
+      function clonePuffState() {
+        return { x: puffState.x, y: puffState.y, scale: puffState.scale, rotation: puffState.rotation };
+      }
+
+      function applyPuffState(st) {
+        puffState.x = st.x;
+        puffState.y = st.y;
+        puffState.scale = st.scale;
+        puffState.rotation = st.rotation;
+        updatePuff();
+      }
+
+      function resetPoseOverlaysToEmpty() {
+        clearLiveStickers();
+        clearLiveTexts();
+      }
+
+      function loadPoseConfig(i) {
+        const cfg = poseConfigs[i];
+        if (!cfg) return;
+
+        applyPuffState(cfg.puffState);
+        loadPoseStickers(cfg.stickers);
+        loadPoseTexts(cfg.texts);
+      }
+
+      function savePoseConfig(i) {
+        poseConfigs[i] = {
+          puffState: clonePuffState(),
+          stickers: serializeLiveStickers(),
+          texts: serializeLiveTexts(),
+        };
+      }
+
+      function startPoseSession() {
+        const layout = LAYOUTS.find((l) => l.id === boothLayoutId) || LAYOUTS[2];
+        poseCount = layout.shots;
+
+        poseEditing = true;
+        poseIndex = 0;
+        poseConfigs = new Array(poseCount).fill(null);
+        poseFrames = new Array(poseCount).fill(null);
+
+        // First pose starts with empty stickers/texts; puff from current live state
+        poseConfigs[0] = {
+          puffState: clonePuffState(),
+          stickers: [],
+          texts: [],
+        };
+        // For subsequent poses, default start same puff state but empty overlays
+        for (let i = 1; i < poseCount; i++) {
+          poseConfigs[i] = {
+            puffState: clonePuffState(),
+            stickers: [],
+            texts: [],
+          };
+        }
+
+        // lock photobooth panel choices during session
+        closeBoothPanel();
+
+        // load pose 0 config into live scene
+        resetPoseOverlaysToEmpty();
+        loadPoseConfig(0);
+
+        enablePoseTools(true);
+
+        captureBtn.textContent = "Capture Pose";
+        showPoseHint(
+          `Pose 1 / ${poseCount}: move Puff + add stickers/texts (optional). Tap “Capture Pose”.`
+        );
+      }
+
+      function endPoseSession() {
+        poseEditing = false;
+        enablePoseTools(false);
+        captureBtn.textContent = "Puff It!";
+        hidePoseHint();
+        // after finishing, keep scene cleaned (optional)
+        resetPoseOverlaysToEmpty();
+      }
 
       /* =========================
          CAPTURE HELPERS
@@ -1771,18 +2018,6 @@
         return { scale, drawW, drawH, offsetX, offsetY };
       }
 
-      function delay(ms) {
-        return new Promise((r) => setTimeout(r, ms));
-      }
-
-      function showPoseHint(text) {
-        poseHint.textContent = text;
-        poseHint.style.display = "block";
-      }
-      function hidePoseHint() {
-        poseHint.style.display = "none";
-      }
-
       function mirrorX(xCam, outW, mirrorOutput) {
         return mirrorOutput ? outW - xCam : xCam;
       }
@@ -1795,35 +2030,103 @@
         return { centerX_cam, centerY_cam };
       }
 
-      function drawTextOverlayOnFrame(ctx, outW, outH, frameX, frameY, frameW, frameH, mirrorOutput) {
+      function captureCameraFrame(outW, outH, mirrorOutput) {
+        const c = document.createElement("canvas");
+        c.width = outW;
+        c.height = outH;
+        const ctx = c.getContext("2d", { willReadFrequently: true });
+
+        ctx.save();
+        if (mirrorOutput) {
+          ctx.translate(outW, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(cameraEl, 0, 0, outW, outH);
+        ctx.restore();
+
+        if (currentFilterId !== "none") {
+          const img = ctx.getImageData(0, 0, outW, outH);
+          applyRecipeToImageData(img, currentRecipe);
+          ctx.putImageData(img, 0, 0);
+        }
+
+        return c;
+      }
+
+      function drawPuffOnFull(ctx, outW, outH, mirrorOutput) {
+        const camRect = cameraEl.getBoundingClientRect();
+        const cover = getCoverTransform(outW, outH, camRect.width, camRect.height);
+
+        const puffRect = puffEl.getBoundingClientRect();
+        const center = computeOverlayCenter(puffRect, camRect, cover);
+
+        const x = mirrorX(center.centerX_cam, outW, mirrorOutput);
+        const y = center.centerY_cam;
+
+        const wCam = puffRect.width / cover.scale;
+        const hCam = puffRect.height / cover.scale;
+
+        const rot = mirrorOutput ? -puffState.rotation : puffState.rotation;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate((rot * Math.PI) / 180);
+        ctx.drawImage(puffEl, -wCam / 2, -hCam / 2, wCam, hCam);
+        ctx.restore();
+      }
+
+      function drawStickersOnFull(ctx, outW, outH, mirrorOutput) {
+        if (stickerStates.size === 0) return;
+
+        const camRect = cameraEl.getBoundingClientRect();
+        const cover = getCoverTransform(outW, outH, camRect.width, camRect.height);
+
+        for (const [el, st] of stickerStates.entries()) {
+          if (!el.complete || !el.naturalWidth) continue;
+
+          const r = el.getBoundingClientRect();
+          const { centerX_cam, centerY_cam } = computeOverlayCenter(r, camRect, cover);
+
+          const x = mirrorX(centerX_cam, outW, mirrorOutput);
+          const y = centerY_cam;
+
+          const wCam = r.width / cover.scale;
+          const hCam = r.height / cover.scale;
+
+          const rot = mirrorOutput ? -st.rotation : st.rotation;
+
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate((rot * Math.PI) / 180);
+          ctx.drawImage(el, -wCam / 2, -hCam / 2, wCam, hCam);
+          ctx.restore();
+        }
+      }
+
+      function drawTextOnFull(ctx, outW, outH, mirrorOutput) {
         if (textStates.size === 0) return;
 
         const camRect = cameraEl.getBoundingClientRect();
         const cover = getCoverTransform(outW, outH, camRect.width, camRect.height);
 
-        const frameCover = getCoverTransform(outW, outH, frameW, frameH);
-
         for (const [el, st] of textStates.entries()) {
           const r = el.getBoundingClientRect();
           const { centerX_cam, centerY_cam } = computeOverlayCenter(r, camRect, cover);
 
-          // map camera coords -> frame coords (with cover scaling)
-          const xOnFrame = frameX + frameCover.offsetX + mirrorX(centerX_cam, outW, mirrorOutput) * frameCover.scale;
-          const yOnFrame = frameY + frameCover.offsetY + centerY_cam * frameCover.scale;
+          const x = mirrorX(centerX_cam, outW, mirrorOutput);
+          const y = centerY_cam;
 
           const fontPx = Math.max(6, st.size * st.scale);
           const rot = mirrorOutput ? -st.rotation : st.rotation;
 
           ctx.save();
-          ctx.translate(xOnFrame, yOnFrame);
+          ctx.translate(x, y);
           ctx.rotate((rot * Math.PI) / 180);
 
           ctx.font = `${Math.round(fontPx)}px BeautifulFreak, system-ui`;
           ctx.fillStyle = st.color;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-
-          // subtle readability
           ctx.shadowColor = "rgba(0,0,0,0.35)";
           ctx.shadowBlur = 8;
           ctx.shadowOffsetX = 0;
@@ -1831,8 +2134,6 @@
 
           const lines = String(st.text || "").split("\n");
           const lineH = fontPx * 0.95;
-          const totalH = lineH * lines.length;
-
           lines.forEach((line, i) => {
             const yy = (i - (lines.length - 1) / 2) * lineH;
             ctx.fillText(line, 0, yy);
@@ -1854,11 +2155,14 @@
 
       async function drawLogoTopBar(ctx, x, y, w, h, bgHex) {
         const logoFile = logoForBg(bgHex);
-        const logo = await loadImage(`${logoFile}?v=${encodeURIComponent(ASSET_VERSION)}`).catch(() => null);
-        if (!logo) return;
-
+        let logo = null;
+        try {
+          logo = await loadImage(`${logoFile}?v=${encodeURIComponent(ASSET_VERSION)}`);
+        } catch (_) {
+          return;
+        }
         const maxH = h * 0.7;
-        const scale = Math.min(w * 0.8 / logo.naturalWidth, maxH / logo.naturalHeight);
+        const scale = Math.min((w * 0.8) / logo.naturalWidth, maxH / logo.naturalHeight);
         const dw = logo.naturalWidth * scale;
         const dh = logo.naturalHeight * scale;
         const dx = x + (w - dw) / 2;
@@ -1866,81 +2170,19 @@
         ctx.drawImage(logo, dx, dy, dw, dh);
       }
 
-      function drawStickersOnFrame(ctx, outW, outH, frameX, frameY, frameW, frameH, mirrorOutput) {
-        if (stickerStates.size === 0) return;
-
-        const camRect = cameraEl.getBoundingClientRect();
-        const cover = getCoverTransform(outW, outH, camRect.width, camRect.height);
-
-        const frameCover = getCoverTransform(outW, outH, frameW, frameH);
-
-        for (const [el, st] of stickerStates.entries()) {
-          if (!el.complete || !el.naturalWidth) continue;
-
-          const r = el.getBoundingClientRect();
-          const { centerX_cam, centerY_cam } = computeOverlayCenter(r, camRect, cover);
-
-          const xOnFrame = frameX + frameCover.offsetX + mirrorX(centerX_cam, outW, mirrorOutput) * frameCover.scale;
-          const yOnFrame = frameY + frameCover.offsetY + centerY_cam * frameCover.scale;
-
-          const wCam = r.width / cover.scale;
-          const hCam = r.height / cover.scale;
-
-          const wOnFrame = wCam * frameCover.scale;
-          const hOnFrame = hCam * frameCover.scale;
-
-          const rot = mirrorOutput ? -st.rotation : st.rotation;
-
-          ctx.save();
-          ctx.translate(xOnFrame, yOnFrame);
-          ctx.rotate((rot * Math.PI) / 180);
-          ctx.drawImage(el, -wOnFrame / 2, -hOnFrame / 2, wOnFrame, hOnFrame);
-          ctx.restore();
-        }
-      }
-
-      function drawPuffOnFrame(ctx, outW, outH, frameX, frameY, frameW, frameH, mirrorOutput) {
-        const camRect = cameraEl.getBoundingClientRect();
-        const cover = getCoverTransform(outW, outH, camRect.width, camRect.height);
-        const frameCover = getCoverTransform(outW, outH, frameW, frameH);
-
-        const puffRect = puffEl.getBoundingClientRect();
-        const center = computeOverlayCenter(puffRect, camRect, cover);
-
-        const xOnFrame = frameX + frameCover.offsetX + mirrorX(center.centerX_cam, outW, mirrorOutput) * frameCover.scale;
-        const yOnFrame = frameY + frameCover.offsetY + center.centerY_cam * frameCover.scale;
-
-        const wCam = puffRect.width / cover.scale;
-        const hCam = puffRect.height / cover.scale;
-        const wOnFrame = wCam * frameCover.scale;
-        const hOnFrame = hCam * frameCover.scale;
-
-        const rot = mirrorOutput ? -puffState.rotation : puffState.rotation;
-
-        ctx.save();
-        ctx.translate(xOnFrame, yOnFrame);
-        ctx.rotate((rot * Math.PI) / 180);
-
-        // draw puff video current frame
-        ctx.drawImage(puffEl, -wOnFrame / 2, -hOnFrame / 2, wOnFrame, hOnFrame);
-
-        ctx.restore();
-      }
-
-      function drawCameraToFrame(ctx, cameraFrameCanvas, frameX, frameY, frameW, frameH) {
-        // cameraFrameCanvas is a full-resolution camera capture (outW x outH)
-        const outW = cameraFrameCanvas.width;
-        const outH = cameraFrameCanvas.height;
-        const cover = getCoverTransform(outW, outH, frameW, frameH);
+      function drawFrameToSlot(ctx, frameCanvas, slotX, slotY, slotW, slotH) {
+        const sw = frameCanvas.width;
+        const sh = frameCanvas.height;
+        const cover = getCoverTransform(sw, sh, slotW, slotH);
 
         ctx.drawImage(
-          cameraFrameCanvas,
+          frameCanvas,
           0,
           0,
-          outW,
-          outH,
-          frameX + cover.offsetX,
-          frameY + cover.offsetY,
+          sw,
+          sh,
+          slotX + cover.offsetX,
+          slotY + cover.offsetY,
           cover.drawW,
           cover.drawH
         );
@@ -1970,32 +2212,43 @@
         setTimeout(() => URL.revokeObjectURL(url), 15000);
       }
 
-      function captureCameraFrame(outW, outH, mirrorOutput) {
-        const c = document.createElement("canvas");
-        c.width = outW;
-        c.height = outH;
-        const ctx = c.getContext("2d", { willReadFrequently: true });
+      /* =========================
+         FILTER PREVIEW ONLOAD
+      ========================= */
+      applyCameraFilterPreview();
 
-        ctx.save();
-        if (mirrorOutput) {
-          ctx.translate(outW, 0);
-          ctx.scale(-1, 1);
-        }
-        ctx.drawImage(cameraEl, 0, 0, outW, outH);
-        ctx.restore();
-
-        // apply final filter to the frame (so booth strip uses the same look)
-        if (currentFilterId !== "none") {
-          const img = ctx.getImageData(0, 0, outW, outH);
-          applyRecipeToImageData(img, currentRecipe);
-          ctx.putImageData(img, 0, 0);
-        }
-
-        return c;
+      /* =========================
+         STICKER/TEXT panels: LOCKED unless poseEditing
+      ========================= */
+      function openStickerPanelSafe() {
+        if (!poseEditing) return;
+        openStickerPanel();
+      }
+      function openTextPanelSafe() {
+        if (!poseEditing) return;
+        openTextPanel();
       }
 
       /* =========================
-         CAPTURE: single or photobooth
+         Filter panel
+      ========================= */
+      function openFilterPanelSafe() {
+        if (filterBtn.disabled) return;
+        openFilterPanel();
+      }
+
+      /* =========================
+         Booth panel
+      ========================= */
+      // already handled
+
+      /* =========================
+         CAPTURE FLOW
+         - photobooth OFF: capture single (no stickers/text selection)
+         - photobooth ON:
+             first tap: start pose session
+             then each tap: capture pose i with its own puff/sticker/text config
+             last pose: build strip and export
       ========================= */
       captureBtn.addEventListener("click", async () => {
         try {
@@ -2004,10 +2257,7 @@
             return;
           }
 
-          // allow sticker picking during capture window
-          stickersBtn.disabled = false;
-
-          // ensure font is ready if possible
+          // Ensure font ready
           try { await document.fonts.ready; } catch (_) {}
 
           const outW = cameraEl.videoWidth;
@@ -2015,61 +2265,92 @@
           const mirrorOutput = shouldMirrorPreview();
 
           if (!photoboothOn) {
-            // ---------- SINGLE ----------
-            const frame = captureCameraFrame(outW, outH, mirrorOutput);
-
+            // Single photo (stickers/texts are not selectable by your new rule)
+            const base = captureCameraFrame(outW, outH, mirrorOutput);
             const out = document.createElement("canvas");
             out.width = outW;
             out.height = outH;
             const ctx = out.getContext("2d", { willReadFrequently: true });
 
-            ctx.drawImage(frame, 0, 0);
-
-            // overlays
-            drawPuffOnFrame(ctx, outW, outH, 0, 0, outW, outH, mirrorOutput);
-            drawStickersOnFrame(ctx, outW, outH, 0, 0, outW, outH, mirrorOutput);
-            drawTextOverlayOnFrame(ctx, outW, outH, 0, 0, outW, outH, mirrorOutput);
+            ctx.drawImage(base, 0, 0);
+            drawPuffOnFull(ctx, outW, outH, mirrorOutput);
 
             const filename = nextCaptureFilename(false);
             out.toBlob(async (blob) => {
               if (!blob) return alert("Capture failed.");
               await openResultWindow(blob, filename);
             }, "image/png");
-
-            // lock stickers again unless booth panel is open
-            stickersBtn.disabled = !boothPanel.classList.contains("open");
             return;
           }
 
-          // ---------- PHOTOBOOTH ----------
-          const layout = LAYOUTS.find((l) => l.id === boothLayoutId) || LAYOUTS[1];
-          const shots = layout.shots;
-
-          // capture N frames with a short delay between
-          const frames = [];
-          for (let i = 0; i < shots; i++) {
-            showPoseHint(`Pose ${i + 1} / ${shots}`);
-            await delay(i === 0 ? 150 : 750);
-            frames.push(captureCameraFrame(outW, outH, mirrorOutput));
+          // Photobooth ON
+          if (!poseEditing) {
+            startPoseSession();
+            return;
           }
+
+          // Pose editing: capture current pose
+          savePoseConfig(poseIndex);
+
+          const base = captureCameraFrame(outW, outH, mirrorOutput);
+          const composed = document.createElement("canvas");
+          composed.width = outW;
+          composed.height = outH;
+          const cctx = composed.getContext("2d", { willReadFrequently: true });
+
+          cctx.drawImage(base, 0, 0);
+          drawPuffOnFull(cctx, outW, outH, mirrorOutput);
+          drawStickersOnFull(cctx, outW, outH, mirrorOutput);
+          drawTextOnFull(cctx, outW, outH, mirrorOutput);
+
+          poseFrames[poseIndex] = composed;
+
+          // Next pose or finish
+          poseIndex++;
+
+          if (poseIndex < poseCount) {
+            // Start next pose:
+            // - default: carry puff forward (so user can “drag somewhere else” per pose)
+            // - stickers/texts default empty unless user had saved something earlier (we keep empty by default)
+            const prev = poseConfigs[poseIndex - 1];
+            poseConfigs[poseIndex].puffState = { ...prev.puffState };
+
+            resetPoseOverlaysToEmpty();
+            loadPoseConfig(poseIndex);
+
+            showPoseHint(
+              `Pose ${poseIndex + 1} / ${poseCount}: edit stickers/texts (optional). Tap “Capture Pose”.`
+            );
+            return;
+          }
+
+          // FINISH: build strip from poseFrames (already per-pose customized)
           hidePoseHint();
 
-          // Build strip canvas sizes
-          const topBar = Math.round(outH * 0.22);
-          const bottomBar = Math.round(outH * 0.22);
+          const layout = LAYOUTS.find((l) => l.id === boothLayoutId) || LAYOUTS[2];
 
-          let stripW = outW;
-          let stripH = outH + topBar + bottomBar;
+          // Layout spacing/margins (your request)
+          const topBar = Math.round(outH * 0.30);      // bigger top
+          const bottomBar = Math.round(outH * 0.30);   // bigger bottom
+          const marginX = Math.round(outW * 0.10);     // left/right margins
+          const marginY = Math.round(outH * 0.08);     // inner top/bottom margins around panels
+          const gap = Math.round(outW * 0.05);         // spacing between panels
 
-          if (layout.id === "h3") {
-            stripW = outW * 3;
-            stripH = outH + topBar + bottomBar;
+          let stripW = 0;
+          let stripH = 0;
+
+          if (layout.id === "single") {
+            stripW = marginX * 2 + outW;
+            stripH = topBar + bottomBar + marginY * 2 + outH;
+          } else if (layout.id === "h3") {
+            stripW = marginX * 2 + outW * 3 + gap * 2;
+            stripH = topBar + bottomBar + marginY * 2 + outH;
           } else if (layout.id === "v3") {
-            stripW = outW;
-            stripH = outH * 3 + topBar + bottomBar;
+            stripW = marginX * 2 + outW;
+            stripH = topBar + bottomBar + marginY * 2 + outH * 3 + gap * 2;
           } else if (layout.id === "g4") {
-            stripW = outW * 2;
-            stripH = outH * 2 + topBar + bottomBar;
+            stripW = marginX * 2 + outW * 2 + gap;
+            stripH = topBar + bottomBar + marginY * 2 + outH * 2 + gap;
           }
 
           const strip = document.createElement("canvas");
@@ -2077,50 +2358,50 @@
           strip.height = stripH;
           const sctx = strip.getContext("2d", { willReadFrequently: true });
 
-          // background (top/bottom filled)
+          // Background bars
           sctx.fillStyle = boothColorHex;
           sctx.fillRect(0, 0, stripW, topBar);
           sctx.fillRect(0, stripH - bottomBar, stripW, bottomBar);
 
-          // optional: a clean area behind photos
+          // Main area background
           sctx.fillStyle = "#000";
           sctx.fillRect(0, topBar, stripW, stripH - topBar - bottomBar);
 
-          // logo on top bar
+          // Logo top
           await drawLogoTopBar(sctx, 0, 0, stripW, topBar, boothColorHex);
 
-          // frame layout positions
-          const framesAreaY = topBar;
-          const framesAreaH = stripH - topBar - bottomBar;
-
+          // Slots
           const slots = [];
-          if (layout.id === "h3") {
-            for (let i = 0; i < 3; i++) slots.push({ x: i * outW, y: framesAreaY, w: outW, h: outH });
+          const startY = topBar + marginY;
+
+          if (layout.id === "single") {
+            slots.push({ x: marginX, y: startY, w: outW, h: outH });
+          } else if (layout.id === "h3") {
+            for (let i = 0; i < 3; i++) {
+              slots.push({ x: marginX + i * (outW + gap), y: startY, w: outW, h: outH });
+            }
           } else if (layout.id === "v3") {
-            for (let i = 0; i < 3; i++) slots.push({ x: 0, y: framesAreaY + i * outH, w: outW, h: outH });
+            for (let i = 0; i < 3; i++) {
+              slots.push({ x: marginX, y: startY + i * (outH + gap), w: outW, h: outH });
+            }
           } else if (layout.id === "g4") {
-            slots.push({ x: 0, y: framesAreaY, w: outW, h: outH });
-            slots.push({ x: outW, y: framesAreaY, w: outW, h: outH });
-            slots.push({ x: 0, y: framesAreaY + outH, w: outW, h: outH });
-            slots.push({ x: outW, y: framesAreaY + outH, w: outW, h: outH });
+            slots.push({ x: marginX, y: startY, w: outW, h: outH });
+            slots.push({ x: marginX + outW + gap, y: startY, w: outW, h: outH });
+            slots.push({ x: marginX, y: startY + outH + gap, w: outW, h: outH });
+            slots.push({ x: marginX + outW + gap, y: startY + outH + gap, w: outW, h: outH });
           }
 
-          // draw each frame + overlays replicated per shot (same placement)
+          // Draw frames into slots
           for (let i = 0; i < slots.length; i++) {
             const slot = slots[i];
-            const frame = frames[i] || frames[frames.length - 1];
+            const frame = poseFrames[i] || poseFrames[poseFrames.length - 1];
+            if (!frame) continue;
 
-            // photo
-            drawCameraToFrame(sctx, frame, slot.x, slot.y, slot.w, slot.h);
+            drawFrameToSlot(sctx, frame, slot.x, slot.y, slot.w, slot.h);
 
-            // overlays on that slot
-            drawPuffOnFrame(sctx, outW, outH, slot.x, slot.y, slot.w, slot.h, mirrorOutput);
-            drawStickersOnFrame(sctx, outW, outH, slot.x, slot.y, slot.w, slot.h, mirrorOutput);
-            drawTextOverlayOnFrame(sctx, outW, outH, slot.x, slot.y, slot.w, slot.h, mirrorOutput);
-
-            // subtle separator border
+            // subtle panel border
             sctx.save();
-            sctx.strokeStyle = "rgba(255,255,255,0.10)";
+            sctx.strokeStyle = "rgba(255,255,255,0.16)";
             sctx.lineWidth = 6;
             sctx.strokeRect(slot.x + 3, slot.y + 3, slot.w - 6, slot.h - 6);
             sctx.restore();
@@ -2132,8 +2413,8 @@
             await openResultWindow(blob, filename);
           }, "image/png");
 
-          // lock stickers again unless booth panel open
-          stickersBtn.disabled = !boothPanel.classList.contains("open");
+          // cleanup session
+          endPoseSession();
         } catch (err) {
           console.error(err);
           hidePoseHint();
@@ -2142,14 +2423,27 @@
       });
 
       /* =========================
-         FILTER PREVIEW: initial
+         UI: filter & pose tools access rules
       ========================= */
-      applyCameraFilterPreview();
+      filterBtn.addEventListener("click", openFilterPanelSafe);
+
+      stickersBtn.addEventListener("click", openStickerPanelSafe);
+      textBtn.addEventListener("click", openTextPanelSafe);
 
       /* =========================
-         Booth panel opens only when photobooth ON
+         Panel close tap safety
       ========================= */
-      // (already handled by booth button)
+      // already set
+
+      /* =========================
+         Photobooth panel is only for layout/color
+         Sticker/Text are NOT usable there (your rule)
+      ========================= */
+
+      /* =========================
+         Start camera button state
+      ========================= */
+      // buttons start disabled by default as in HTML
 
     </script>
   </body>
