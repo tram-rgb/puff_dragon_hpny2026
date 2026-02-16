@@ -982,6 +982,7 @@ function setIntroSources() {
   }
 
   introVideo.load();
+  introVideo.play().catch(() => {});
 
   introFailTimer = setTimeout(() => {
     if (!introReady && !introClosed) {
@@ -993,10 +994,30 @@ function setIntroSources() {
 
 setIntroSources();
 
+/* =========================
+   INTRO AUTOPLAY UNLOCK
+   (must be defined BEFORE listener)
+========================= */
+const tryPlayIntro = async () => {
+  try {
+    await introVideo.play();
+  } catch (_) {}
+};
+
+/* unlock video on first interaction */
+introOverlay.addEventListener(
+  "pointerdown",
+  tryPlayIntro,
+  { once: true }
+);
+
+/* =========================
+   INTRO EVENTS
+========================= */
+
 introVideo.addEventListener("loadeddata", () => {
   introReady = true;
 
-  
   // stop fallback timer because video is confirmed ready
   if (introFailTimer) {
     clearTimeout(introFailTimer);
@@ -1020,15 +1041,6 @@ introVideo.addEventListener("error", () => {
   console.warn("Intro video failed");
   exploreBtn.classList.remove("hidden");
 });
-
-const tryPlayIntro = async () => {
-  try {
-    await introVideo.play();
-  } catch (_) {}
-  window.removeEventListener("pointerdown", tryPlayIntro, true);
-};
-
-window.addEventListener("pointerdown", tryPlayIntro);
 
 async function closeIntro() {
   if (introClosed) return;
