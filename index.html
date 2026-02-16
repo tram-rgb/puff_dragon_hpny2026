@@ -965,16 +965,22 @@ let introClosed = false;
 let introFailTimer = null;
 
 function setIntroSources() {
-  const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
 
-  introVideo.innerHTML = `
-    <source src="intro.mp4?${v}" type="video/mp4">
-    <source src="intro.webm?${v}" type="video/webm">
-  `;
+  const v = `?v=${encodeURIComponent(ASSET_VERSION)}`;
+
+  // MUST be before setting src
+  introVideo.muted = true;
+  introVideo.playsInline = true;
+  introVideo.setAttribute("playsinline", "");
+
+  if (introVideo.canPlayType("video/webm")) {
+    introVideo.src = "intro.webm" + v;
+  } else {
+    introVideo.src = "intro.mp4" + v;
+  }
 
   introVideo.load();
 
-  // FAILSAFE: unlock after 3 seconds
   introFailTimer = setTimeout(() => {
     if (!introReady && !introClosed) {
       console.warn("Intro timeout fallback");
@@ -988,6 +994,7 @@ setIntroSources();
 introVideo.addEventListener("loadeddata", () => {
   introReady = true;
 
+  
   // stop fallback timer because video is confirmed ready
   if (introFailTimer) {
     clearTimeout(introFailTimer);
