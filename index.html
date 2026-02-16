@@ -973,6 +973,7 @@ function setIntroSources() {
   introVideo.muted = true;
   introVideo.playsInline = true;
   introVideo.setAttribute("playsinline", "");
+  introVideo.style.pointerEvents = "none";
 
   if (introVideo.canPlayType("video/webm")) {
     introVideo.src = "intro.webm" + v;
@@ -1044,7 +1045,10 @@ async function closeIntro() {
   } catch (_) {}
 }
 
-closePuff.addEventListener("click", closeIntro);
+closePuff.addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  closeIntro();
+});
 exploreBtn.addEventListener("click", closeIntro); 
 
       /* =========================
