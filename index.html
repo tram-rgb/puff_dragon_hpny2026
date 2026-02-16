@@ -893,9 +893,21 @@
       const introMp4 = document.getElementById("introMp4");
       const introWebm = document.getElementById("introWebm");
 
-      introMp4.src = `intro.mp4?v=${encodeURIComponent(ASSET_VERSION)}`;
-      introWebm.src = `intro.webm?v=${encodeURIComponent(ASSET_VERSION)}`;
-      introVideo.load();
+     function setIntroSources() {
+        const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
+        introVideo.innerHTML = `
+          <source src="intro.mp4?${v}" type="video/mp4">
+          <source src="intro.webm?${v}" type="video/webm">
+        `;
+        introVideo.load();
+      }
+      
+      setIntroSources();
+
+      #introVideo {
+        pointer-events: none;
+      }
+
 
       let introLoopStarted = false;
       introVideo.addEventListener("ended", async () => {
