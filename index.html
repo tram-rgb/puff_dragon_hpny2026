@@ -29,7 +29,7 @@
         display: none !important;
       }
 
-     /* =========================
+      /* =========================
          INTRO OVERLAY
       ========================= */
       #introOverlay {
@@ -43,22 +43,15 @@
         overflow: hidden;
       }
 
-      /*
-        IMPORTANT:
-        - Full width always
-        - Height auto
-        - Any leftover space becomes white (top/bottom)
-      */
       #introVideo {
         width: 100vw;
         height: auto;
         max-height: 100vh;
-        object-fit: contain; /* show the whole frame */
+        object-fit: contain;
         background: #fff;
         display: block;
       }
 
-      /* TOP PUFF CLOSE BUTTON (always visible) */
       #introClosePuff {
         position: absolute;
         top: calc(14px + env(safe-area-inset-top));
@@ -76,7 +69,6 @@
         transform: translateX(-50%) scale(0.96);
       }
 
-      /* Bigger Explore */
       #exploreBtn {
         position: absolute;
         left: 50%;
@@ -475,14 +467,6 @@
         gap: 12px;
       }
 
-      @media (max-width: 860px) {
-        #builderShell {
-          grid-template-columns: 1fr;
-          grid-template-rows: 1fr auto;
-          height: 100%;
-        }
-      }
-
       #builderStageWrap {
         border-radius: 16px;
         overflow: hidden;
@@ -492,6 +476,7 @@
         align-items: center;
         justify-content: center;
         padding: 12px;
+        position: relative;
       }
 
       #builderStage {
@@ -502,6 +487,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        touch-action: none;
       }
 
       #stripCanvas {
@@ -510,6 +496,7 @@
         image-rendering: auto;
         border-radius: 0;
         background: transparent;
+        touch-action: none;
       }
 
       #builderControls {
@@ -519,6 +506,7 @@
         background: rgba(0, 0, 0, 0.35);
         display: flex;
         flex-direction: column;
+        min-height: 0;
       }
 
       #builderTopbar {
@@ -549,6 +537,7 @@
         display: flex;
         flex-direction: column;
         gap: 12px;
+        min-height: 0;
       }
 
       .ctrlGroup {
@@ -617,11 +606,88 @@
         padding: 10px 12px;
       }
 
-      /* text gizmo selection */
       .hint {
         color: rgba(255, 255, 255, 0.75);
         font: 700 11px system-ui;
         line-height: 1.25;
+      }
+
+      /* Capture tray for choosing images */
+      #captureTray {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 8px;
+      }
+      @media (max-width: 860px) {
+        #captureTray {
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+      }
+      .trayThumb {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 10px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.06);
+        aspect-ratio: 1 / 1;
+        cursor: pointer;
+        position: relative;
+      }
+      .trayThumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .trayThumb .idx {
+        position: absolute;
+        left: 6px;
+        top: 6px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(0,0,0,0.5);
+        color: #fff;
+        font: 900 10px system-ui;
+      }
+      .trayThumb:active {
+        transform: scale(0.98);
+      }
+
+      /* Mobile optimization: preview-first + collapsible controls */
+      @media (max-width: 860px) {
+        #builderShell {
+          grid-template-columns: 1fr;
+          grid-template-rows: 1fr auto;
+          height: 100%;
+          gap: 10px;
+        }
+
+        #builderStageWrap {
+          padding: 10px;
+          align-items: center;
+          justify-content: center;
+        }
+
+        #builderStage {
+          width: 100%;
+          height: calc(100vh - 180px);
+          max-height: 62vh;
+        }
+
+        #builderControls {
+          border-radius: 18px 18px 0 0;
+          max-height: 44vh;
+        }
+
+        /* collapsible sheet */
+        #builderControls.sheetCollapsed #builderBody {
+          display: none;
+        }
+
+        #builderTopbar {
+          position: sticky;
+          top: 0;
+          z-index: 2;
+        }
       }
     </style>
   </head>
@@ -762,10 +828,29 @@
         <div id="builderControls">
           <div id="builderTopbar">
             <div class="label">Photoshoot Customize</div>
-            <button id="builderCloseBtn" type="button">Close</button>
+            <div class="row" style="gap:6px">
+              <button id="builderToggleSheetBtn" type="button" class="secondary" style="min-width:unset">
+                Controls
+              </button>
+              <button id="builderCloseBtn" type="button">Close</button>
+            </div>
           </div>
 
           <div id="builderBody">
+            <div class="ctrlGroup">
+              <div class="ctrlTitle">Choose photos</div>
+              <div class="hint" style="margin-bottom:8px">
+                Tap a slot on the strip to select it, then tap a captured photo to assign.
+              </div>
+              <div class="row" style="justify-content:space-between;gap:10px;margin-bottom:8px">
+                <div class="hint" id="activeSlotHint">Active slot: 1</div>
+                <button id="autoFillBtn" class="secondary" type="button" style="min-width:unset">
+                  Auto fill
+                </button>
+              </div>
+              <div id="captureTray"></div>
+            </div>
+
             <div class="ctrlGroup">
               <div class="ctrlTitle">Frame color</div>
               <div class="pillRow" id="frameColorRow"></div>
@@ -900,6 +985,9 @@
       ========================================================= */
       const clamp01 = (v) => Math.max(0, Math.min(1, v));
       const clamp255 = (v) => Math.max(0, Math.min(255, v));
+      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+      const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      const angleDeg = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 
       function srgbToLin(c) {
         c /= 255;
@@ -1324,17 +1412,13 @@
       /* =========================
          TRANSFORM HELPERS
       ========================= */
-      function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-      function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
-      function angleDeg(a, b) { return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI; }
-
       function applyTransform(el, state) {
         el.style.left = state.x + "%";
         el.style.top = state.y + "%";
         el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
       }
 
-      // Touch-first drag/pinch for Puff (reliable on iOS)
+      // Touch-first drag/pinch rotate for Puff (and optionally stickers)
       function enableTouchDragPinch(el, state, onUpdate) {
         let mode = null;
         let start = null;
@@ -1395,7 +1479,7 @@
           }
         }
 
-        // Mouse fallback
+        // Mouse fallback: drag + wheel zoom
         let mouseDown = false;
         let mouseStart = null;
 
@@ -1436,7 +1520,7 @@
         el.addEventListener("wheel", onWheel, { passive: false });
       }
 
-      // Original pointer-based (stickers)
+      // Pointer-based (desktop-friendly) for stickers with inertia & rotate
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
@@ -1573,6 +1657,11 @@
         );
       }
 
+      const isTouchDevice = () =>
+        ("ontouchstart" in window) ||
+        (navigator.maxTouchPoints || 0) > 0 ||
+        matchMedia("(pointer: coarse)").matches;
+
       /* =========================
          PUFF transform
       ========================= */
@@ -1616,7 +1705,14 @@
 
         el.addEventListener("pointerdown", () => setSelectedSticker(el), true);
         el.addEventListener("click", () => setSelectedSticker(el));
-        makeTransformable(el, state, update);
+
+        // ✅ Mobile: 2-finger rotate/scale like Puff
+        if (isTouchDevice()) {
+          enableTouchDragPinch(el, state, update);
+        } else {
+          // ✅ Desktop: keep rich rotate/scale behavior
+          makeTransformable(el, state, update);
+        }
 
         setSelectedSticker(el);
         stickerClear.disabled = stickerStates.size === 0;
@@ -1926,7 +2022,7 @@
       const cueBtn = document.getElementById("cueBtn");
       const clearCapturedBtn = document.getElementById("clearCapturedBtn");
 
-      const capturedItems = []; // { blob, url, img }
+      const capturedItems = []; // { blob, url }
 
       function setPhotoboothMode(on) {
         photoboothOn = on;
@@ -2033,8 +2129,11 @@
       ========================= */
       const builderOverlay = document.getElementById("builderOverlay");
       const builderCloseBtn = document.getElementById("builderCloseBtn");
+      const builderControlsEl = document.getElementById("builderControls");
+      const builderToggleSheetBtn = document.getElementById("builderToggleSheetBtn");
+
       const stripCanvas = document.getElementById("stripCanvas");
-      const stripCtx = stripCanvas.getContext("2d");
+      const stripCtx = stripCanvas.getContext("2d", { willReadFrequently: true });
 
       const frameColorRow = document.getElementById("frameColorRow");
       const layoutRow = document.getElementById("layoutRow");
@@ -2046,18 +2145,28 @@
       const fontSizeRange = document.getElementById("fontSizeRange");
       const exportStripBtn = document.getElementById("exportStripBtn");
 
+      const captureTrayEl = document.getElementById("captureTray");
+      const activeSlotHint = document.getElementById("activeSlotHint");
+      const autoFillBtn = document.getElementById("autoFillBtn");
+
       cueBtn.addEventListener("click", () => {
         openBuilder();
       });
 
       builderCloseBtn.addEventListener("click", () => closeBuilder());
 
+      builderToggleSheetBtn.addEventListener("click", () => {
+        builderControlsEl.classList.toggle("sheetCollapsed");
+      });
+
       function openBuilder() {
         if (capturedItems.length === 0) return;
         builderOverlay.classList.remove("hidden");
         builderOverlay.setAttribute("aria-hidden", "false");
         syncCanvasToLayout();
+        ensureSlotAssignments();
         renderBuilderUI();
+        renderCaptureTray();
         drawStrip();
       }
 
@@ -2086,6 +2195,8 @@
         frameColorId: "blue",
         layoutId: "L2",
         texts: [], // {id, text, x,y,scale,rot,color,fontSize}
+        activeSlotIndex: 0,
+        slotAssignments: [], // slotAssignments[slotIndex] = capturedIndex
       };
 
       // text colors
@@ -2099,6 +2210,72 @@
         { name: "Azure Blue", value: "#01b7ff" },
         { name: "Vivid Red", value: "#ff1212" },
       ];
+
+      function slotsCountForLayout() {
+        return builderState.layoutId === "L3" ? 4 : 3;
+      }
+
+      function ensureSlotAssignments() {
+        const n = slotsCountForLayout();
+        if (!Array.isArray(builderState.slotAssignments)) builderState.slotAssignments = [];
+        if (builderState.slotAssignments.length !== n) {
+          // preserve what we can, then auto-fill
+          const old = builderState.slotAssignments.slice(0, n);
+          builderState.slotAssignments = old;
+          while (builderState.slotAssignments.length < n) builderState.slotAssignments.push(null);
+        }
+        builderState.activeSlotIndex = clamp(builderState.activeSlotIndex, 0, n - 1);
+        updateActiveSlotHint();
+      }
+
+      function updateActiveSlotHint() {
+        activeSlotHint.textContent = `Active slot: ${builderState.activeSlotIndex + 1}`;
+      }
+
+      function autoFillAssignments() {
+        const n = slotsCountForLayout();
+        builderState.slotAssignments = new Array(n).fill(null).map((_, i) => (capturedItems[i] ? i : null));
+        builderState.activeSlotIndex = 0;
+        updateActiveSlotHint();
+      }
+
+      autoFillBtn.addEventListener("click", () => {
+        autoFillAssignments();
+        renderCaptureTray();
+        drawStrip();
+      });
+
+      function renderCaptureTray() {
+        captureTrayEl.innerHTML = "";
+        capturedItems.forEach((it, i) => {
+          const cell = document.createElement("div");
+          cell.className = "trayThumb";
+          const img = document.createElement("img");
+          img.src = it.url;
+          img.alt = "capture";
+          const badge = document.createElement("div");
+          badge.className = "idx";
+          badge.textContent = String(i + 1);
+          cell.appendChild(img);
+          cell.appendChild(badge);
+
+          cell.addEventListener("click", () => {
+            const slot = builderState.activeSlotIndex;
+            builderState.slotAssignments[slot] = i;
+            // move to next slot automatically (nice UX)
+            builderState.activeSlotIndex = clamp(slot + 1, 0, slotsCountForLayout() - 1);
+            updateActiveSlotHint();
+            renderCaptureTray();
+            drawStrip();
+          });
+
+          captureTrayEl.appendChild(cell);
+        });
+
+        if (capturedItems.length === 0) {
+          captureTrayEl.innerHTML = `<div class="hint">No captured photos yet.</div>`;
+        }
+      }
 
       function renderBuilderUI() {
         // frame color pills
@@ -2124,7 +2301,11 @@
           p.addEventListener("click", () => {
             builderState.layoutId = l.id;
             syncCanvasToLayout();
+            ensureSlotAssignments();
+            // auto-fill by default if empty
+            if (builderState.slotAssignments.every((x) => x === null)) autoFillAssignments();
             renderBuilderUI();
+            renderCaptureTray();
             drawStrip();
           });
           layoutRow.appendChild(p);
@@ -2155,20 +2336,18 @@
         } else {
           textInput.value = "";
         }
+
+        updateActiveSlotHint();
       }
 
       function syncCanvasToLayout() {
-        // match common photobooth proportions
         if (builderState.layoutId === "L1") {
-          // 2x6 horizontal strip => 3:1 aspect
           stripCanvas.width = 1200;
           stripCanvas.height = 400;
         } else if (builderState.layoutId === "L2") {
-          // 2x6 vertical strip => 1:3 aspect
           stripCanvas.width = 400;
           stripCanvas.height = 1200;
         } else {
-          // 4x6 => 2:3 aspect
           stripCanvas.width = 900;
           stripCanvas.height = 1350;
         }
@@ -2200,14 +2379,49 @@
         return c.value;
       }
 
+      function hexToRgb(hex) {
+        const h = hex.replace("#", "").trim();
+        const n = parseInt(h.length === 3 ? h.split("").map(x => x + x).join("") : h, 16);
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+      }
+      function rgbToHex(r, g, b) {
+        const to = (v) => v.toString(16).padStart(2, "0");
+        return "#" + to(r) + to(g) + to(b);
+      }
+      function mixHex(a, b, t) {
+        const A = hexToRgb(a), B = hexToRgb(b);
+        const r = Math.round(A.r * (1 - t) + B.r * t);
+        const g = Math.round(A.g * (1 - t) + B.g * t);
+        const b2 = Math.round(A.b * (1 - t) + B.b * t);
+        return rgbToHex(r, g, b2);
+      }
+
+      function pseudoRandom(seed) {
+        // deterministic 0..1
+        let t = seed + 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      }
+
+      function strokeColorForSlot(frameColor, slotIndex) {
+        // ✅ Thin white stroke normally; ✅ random bright stroke if white frame
+        const isWhite = frameColor.toLowerCase() === "#ffffff";
+        if (!isWhite) return "rgba(255,255,255,0.85)";
+        const palette = [
+          "#fff100", "#ff7800", "#01b7ff", "#fa213f", "#060d3d", "#ff1212"
+        ];
+        const r = pseudoRandom((slotIndex + 1) * 999 + parseInt(ASSET_VERSION, 10) * 31);
+        return palette[Math.floor(r * palette.length)];
+      }
+
       function getLayoutSlots() {
         const W = stripCanvas.width;
         const H = stripCanvas.height;
 
-        // margins: top/bottom colored bars, plus outer margins
-        const outer = Math.round(Math.min(W, H) * 0.06); // outer margin
-        const bar = Math.round(Math.min(W, H) * 0.13);   // top/bottom fill area
-        const gap = Math.round(Math.min(W, H) * 0.03);   // inner gaps
+        const outer = Math.round(Math.min(W, H) * 0.06);
+        const bar = Math.round(Math.min(W, H) * 0.13);
+        const gap = Math.round(Math.min(W, H) * 0.03);
 
         const contentX = outer;
         const contentY = outer + bar;
@@ -2215,7 +2429,6 @@
         const contentH = H - outer * 2 - bar * 2;
 
         if (builderState.layoutId === "L1") {
-          // 3 photos left-to-right
           const slotW = Math.floor((contentW - gap * 2) / 3);
           const slotH = contentH;
           return {
@@ -2231,7 +2444,6 @@
         }
 
         if (builderState.layoutId === "L2") {
-          // 3 photos top-to-bottom
           const slotH = Math.floor((contentH - gap * 2) / 3);
           const slotW = contentW;
           return {
@@ -2246,7 +2458,6 @@
           };
         }
 
-        // L3: 2x2 grid
         const slotW = Math.floor((contentW - gap) / 2);
         const slotH = Math.floor((contentH - gap) / 2);
         return {
@@ -2262,7 +2473,6 @@
         };
       }
 
-      // draw photo cover into rect
       function drawCover(ctx, img, rx, ry, rw, rh) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
@@ -2293,7 +2503,7 @@
         const t = {
           id: newId(),
           text: "PUFF",
-          x: 0.5, // normalized (0..1) in canvas space
+          x: 0.5,
           y: 0.12,
           scale: 1,
           rot: 0,
@@ -2322,22 +2532,41 @@
         drawStrip();
       });
 
+      /* Slot select on canvas (tap slot -> active slot) */
+      function canvasPoint(e) {
+        const rect = stripCanvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (stripCanvas.width / rect.width);
+        const y = (e.clientY - rect.top) * (stripCanvas.height / rect.height);
+        return { x, y };
+      }
+
+      function hitTestSlot(pt) {
+        const layout = getLayoutSlots();
+        for (let i = 0; i < layout.slots.length; i++) {
+          const s = layout.slots[i];
+          if (pt.x >= s.x && pt.x <= s.x + s.w && pt.y >= s.y && pt.y <= s.y + s.h) return i;
+        }
+        return null;
+      }
+
+      stripCanvas.addEventListener("pointerdown", (e) => {
+        if (builderOverlay.classList.contains("hidden")) return;
+        const pt = canvasPoint(e);
+        const slot = hitTestSlot(pt);
+        if (slot !== null) {
+          builderState.activeSlotIndex = slot;
+          updateActiveSlotHint();
+          drawStrip();
+        }
+      });
+
       // Handle text drag/pinch/rotate on canvas
       (function enableTextGestures() {
         const pointers = new Map();
         let gestureStart = null;
         let dragStart = null;
 
-        function canvasPoint(e) {
-          const rect = stripCanvas.getBoundingClientRect();
-          const x = (e.clientX - rect.left) * (stripCanvas.width / rect.width);
-          const y = (e.clientY - rect.top) * (stripCanvas.height / rect.height);
-          return { x, y };
-        }
-
         function hitTestText(pt) {
-          // simple bounding check: measure text width at current font size
-          // and allow selecting closest.
           let best = null;
           let bestD = Infinity;
           for (const t of builderState.texts) {
@@ -2355,7 +2584,6 @@
             const dy = pt.y - ty;
             const d = Math.hypot(dx, dy);
 
-            // lenient hit
             const pad = 18;
             if (
               pt.x >= tx - w / 2 - pad &&
@@ -2457,7 +2685,7 @@
           }
         });
 
-        stripCanvas.addEventListener("pointercancel", (e) => {
+        stripCanvas.addEventListener("pointercancel", () => {
           pointers.clear();
           dragStart = null;
           gestureStart = null;
@@ -2465,10 +2693,16 @@
       })();
 
       async function drawStrip() {
-        // preload images (captured) into Image objects
-        const imgs = await Promise.all(
-          capturedItems.map((it) => loadImage(it.url))
-        );
+        ensureSlotAssignments();
+
+        // Preload assigned images only
+        const assigned = builderState.slotAssignments.map((idx) => {
+          if (idx === null || idx === undefined) return null;
+          const it = capturedItems[idx];
+          return it ? it.url : null;
+        });
+
+        const imgs = await Promise.all(assigned.map((url) => (url ? loadImage(url) : Promise.resolve(null))));
 
         const frameColor = getFrameColor();
         const layout = getLayoutSlots();
@@ -2478,35 +2712,63 @@
         stripCtx.fillStyle = frameColor;
         stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
 
-        // top/bottom bars (same frameColor, but we keep them as defined margins)
-        // (Already filled; bars are implicit. We place logo within top bar area)
+        // subtle bar variation to avoid flat look (very light)
+        const isWhite = frameColor.toLowerCase() === "#ffffff";
+        const topShade = isWhite ? mixHex(frameColor, "#e9eef1", 0.18) : mixHex(frameColor, "#000000", 0.12);
+        const botShade = isWhite ? mixHex(frameColor, "#e9eef1", 0.14) : mixHex(frameColor, "#000000", 0.10);
 
-        // photos area background: use frameColor; slots will be photo only
-        // draw photos
-        const needed =
-          builderState.layoutId === "L3" ? 4 : 3;
+        // top/bottom bar overlays
+        stripCtx.fillStyle = topShade;
+        stripCtx.fillRect(layout.topBar.x, layout.topBar.y, layout.topBar.w, layout.topBar.h);
+        stripCtx.fillStyle = botShade;
+        stripCtx.fillRect(layout.botBar.x, layout.botBar.y, layout.botBar.w, layout.botBar.h);
 
+        // draw photos + thin strokes
+        const minSide = Math.min(stripCanvas.width, stripCanvas.height);
+        const strokeW = Math.max(1.5, minSide * 0.003); // ✅ small stroke
         for (let i = 0; i < layout.slots.length; i++) {
           const slot = layout.slots[i];
-          // if no photo, draw empty block (slightly darker)
+
           if (!imgs[i]) {
             stripCtx.fillStyle = "rgba(0,0,0,0.18)";
             stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
           } else {
             drawCover(stripCtx, imgs[i], slot.x, slot.y, slot.w, slot.h);
           }
+
+          // ✅ thin stroke around each panel
+          stripCtx.save();
+          stripCtx.lineWidth = strokeW;
+          stripCtx.strokeStyle = strokeColorForSlot(frameColor, i);
+          stripCtx.strokeRect(
+            slot.x + strokeW / 2,
+            slot.y + strokeW / 2,
+            slot.w - strokeW,
+            slot.h - strokeW
+          );
+          stripCtx.restore();
+
+          // ✅ active slot highlight (subtle)
+          if (i === builderState.activeSlotIndex) {
+            stripCtx.save();
+            stripCtx.lineWidth = Math.max(2.5, strokeW * 1.6);
+            stripCtx.strokeStyle = "rgba(255,255,255,0.75)";
+            stripCtx.strokeRect(
+              slot.x + 2,
+              slot.y + 2,
+              slot.w - 4,
+              slot.h - 4
+            );
+            stripCtx.restore();
+          }
         }
 
-        // If fewer captures than needed, remaining slots show empty.
-        // If more captures than needed, use first N by default. (simple)
-        // you can reorder later if you want.
-
-        // logo (top centered)
+        // logo (top centered) - ✅ BIGGER
         const logoImg = await getLogoImage();
         if (logoImg) {
           const top = layout.topBar;
-          const maxW = top.w * 0.28;
-          const maxH = top.h * 0.7;
+          const maxW = top.w * 0.42; // ✅ bigger
+          const maxH = top.h * 0.85; // ✅ bigger
           const iw = logoImg.naturalWidth || logoImg.width;
           const ih = logoImg.naturalHeight || logoImg.height;
           if (iw && ih) {
@@ -2534,7 +2796,6 @@
           stripCtx.textBaseline = "middle";
           stripCtx.fillText(t.text || "", 0, 0);
 
-          // selection outline (minimal)
           if (selectedText && selectedText.id === t.id) {
             const w = stripCtx.measureText(t.text || "").width;
             const h = fontSize * 1.1;
@@ -2586,17 +2847,7 @@
       applyCameraFilterPreview();
 
       /* =========================
-         Build filter list UI
-      ========================= */
-      // already rendered above via renderFilters()
-
-      /* =========================
-         Enable photobooth toggle only after AR starts
-      ========================= */
-      // (done in startCamera)
-
-      /* =========================
-         Close builder on backdrop click (optional)
+         Close builder on backdrop click
       ========================= */
       builderOverlay.addEventListener("pointerdown", (e) => {
         if (e.target === builderOverlay) closeBuilder();
