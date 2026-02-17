@@ -115,6 +115,7 @@
         top: 72%;
         width: min(90vw, 500px);
         height: auto;
+        object-fit: contain; /* ✅ prevent any internal stretching */
         pointer-events: auto;
         touch-action: none;
         transform: translate(-50%, -50%) scale(1.55);
@@ -849,7 +850,8 @@
       const clamp01 = (v) => clamp(v, 0, 1);
       const clamp255 = (v) => clamp(v, 0, 255);
       const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-      const angleDeg = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+      const angleDeg = (a, b) =>
+        (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 
       function applyTransform(el, state) {
         el.style.left = state.x + "%";
@@ -876,19 +878,32 @@
         return isIOS || isSafari;
       }
 
+      // ✅ Image cache for smooth performance
+      const __imgCache = new Map();
+
       // ✅ append cache-bust only for normal URLs (not blob:)
       function loadImage(src) {
         return new Promise((resolve) => {
           if (!src) return resolve(null);
+
+          // cache hit
+          if (__imgCache.has(src)) return resolve(__imgCache.get(src));
+
           const img = new Image();
           img.crossOrigin = "anonymous";
-          img.onload = () => resolve(img);
+          img.onload = () => {
+            __imgCache.set(src, img);
+            resolve(img);
+          };
           img.onerror = () => resolve(null);
 
           const isBlob = src.startsWith("blob:") || src.startsWith("data:");
           img.src = isBlob
             ? src
-            : src + (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+            : src +
+              (src.includes("?")
+                ? ""
+                : `?v=${encodeURIComponent(ASSET_VERSION)}`);
         });
       }
 
@@ -950,7 +965,9 @@
       });
 
       const tryPlayIntro = async () => {
-        try { await introVideo.play(); } catch (_) {}
+        try {
+          await introVideo.play();
+        } catch (_) {}
         window.removeEventListener("pointerdown", tryPlayIntro, true);
       };
       window.addEventListener("pointerdown", tryPlayIntro, true);
@@ -958,7 +975,9 @@
       async function closeIntro() {
         introOverlay.classList.add("hidden");
         app.classList.remove("hidden");
-        try { await puffEl.play(); } catch (_) {}
+        try {
+          await puffEl.play();
+        } catch (_) {}
       }
       closePuff.addEventListener("click", closeIntro);
       exploreBtn.addEventListener("click", closeIntro);
@@ -972,7 +991,8 @@
       }
       function linToSrgb(c) {
         c = clamp01(c);
-        const v = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+        const v =
+          c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
         return clamp255(v * 255);
       }
       function lumaLin(rLin, gLin, bLin) {
@@ -1002,12 +1022,12 @@
       }
       function applyFadeLin(y, fade) {
         if (!fade) return y;
-        const lift = fade * 0.10;
+        const lift = fade * 0.1;
         return clamp01(y * (1 - fade * 0.15) + lift);
       }
       function applyWarmthLin(r, g, b, warmth) {
         if (!warmth) return [r, g, b];
-        const w = warmth * 0.10;
+        const w = warmth * 0.1;
         return [r * (1 + w), g, b * (1 - w)];
       }
       function unsharpMask(imageData, amount = 0.35, radius = 1) {
@@ -1017,7 +1037,10 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0, g = 0, b = 0, n = 0;
+            let r = 0,
+              g = 0,
+              b = 0,
+              n = 0;
             for (let dy = -radius; dy <= radius; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -1032,7 +1055,9 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n, bg = g / n, bb = b / n;
+            const br = r / n,
+              bg = g / n,
+              bb = b / n;
 
             data[p] = clamp255(src[p] + amount * (src[p] - br));
             data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
@@ -1049,7 +1074,10 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0, g = 0, b = 0, n = 0;
+            let r = 0,
+              g = 0,
+              b = 0,
+              n = 0;
             for (let dy = -1; dy <= 1; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -1064,7 +1092,9 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n, bg = g / n, bb = b / n;
+            const br = r / n,
+              bg = g / n,
+              bb = b / n;
 
             data[p] = clamp255(src[p] * (1 - strength) + br * strength);
             data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
@@ -1095,72 +1125,135 @@
           id: "35mm04",
           name: "35mm 04",
           recipe: recipe({
-            exposure: -5, brilliance: -10, highlights: -30, shadows: +18,
-            brightness: -10, contrast: -8, saturation: -6, warmth: -6,
-            fade: +12, sharpness: -5, noiseReduce: +8,
+            exposure: -5,
+            brilliance: -10,
+            highlights: -30,
+            shadows: +18,
+            brightness: -10,
+            contrast: -8,
+            saturation: -6,
+            warmth: -6,
+            fade: +12,
+            sharpness: -5,
+            noiseReduce: +8,
           }),
         },
         {
           id: "vi4",
           name: "VI4",
           recipe: recipe({
-            exposure: +10, brilliance: +18, highlights: -35, shadows: +14,
-            brightness: +6, contrast: -6, saturation: +10, warmth: +10,
-            fade: +10, sharpness: +6, noiseReduce: +10,
+            exposure: +10,
+            brilliance: +18,
+            highlights: -35,
+            shadows: +14,
+            brightness: +6,
+            contrast: -6,
+            saturation: +10,
+            warmth: +10,
+            fade: +10,
+            sharpness: +6,
+            noiseReduce: +10,
           }),
         },
         {
           id: "cm1",
           name: "CM1",
           recipe: recipe({
-            exposure: +8, brilliance: +22, highlights: -25, shadows: +12,
-            brightness: +4, contrast: -4, saturation: +12, warmth: +6,
-            fade: +6, sharpness: +10, noiseReduce: +8,
+            exposure: +8,
+            brilliance: +22,
+            highlights: -25,
+            shadows: +12,
+            brightness: +4,
+            contrast: -4,
+            saturation: +12,
+            warmth: +6,
+            fade: +6,
+            sharpness: +10,
+            noiseReduce: +8,
           }),
         },
         {
           id: "sapa",
           name: "Sapa",
           recipe: recipe({
-            exposure: +12, brilliance: +10, highlights: -22, shadows: +18,
-            brightness: +8, contrast: -10, saturation: +6, warmth: -10,
-            fade: +16, sharpness: +6, noiseReduce: +10,
+            exposure: +12,
+            brilliance: +10,
+            highlights: -22,
+            shadows: +18,
+            brightness: +8,
+            contrast: -10,
+            saturation: +6,
+            warmth: -10,
+            fade: +16,
+            sharpness: +6,
+            noiseReduce: +10,
           }),
         },
         {
           id: "salt",
           name: "Salt",
           recipe: recipe({
-            exposure: +18, brilliance: +18, highlights: -40, shadows: +10,
-            brightness: +10, contrast: -8, saturation: +14, warmth: +14,
-            fade: +8, sharpness: +8, noiseReduce: +8,
+            exposure: +18,
+            brilliance: +18,
+            highlights: -40,
+            shadows: +10,
+            brightness: +10,
+            contrast: -8,
+            saturation: +14,
+            warmth: +14,
+            fade: +8,
+            sharpness: +8,
+            noiseReduce: +8,
           }),
         },
         {
           id: "in2",
           name: "IN2",
           recipe: recipe({
-            exposure: +10, brilliance: +8, highlights: -30, shadows: +16,
-            brightness: +4, contrast: -12, saturation: -4, warmth: -8,
-            fade: +18, sharpness: +6, noiseReduce: +12,
+            exposure: +10,
+            brilliance: +8,
+            highlights: -30,
+            shadows: +16,
+            brightness: +4,
+            contrast: -12,
+            saturation: -4,
+            warmth: -8,
+            fade: +18,
+            sharpness: +6,
+            noiseReduce: +12,
           }),
         },
         {
           id: "fl2",
           name: "FL2",
           recipe: recipe({
-            exposure: +14, brilliance: +14, highlights: -28, shadows: +10,
-            brightness: +8, contrast: -6, saturation: +10, warmth: +8,
-            fade: +10, sharpness: +8, noiseReduce: +10,
+            exposure: +14,
+            brilliance: +14,
+            highlights: -28,
+            shadows: +10,
+            brightness: +8,
+            contrast: -6,
+            saturation: +10,
+            warmth: +8,
+            fade: +10,
+            sharpness: +8,
+            noiseReduce: +10,
           }),
         },
         {
           id: "bwfilm",
           name: "B&W Film",
           recipe: recipe({
-            exposure: +6, brilliance: +10, highlights: -20, shadows: +10,
-            brightness: +4, contrast: +10, saturation: -100, fade: +8,
-            sharpness: +10, noiseReduce: +10,
+            exposure: +6,
+            brilliance: +10,
+            highlights: -20,
+            shadows: +10,
+            brightness: +4,
+            contrast: +10,
+            saturation: -100,
+            fade: +8,
+            sharpness: +10,
+            noiseReduce: +10,
           }),
         },
       ];
@@ -1174,7 +1267,11 @@
         const sat = 1 + r.saturation * 0.75;
         const hue = r.warmth * -18;
         const sep = clamp01(r.warmth * 0.35 + 0.05);
-        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(3)}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(3)}) hue-rotate(${hue.toFixed(1)}deg)`;
+        return `brightness(${bright.toFixed(
+          3
+        )}) contrast(${cont.toFixed(3)}) saturate(${sat.toFixed(
+          3
+        )}) sepia(${sep.toFixed(3)}) hue-rotate(${hue.toFixed(1)}deg)`;
       }
 
       function applyCameraFilterPreview() {
@@ -1194,14 +1291,19 @@
         filterListEl.innerHTML = "";
         FILTERS.forEach((f) => {
           const b = document.createElement("button");
-          b.className = "filterItem" + (f.id === currentFilterId ? " active" : "");
+          b.className =
+            "filterItem" + (f.id === currentFilterId ? " active" : "");
           b.type = "button";
 
           const r = f.recipe;
           const recLine =
             f.id === "none"
               ? "no recipe"
-              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(r.highlights * 100)} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(r.saturation * 100)}`;
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(
+                  r.highlights * 100
+                )} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(
+                  r.saturation * 100
+                )}`;
 
           b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
 
@@ -1226,8 +1328,18 @@
       /* =========================
          PUFF RANDOM (weighted)
       ========================= */
-      const puffBasesWeighted = ["puff","puff","puff","puff","puff","puff2","puff3"];
-      const chosenBase = puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
+      const puffBasesWeighted = [
+        "puff",
+        "puff",
+        "puff",
+        "puff",
+        "puff",
+        "puff",
+        "puff2",
+        "puff3",
+      ];
+      const chosenBase =
+        puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
 
       function setPuffSource(base) {
         const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
@@ -1250,6 +1362,19 @@
       puffEl.muted = true;
       puffEl.crossOrigin = "anonymous";
       setPuffSource(chosenBase);
+
+      /* ✅ Lock Puff aspect ratio to intrinsic video ratio (always) */
+      function lockPuffAspect() {
+        const vw = puffEl.videoWidth;
+        const vh = puffEl.videoHeight;
+        if (vw > 0 && vh > 0) {
+          // aspect-ratio keeps layout stable even if sources swap
+          puffEl.style.aspectRatio = `${vw} / ${vh}`;
+          puffEl.style.height = "auto";
+        }
+      }
+      puffEl.addEventListener("loadedmetadata", lockPuffAspect);
+      puffEl.addEventListener("loadeddata", lockPuffAspect);
 
       /* =========================
          CAMERA + MIRROR
@@ -1322,6 +1447,7 @@
 
         await waitLoadedMetadata(puffEl).catch(() => {});
         await puffEl.play().catch(() => {});
+        lockPuffAspect();
 
         flipBtn.disabled = false;
         captureBtn.disabled = false;
@@ -1351,11 +1477,16 @@
           currentFacingMode === "environment" ? "user" : "environment";
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
-        try { await startCamera(); } catch (e) { console.error(e); }
+        try {
+          await startCamera();
+        } catch (e) {
+          console.error(e);
+        }
       });
 
       mirrorBtn.addEventListener("click", () => {
-        mirrorMode = mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
+        mirrorMode =
+          mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
         applyMirrorToPreview();
       });
 
@@ -1368,7 +1499,8 @@
 
         const getTouch = (t) => ({ x: t.clientX, y: t.clientY });
         const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-        const ang2 = (a, b) => (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+        const ang2 = (a, b) =>
+          (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 
         function toPct(dxPx, dyPx) {
           return { dx: (dxPx / innerWidth) * 100, dy: (dyPx / innerHeight) * 100 };
@@ -1384,7 +1516,12 @@
             mode = "pinch";
             const a = getTouch(e.touches[0]);
             const b = getTouch(e.touches[1]);
-            start = { d: dist2(a, b), ang: ang2(a, b), baseScale: state.scale, baseRot: state.rotation };
+            start = {
+              d: dist2(a, b),
+              ang: ang2(a, b),
+              baseScale: state.scale,
+              baseRot: state.rotation,
+            };
           }
         }
 
@@ -1414,8 +1551,10 @@
         }
 
         function onTouchEnd(e) {
-          if (e.touches.length === 0) { mode = null; start = null; }
-          else if (e.touches.length === 1) {
+          if (e.touches.length === 0) {
+            mode = null;
+            start = null;
+          } else if (e.touches.length === 1) {
             mode = "drag";
             const t = getTouch(e.touches[0]);
             start = { x: t.x, y: t.y, baseX: state.x, baseY: state.y };
@@ -1467,7 +1606,9 @@
          PUFF transform
       ========================= */
       const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
-      function updatePuff() { applyTransform(puffEl, puffState); }
+      function updatePuff() {
+        applyTransform(puffEl, puffState);
+      }
       updatePuff();
       enableTouchDragPinch(puffEl, puffState, updatePuff);
 
@@ -1530,7 +1671,8 @@
             lastTime = null;
           } else if (pointers.size === 2) {
             const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
+            const a = pts[0],
+              b = pts[1];
             const ang = angleDeg(a, b);
             gestureStart = {
               distance: dist(a, b),
@@ -1563,7 +1705,8 @@
 
           if (pointers.size === 2 && gestureStart) {
             const pts = Array.from(pointers.values());
-            const a = pts[0], b = pts[1];
+            const a = pts[0],
+              b = pts[1];
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
 
@@ -1637,7 +1780,9 @@
         const state = { x: 50, y: 40, scale: 1.0, rotation: 0 };
         stickerStates.set(el, state);
 
-        function update() { applyTransform(el, state); }
+        function update() {
+          applyTransform(el, state);
+        }
         update();
 
         el.addEventListener("pointerdown", () => setSelectedSticker(el), true);
@@ -1685,7 +1830,9 @@
 
       async function loadStickers() {
         try {
-          const res = await fetch(`./stickers.json?v=${encodeURIComponent(ASSET_VERSION)}`);
+          const res = await fetch(
+            `./stickers.json?v=${encodeURIComponent(ASSET_VERSION)}`
+          );
           const list = await res.json();
           stickersLoaded = true;
 
@@ -1715,8 +1862,7 @@
           });
         } catch (e) {
           console.error(e);
-          stickerGrid.innerHTML =
-            `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
+          stickerGrid.innerHTML = `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
               Could not load stickers.json. Check ./stickers.json is deployed.
             </div>`;
         }
@@ -1768,7 +1914,9 @@
 
           const y0 = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
           const sc = y / y0;
-          rLin *= sc; gLin *= sc; bLin *= sc;
+          rLin *= sc;
+          gLin *= sc;
+          bLin *= sc;
 
           [rLin, gLin, bLin] = applySaturationLin(rLin, gLin, bLin, sat);
 
@@ -1780,15 +1928,19 @@
           const yFade = applyFadeLin(lumaLin(rLin, gLin, bLin), r.fade);
           const yNow = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
           const s2 = yFade / yNow;
-          rLin *= s2; gLin *= s2; bLin *= s2;
+          rLin *= s2;
+          gLin *= s2;
+          bLin *= s2;
 
           d[i] = linToSrgb(rLin);
           d[i + 1] = linToSrgb(gLin);
           d[i + 2] = linToSrgb(bLin);
         }
 
-        if (r.noiseReduce > 0.01) noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
-        if (r.sharpness > 0.01) unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
+        if (r.noiseReduce > 0.01)
+          noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
+        if (r.sharpness > 0.01)
+          unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
         return imageData;
       }
 
@@ -1807,7 +1959,10 @@
         out.height = H;
         const ctx = out.getContext("2d", { willReadFrequently: true });
 
-        const mirrorOutput = shouldMirrorPreview();
+        // ✅ Mirror output must match preview EXACTLY:
+        // Preview mirrors ONLY the camera video (not puff/stickers).
+        const mirrorCameraOnly = shouldMirrorPreview();
+
         const camSrcW = cameraEl.videoWidth;
         const camSrcH = cameraEl.videoHeight;
         const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
@@ -1819,10 +1974,10 @@
           const h = rect.height * dpr;
           return { x, y, w, h };
         };
-        const mirrorX = (x, w) => (mirrorOutput ? (W - (x + w)) : x);
 
+        // draw camera (mirrored if preview is mirrored)
         ctx.save();
-        if (mirrorOutput) {
+        if (mirrorCameraOnly) {
           ctx.translate(W, 0);
           ctx.scale(-1, 1);
         }
@@ -1839,30 +1994,39 @@
         );
         ctx.restore();
 
+        // apply filter to camera (same as preview recipe)
         if (currentFilterId !== "none") {
           const imgData = ctx.getImageData(0, 0, W, H);
           applyRecipeToImageData(imgData, currentRecipe);
           ctx.putImageData(imgData, 0, 0);
         }
 
+        // draw Puff (NOT mirrored — matches preview)
         const puffRect = rectToCanvas(puffEl.getBoundingClientRect());
         ctx.save();
-        const px = mirrorX(puffRect.x, puffRect.w) + puffRect.w / 2;
+        const px = puffRect.x + puffRect.w / 2;
         const py = puffRect.y + puffRect.h / 2;
         ctx.translate(px, py);
-        const puffRot = (mirrorOutput ? -puffState.rotation : puffState.rotation) * Math.PI / 180;
+        const puffRot = puffState.rotation * Math.PI / 180;
         ctx.rotate(puffRot);
-        ctx.drawImage(puffEl, -puffRect.w / 2, -puffRect.h / 2, puffRect.w, puffRect.h);
+        ctx.drawImage(
+          puffEl,
+          -puffRect.w / 2,
+          -puffRect.h / 2,
+          puffRect.w,
+          puffRect.h
+        );
         ctx.restore();
 
+        // draw stickers (NOT mirrored — matches preview)
         for (const [el, st] of stickerStates.entries()) {
           if (!el.complete || !el.naturalWidth) continue;
           const r = rectToCanvas(el.getBoundingClientRect());
           ctx.save();
-          const sx = mirrorX(r.x, r.w) + r.w / 2;
+          const sx = r.x + r.w / 2;
           const sy = r.y + r.h / 2;
           ctx.translate(sx, sy);
-          const rot = (mirrorOutput ? -st.rotation : st.rotation) * Math.PI / 180;
+          const rot = st.rotation * Math.PI / 180;
           ctx.rotate(rot);
           ctx.drawImage(el, -r.w / 2, -r.h / 2, r.w, r.h);
           ctx.restore();
@@ -1974,19 +2138,31 @@
           capturedHeader.style.cursor = "grabbing";
         });
 
-        window.addEventListener("pointermove", (e) => {
-          if (!dragging || !start) return;
-          e.preventDefault();
-          const dx = e.clientX - start.x;
-          const dy = e.clientY - start.y;
+        window.addEventListener(
+          "pointermove",
+          (e) => {
+            if (!dragging || !start) return;
+            e.preventDefault();
+            const dx = e.clientX - start.x;
+            const dy = e.clientY - start.y;
 
-          const newLeft = clamp(start.left + dx, 6, innerWidth - capturedPanel.offsetWidth - 6);
-          const newTop = clamp(start.top + dy, 6, innerHeight - capturedPanel.offsetHeight - 6);
+            const newLeft = clamp(
+              start.left + dx,
+              6,
+              innerWidth - capturedPanel.offsetWidth - 6
+            );
+            const newTop = clamp(
+              start.top + dy,
+              6,
+              innerHeight - capturedPanel.offsetHeight - 6
+            );
 
-          capturedPanel.style.left = newLeft + "px";
-          capturedPanel.style.top = newTop + "px";
-          capturedPanel.style.right = "auto";
-        }, { passive: false });
+            capturedPanel.style.left = newLeft + "px";
+            capturedPanel.style.top = newTop + "px";
+            capturedPanel.style.right = "auto";
+          },
+          { passive: false }
+        );
 
         window.addEventListener("pointerup", () => {
           dragging = false;
@@ -2001,14 +2177,20 @@
       captureBtn.addEventListener("click", () => {
         if (!photoboothOn) {
           captureToBlob((blob) => {
-            if (!blob) { alert("Capture failed."); return; }
+            if (!blob) {
+              alert("Capture failed.");
+              return;
+            }
             openDownloadWindow(blob);
           });
           return;
         }
 
         captureToBlob((blob) => {
-          if (!blob) { alert("Capture failed."); return; }
+          if (!blob) {
+            alert("Capture failed.");
+            return;
+          }
           const url = URL.createObjectURL(blob);
           capturedItems.push({ blob, url });
           updateCapturedUI();
@@ -2042,11 +2224,11 @@
 
       // frame colors
       const FRAME_COLORS = [
-        { id: "red",   name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
-        { id: "blue",  name: "Dark Blue",   value: "#060d3d", logo: "puff-logo-3.png" },
-        { id: "grey",  name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
-        { id: "white", name: "White",       value: "#ffffff", logo: "puff-logo-1.png" },
-        { id: "black", name: "Pure Black",  value: "#000000", logo: "puff-logo-3.png" },
+        { id: "red", name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
+        { id: "blue", name: "Dark Blue", value: "#060d3d", logo: "puff-logo-3.png" },
+        { id: "grey", name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
+        { id: "white", name: "White", value: "#ffffff", logo: "puff-logo-1.png" },
+        { id: "black", name: "Pure Black", value: "#000000", logo: "puff-logo-3.png" },
       ];
 
       // layouts
@@ -2063,7 +2245,7 @@
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        fitMode: "smart", // contain | smart | cover | manual
+        fitMode: "smart", // contain | smart | cover | manual  ✅ (4 modes)
         slotToCapture: [],
         slotTransforms: [], // per slot: { scaleMul, offsetX, offsetY }
       };
@@ -2078,12 +2260,16 @@
         builderOpenBtn.classList.toggle("hidden", !hidden);
         builderHideBtn.textContent = hidden ? "Show" : "Hide";
       }
-      builderHideBtn.addEventListener("click", () => setBuilderControlsHidden(!builderControlsHidden));
+      builderHideBtn.addEventListener("click", () =>
+        setBuilderControlsHidden(!builderControlsHidden)
+      );
       builderOpenBtn.addEventListener("click", () => setBuilderControlsHidden(false));
 
       const logoImgCache = new Map();
       async function getLogoImage() {
-        const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
+        const c =
+          FRAME_COLORS.find((x) => x.id === builderState.frameColorId) ||
+          FRAME_COLORS[1];
         const src = c.logo;
         if (logoImgCache.has(src)) return logoImgCache.get(src);
         const img = await loadImage(src);
@@ -2092,20 +2278,18 @@
       }
 
       function getFrameColor() {
-        const c = FRAME_COLORS.find((x) => x.id === builderState.frameColorId) || FRAME_COLORS[1];
+        const c =
+          FRAME_COLORS.find((x) => x.id === builderState.frameColorId) ||
+          FRAME_COLORS[1];
         return c.value;
       }
 
       function syncCanvasToLayout() {
         if (builderState.layoutId === "L1") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
-        if (builderState.layoutId === "L2") { stripCanvas.width = 400;  stripCanvas.height = 1200; return; }
-        if (builderState.layoutId === "L3") { stripCanvas.width = 900;  stripCanvas.height = 1350; return; }
-        if (builderState.layoutId === "L4" || builderState.layoutId === "L5") {
-          stripCanvas.width = 1200; stripCanvas.height = 400; return;
-        }
-        if (builderState.layoutId === "L6" || builderState.layoutId === "L7") {
-          stripCanvas.width = 1350; stripCanvas.height = 900; return;
-        }
+        if (builderState.layoutId === "L2") { stripCanvas.width = 400; stripCanvas.height = 1200; return; }
+        if (builderState.layoutId === "L3") { stripCanvas.width = 900; stripCanvas.height = 1350; return; }
+        if (builderState.layoutId === "L4" || builderState.layoutId === "L5") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
+        if (builderState.layoutId === "L6" || builderState.layoutId === "L7") { stripCanvas.width = 1350; stripCanvas.height = 900; return; }
       }
 
       function slotsNeeded() {
@@ -2119,22 +2303,20 @@
       function ensureSlotMapping() {
         const n = slotsNeeded();
 
-        // slots -> capture index
         const arr = builderState.slotToCapture || [];
         const next = new Array(n).fill(-1);
-        for (let i = 0; i < n; i++) next[i] = (arr[i] ?? i);
+        for (let i = 0; i < n; i++) next[i] = arr[i] ?? i;
         for (let i = 0; i < n; i++) {
           if (next[i] >= capturedItems.length) next[i] = -1;
         }
         builderState.slotToCapture = next;
 
-        // per-slot transforms (manual)
         const tArr = builderState.slotTransforms || [];
         const tNext = new Array(n).fill(null).map((_, i) => {
           const prev = tArr[i];
           return {
-            scaleMul: prev?.scaleMul ?? 1, // relative to cover
-            offsetX: prev?.offsetX ?? 0,   // px in canvas coords
+            scaleMul: prev?.scaleMul ?? 1,
+            offsetX: prev?.offsetX ?? 0,
             offsetY: prev?.offsetY ?? 0,
           };
         });
@@ -2147,7 +2329,8 @@
         frameColorRow.innerHTML = "";
         FRAME_COLORS.forEach((c) => {
           const p = document.createElement("div");
-          p.className = "pill" + (builderState.frameColorId === c.id ? " active" : "");
+          p.className =
+            "pill" + (builderState.frameColorId === c.id ? " active" : "");
           p.textContent = c.name;
           p.addEventListener("click", async () => {
             builderState.frameColorId = c.id;
@@ -2173,7 +2356,7 @@
           layoutRow.appendChild(p);
         });
 
-        // fit modes (+ manual)
+        // ✅ 4 fit modes
         fitModeRow.innerHTML = "";
         [
           { id: "contain", label: "Contain (no crop)" },
@@ -2234,7 +2417,7 @@
         if (capturedItems.length === 0) return;
         builderOverlay.classList.remove("hidden");
         builderOverlay.setAttribute("aria-hidden", "false");
-        setBuilderControlsHidden(false); // ✅ always open with controls visible
+        setBuilderControlsHidden(false);
 
         syncCanvasToLayout();
         ensureSlotMapping();
@@ -2288,7 +2471,7 @@
         else drawContain(ctx, img, rx, ry, rw, rh);
       }
 
-      // ✅ Manual: clipped inside slot, pan/zoom
+      // ✅ Manual: pan/zoom strictly clipped inside panel bounds (no overflow)
       function drawManual(ctx, img, rx, ry, rw, rh, tr) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
@@ -2297,19 +2480,17 @@
         const coverS = Math.max(rw / iw, rh / ih);
         const containS = Math.min(rw / iw, rh / ih);
 
-        const minMul = containS / coverS;       // allow zoom-out to contain
-        const maxMul = 3.0;                     // zoom-in limit
+        const minMul = containS / coverS; // allow zoom-out to contain
+        const maxMul = 3.0;
         tr.scaleMul = clamp(tr.scaleMul || 1, minMul, maxMul);
 
         const s = coverS * tr.scaleMul;
         const dw = iw * s;
         const dh = ih * s;
 
-        // base centered cover position
         let dx = rx + (rw - dw) / 2;
         let dy = ry + (rh - dh) / 2;
 
-        // allow pan offsets, but keep coverage if image bigger than slot
         let offX = tr.offsetX || 0;
         let offY = tr.offsetY || 0;
 
@@ -2317,7 +2498,7 @@
           const maxPanX = (dw - rw) / 2;
           offX = clamp(offX, -maxPanX, +maxPanX);
         } else {
-          offX = 0; // if smaller than slot, just keep centered
+          offX = 0;
         }
 
         if (dh > rh) {
@@ -2336,7 +2517,7 @@
         ctx.save();
         ctx.beginPath();
         ctx.rect(rx, ry, rw, rh);
-        ctx.clip(); // ✅ clip under frame
+        ctx.clip();
         ctx.drawImage(img, dx, dy, dw, dh);
         ctx.restore();
       }
@@ -2349,7 +2530,7 @@
         const outer = Math.round(minSide * 0.06);
 
         const topBar = Math.round(minSide * 0.16);
-        const bottomBar = Math.round(minSide * 0.10);
+        const bottomBar = Math.round(minSide * 0.1);
 
         const gap = Math.max(6, Math.round(minSide * 0.012));
 
@@ -2365,7 +2546,8 @@
           const slotW = Math.floor((contentW - gap * 2) / 3);
           const slotH = contentH;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2378,7 +2560,8 @@
           const slotH = Math.floor((contentH - gap * 2) / 3);
           const slotW = contentW;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
@@ -2391,7 +2574,8 @@
           const slotW = Math.floor((contentW - gap) / 2);
           const slotH = Math.floor((contentH - gap) / 2);
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2407,7 +2591,8 @@
           const slotW = Math.floor((photosW - gap) / 2);
           const slotH = contentH;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX + barW + gap, y: contentY, w: slotW, h: slotH },
               { x: contentX + barW + gap + slotW + gap, y: contentY, w: slotW, h: slotH },
@@ -2420,7 +2605,8 @@
           const slotW = Math.floor((contentW - barW - gap * 2) / 2);
           const slotH = contentH;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap + barW + gap, y: contentY, w: slotW, h: slotH },
@@ -2429,11 +2615,12 @@
         }
 
         if (builderState.layoutId === "L6") {
-          const rightW = Math.floor(contentW * 0.40);
+          const rightW = Math.floor(contentW * 0.4);
           const leftW = contentW - rightW - gap;
           const slotH = Math.floor((contentH - gap) / 2);
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: leftW, h: slotH },
               { x: contentX, y: contentY + slotH + gap, w: leftW, h: slotH },
@@ -2448,7 +2635,8 @@
           const slotW = contentW - inset * 2;
           const slotH = contentH - inset * 2;
           return {
-            topBar: topBarRect, botBar: botBarRect,
+            topBar: topBarRect,
+            botBar: botBarRect,
             slots: [{ x: slotX, y: slotY, w: slotW, h: slotH }],
           };
         }
@@ -2491,43 +2679,54 @@
         return -1;
       }
 
-      stripCanvas.addEventListener("pointerdown", (e) => {
-        if (builderOverlay.classList.contains("hidden")) return;
+      // ✅ single unified pointerdown handler (fix duplicate listeners)
+      stripCanvas.addEventListener(
+        "pointerdown",
+        (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
 
-        const idx = setActiveSlotFromPoint(e.clientX, e.clientY);
-        if (idx < 0) return;
+          const idx = setActiveSlotFromPoint(e.clientX, e.clientY);
+          if (idx < 0) return;
 
-        if (builderState.fitMode !== "manual") {
+          // always show selection highlight
           drawStrip({ forExport: false });
-          return;
-        }
 
-        manualPointer.active = true;
-        manualPointer.pointerId = e.pointerId;
-        manualPointer.startX = e.clientX;
-        manualPointer.startY = e.clientY;
+          if (builderState.fitMode !== "manual") return;
 
-        const tr = builderState.slotTransforms[activeSlot];
-        manualPointer.baseX = tr?.offsetX || 0;
-        manualPointer.baseY = tr?.offsetY || 0;
+          e.preventDefault();
+          manualPointer.active = true;
+          manualPointer.pointerId = e.pointerId;
+          manualPointer.startX = e.clientX;
+          manualPointer.startY = e.clientY;
 
-        stripCanvas.setPointerCapture?.(e.pointerId);
-      });
+          const tr = builderState.slotTransforms[activeSlot];
+          manualPointer.baseX = tr?.offsetX || 0;
+          manualPointer.baseY = tr?.offsetY || 0;
 
-      stripCanvas.addEventListener("pointermove", (e) => {
-        if (!manualPointer.active) return;
-        if (builderState.fitMode !== "manual") return;
-        if (e.pointerId !== manualPointer.pointerId) return;
+          stripCanvas.setPointerCapture?.(e.pointerId);
+        },
+        { passive: false }
+      );
 
-        const dx = e.clientX - manualPointer.startX;
-        const dy = e.clientY - manualPointer.startY;
+      stripCanvas.addEventListener(
+        "pointermove",
+        (e) => {
+          if (!manualPointer.active) return;
+          if (builderState.fitMode !== "manual") return;
+          if (e.pointerId !== manualPointer.pointerId) return;
 
-        const tr = builderState.slotTransforms[activeSlot];
-        tr.offsetX = manualPointer.baseX + dx;
-        tr.offsetY = manualPointer.baseY + dy;
+          e.preventDefault();
+          const dx = e.clientX - manualPointer.startX;
+          const dy = e.clientY - manualPointer.startY;
 
-        drawStrip({ forExport: false });
-      });
+          const tr = builderState.slotTransforms[activeSlot];
+          tr.offsetX = manualPointer.baseX + dx;
+          tr.offsetY = manualPointer.baseY + dy;
+
+          drawStrip({ forExport: false });
+        },
+        { passive: false }
+      );
 
       stripCanvas.addEventListener("pointerup", (e) => {
         if (e.pointerId === manualPointer.pointerId) {
@@ -2540,7 +2739,7 @@
         manualPointer.pointerId = null;
       });
 
-      // wheel zoom
+      // wheel zoom (manual)
       stripCanvas.addEventListener(
         "wheel",
         (e) => {
@@ -2566,9 +2765,16 @@
         (e) => {
           if (builderOverlay.classList.contains("hidden")) return;
           if (builderState.fitMode !== "manual") return;
+
           if (e.touches.length === 2) {
             const a = e.touches[0];
             const b = e.touches[1];
+
+            // set active slot using pinch center
+            const cx = (a.clientX + b.clientX) / 2;
+            const cy = (a.clientY + b.clientY) / 2;
+            setActiveSlotFromPoint(cx, cy);
+
             pinchStart = {
               dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
               baseScale: builderState.slotTransforms[activeSlot]?.scaleMul || 1,
@@ -2596,14 +2802,18 @@
         { passive: false }
       );
 
-      stripCanvas.addEventListener("touchend", () => { pinchStart = null; });
+      stripCanvas.addEventListener("touchend", () => {
+        pinchStart = null;
+      });
 
       async function drawStrip({ forExport } = { forExport: false }) {
         ensureSlotMapping();
 
         const selectedIdxs = builderState.slotToCapture.slice();
         const imgs = await Promise.all(
-          selectedIdxs.map((ci) => (ci >= 0 ? loadImage(capturedItems[ci]?.url || "") : Promise.resolve(null)))
+          selectedIdxs.map((ci) =>
+            ci >= 0 ? loadImage(capturedItems[ci]?.url || "") : Promise.resolve(null)
+          )
         );
 
         const frameColor = getFrameColor();
@@ -2617,7 +2827,6 @@
           const slot = layout.slots[i];
           const img = imgs[i];
 
-          // fill slot background
           stripCtx.fillStyle = frameColor;
           stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
 
@@ -2630,7 +2839,6 @@
           }
         }
 
-        // highlight active slot (preview only)
         if (!forExport) {
           const active = layout.slots[activeSlot];
           if (active) {
@@ -2649,8 +2857,8 @@
         if (logoImg) {
           const top = layout.topBar;
 
-          const maxW = top.w * 0.40;
-          const maxH = top.h * 0.80;
+          const maxW = top.w * 0.4;
+          const maxH = top.h * 0.8;
 
           const iw = logoImg.naturalWidth || logoImg.width;
           const ih = logoImg.naturalHeight || logoImg.height;
@@ -2669,10 +2877,16 @@
         await drawStrip({ forExport: true });
 
         stripCanvas.toBlob((blob) => {
-          if (!blob) { alert("Export failed."); return; }
+          if (!blob) {
+            alert("Export failed.");
+            return;
+          }
           const url = URL.createObjectURL(blob);
           const win = window.open("about:blank", "_blank");
-          if (!win) { alert("Popup blocked."); return; }
+          if (!win) {
+            alert("Popup blocked.");
+            return;
+          }
           const filename = `Puff_Dragon_Photobooth_${Date.now()}.png`;
 
           win.document.write(`
@@ -2694,41 +2908,15 @@
       });
 
       /* =========================
-         Builder selection by tapping canvas (slot)
-      ========================= */
-      stripCanvas.addEventListener(
-        "pointerdown",
-        (e) => {
-          if (builderOverlay.classList.contains("hidden")) return;
-          const idx = canvasPointToSlotIndex(e.clientX, e.clientY);
-          if (idx >= 0) {
-            activeSlot = idx;
-            renderBuilderUI();
-            drawStrip({ forExport: false });
-          }
-        },
-        { passive: true }
-      );
-
-      /* =========================
          Photobooth toggle default
       ========================= */
       setPhotoboothMode(false);
       applyCameraFilterPreview();
 
       /* =========================
-         Open builder cue button state
-      ========================= */
-      cueBtn.addEventListener("click", () => {
-        if (cueBtn.disabled) return;
-      });
-
-      /* =========================
          START: enable buttons after intro close? (kept as original)
       ========================= */
       // Note: start button is user-triggered.
-
     </script>
   </body>
 </html>
-
