@@ -655,17 +655,33 @@
         ctx.restore();
 
         // puff (simple draw using DOM rect)
+        // ==== Puff (ratio locked, no stretch ever) ====
         const r = puffEl.getBoundingClientRect();
-        const px = r.left * dpr;
-        const py = r.top * dpr;
-        const pw = r.width * dpr;
-        const ph = r.height * dpr;
-
+        const centerX = (r.left + r.width / 2) * dpr;
+        const centerY = (r.top + r.height / 2) * dpr;
+        
+        // compute width based on DOM width
+        const domWidth = r.width * dpr;
+        
+        // lock height based on intrinsic video ratio
+        const intrinsicRatio = puffEl.videoHeight > 0
+          ? puffEl.videoWidth / puffEl.videoHeight
+          : r.width / r.height;
+        
+        const lockedHeight = domWidth / intrinsicRatio;
+        
         ctx.save();
-        ctx.translate(px + pw/2, py + ph/2);
-        ctx.rotate((puffState.rotation * Math.PI)/180);
-        ctx.drawImage(puffEl, -pw/2, -ph/2, pw, ph);
+        ctx.translate(centerX, centerY);
+        ctx.rotate((puffState.rotation * Math.PI) / 180);
+        ctx.drawImage(
+          puffEl,
+          -domWidth / 2,
+          -lockedHeight / 2,
+          domWidth,
+          lockedHeight
+        );
         ctx.restore();
+
 
         return new Promise((resolve) => c.toBlob(resolve, "image/png"));
       }
