@@ -1,352 +1,523 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Puff Dragon AR</title>
 
 <style>
-html,body{
-margin:0;
-padding:0;
-background:#000;
-overflow:hidden;
-height:100%;
-font-family:system-ui;
-}
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    overflow: hidden;
+    height: 100%;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    touch-action: none;
+  }
+  .hidden { display: none !important; }
 
-.hidden{display:none!important;}
+  /* INTRO */
+  #introOverlay{
+    position:fixed; inset:0;
+    background:#fff;
+    z-index:9999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #exploreBtn{
+    position:absolute;
+    left:50%;
+    bottom:60px;
+    transform:translateX(-50%);
+    padding:14px 28px;
+    background:#fa213f;
+    color:#fff;
+    border:0;
+    border-radius:12px;
+    font-weight:900;
+    font-size:18px;
+    cursor:pointer;
+  }
 
-#introOverlay{
-position:fixed;
-inset:0;
-background:#fff;
-z-index:9999;
-display:flex;
-align-items:center;
-justify-content:center;
-}
+  /* APP */
+  #app { display:none; }
 
-#exploreBtn{
-position:absolute;
-bottom:60px;
-left:50%;
-transform:translateX(-50%);
-padding:14px 28px;
-background:#fa213f;
-color:#fff;
-border:none;
-border-radius:12px;
-font-weight:800;
-font-size:18px;
-cursor:pointer;
-}
+  #camera{
+    position:fixed; inset:0;
+    width:100vw; height:100vh;
+    object-fit:cover;
+    z-index:1;
+    transform-origin:center;
+  }
+  #camera.mirror{
+    transform: scaleX(-1);
+  }
 
-#app{display:none;}
+  /* Puff: IMPORTANT — do NOT force aspect-ratio in CSS.
+     We set it dynamically from video metadata. */
+  #puff{
+    position:fixed;
+    left:50%;
+    top:70%;
+    width: min(90vw, 520px);
+    height: auto;
+    object-fit: contain;
+    transform: translate(-50%,-50%) scale(1.4) rotate(0deg);
+    transform-origin: center;
+    z-index:2;
+    pointer-events:auto;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-drag:none;
+    background: transparent;
+    will-change: transform;
+  }
 
-#camera{
-position:fixed;
-inset:0;
-width:100vw;
-height:100vh;
-object-fit:cover;
-z-index:1;
-}
+  #ui{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    padding:12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    background: linear-gradient(to top, rgba(0,0,0,.70), rgba(0,0,0,0));
+    z-index:10;
+  }
+  .ui-row{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  button{
+    border:0;
+    border-radius:10px;
+    padding:8px 12px;
+    font-weight:900;
+    cursor:pointer;
+  }
+  #start{ background:#fa213f; color:#fff; }
+  .secondary{ background: rgba(255,255,255,.15); color:#fff; }
+  #capture{ background:#fff100; color:#060d3d; font-weight:1000; min-width:110px; }
 
-#camera.mirror{
-transform:scaleX(-1);
-}
+  #photoboothToggle.on{
+    background:#01b7ff;
+    color:#00131c;
+  }
 
-#puff{
-position:fixed;
-left:50%;
-top:70%;
-width:420px;
-aspect-ratio:1/1;
-transform:translate(-50%,-50%) scale(1.4);
-transform-origin:center;
-z-index:2;
-pointer-events:auto;
-touch-action:none;
-object-fit:contain;
-}
+  /* Photobooth captured panel */
+  #capturedPanel{
+    position:fixed;
+    right:14px;
+    top: calc(14px + env(safe-area-inset-top));
+    width: min(42vw, 240px);
+    max-height: min(55vh, 420px);
+    background: rgba(0,0,0,.70);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    overflow: auto;
+    z-index: 20;
+    padding: 10px;
+    display:none;
+    backdrop-filter: blur(10px);
+  }
+  .capThumb{
+    width:100%;
+    margin-bottom:10px;
+    border-radius:10px;
+    overflow:hidden;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.06);
+  }
+  .capThumb img{
+    width:100%;
+    display:block;
+    object-fit: contain;
+    background:#000;
+  }
 
-#ui{
-position:fixed;
-bottom:0;
-left:0;
-right:0;
-padding:12px;
-display:flex;
-flex-direction:column;
-gap:8px;
-background:linear-gradient(to top,rgba(0,0,0,.7),transparent);
-z-index:10;
-}
-
-.ui-row{
-display:flex;
-gap:8px;
-justify-content:center;
-flex-wrap:wrap;
-}
-
-button{
-border:none;
-border-radius:10px;
-padding:8px 12px;
-font-weight:800;
-cursor:pointer;
-}
-
-#start{background:#fa213f;color:#fff;}
-.secondary{background:rgba(255,255,255,.15);color:#fff;}
-#capture{background:#fff100;color:#000;font-weight:900;}
-
-#capturedPanel{
-position:fixed;
-right:20px;
-top:20px;
-width:220px;
-max-height:360px;
-background:rgba(0,0,0,.7);
-border-radius:12px;
-overflow:auto;
-z-index:20;
-padding:10px;
-display:none;
-}
-
-.capThumb{
-width:100%;
-margin-bottom:8px;
-border-radius:8px;
-overflow:hidden;
-}
-
-.capThumb img{
-width:100%;
-display:block;
-}
+  /* small desktop hint */
+  #desktopHint{
+    position:fixed;
+    left:10px;
+    top:10px;
+    z-index:15;
+    padding:7px 9px;
+    border-radius:10px;
+    background: rgba(0,0,0,.45);
+    color: rgba(255,255,255,.85);
+    font: 800 11px system-ui;
+    display:none;
+    user-select:none;
+  }
+  @media (hover:hover) and (pointer:fine){
+    #desktopHint{ display:block; }
+  }
 </style>
 </head>
 
 <body>
+  <div id="introOverlay">
+    <button id="exploreBtn" type="button">Explore</button>
+  </div>
 
-<div id="introOverlay">
-<button id="exploreBtn">Explore</button>
-</div>
+  <div id="app">
+    <div id="desktopHint">Desktop: drag=move • wheel=zoom • hold R + drag=rotate • right-drag=rotate</div>
 
-<div id="app">
-<video id="camera" autoplay playsinline muted></video>
-<video id="puff" autoplay playsinline muted loop></video>
-<div id="capturedPanel"></div>
+    <video id="camera" autoplay playsinline muted></video>
 
-<div id="ui">
-<div class="ui-row">
-<button id="start">Start AR</button>
-<button id="flip" class="secondary">Flip</button>
-<button id="mirror" class="secondary">Mirror</button>
-</div>
-<div class="ui-row">
-<button id="photoboothToggle" class="secondary">Photobooth OFF</button>
-<button id="capture">Puff It!</button>
-</div>
-</div>
+    <video
+      id="puff"
+      autoplay
+      playsinline
+      webkit-playsinline
+      muted
+      loop
+      preload="metadata"
+      crossorigin="anonymous"
+    ></video>
 
-</div>
+    <div id="capturedPanel"></div>
+
+    <div id="ui">
+      <div class="ui-row">
+        <button id="start" type="button">Start AR</button>
+        <button id="flip" class="secondary" type="button">Flip</button>
+        <button id="mirror" class="secondary" type="button">Mirror: Off</button>
+      </div>
+      <div class="ui-row">
+        <button id="photoboothToggle" class="secondary" type="button">Photobooth OFF</button>
+        <button id="capture" type="button">Puff It!</button>
+      </div>
+    </div>
+  </div>
 
 <script>
-const camera=document.getElementById("camera");
-const puff=document.getElementById("puff");
-const startBtn=document.getElementById("start");
-const flipBtn=document.getElementById("flip");
-const mirrorBtn=document.getElementById("mirror");
-const captureBtn=document.getElementById("capture");
-const exploreBtn=document.getElementById("exploreBtn");
-const introOverlay=document.getElementById("introOverlay");
-const app=document.getElementById("app");
-const photoboothToggle=document.getElementById("photoboothToggle");
-const capturedPanel=document.getElementById("capturedPanel");
+  const introOverlay = document.getElementById("introOverlay");
+  const exploreBtn = document.getElementById("exploreBtn");
+  const app = document.getElementById("app");
 
-let stream=null;
-let facing="environment";
-let mirror=false;
-let photobooth=false;
-let captures=[];
+  const camera = document.getElementById("camera");
+  const puff = document.getElementById("puff");
 
-/* INTRO */
-exploreBtn.onclick=()=>{
-introOverlay.style.display="none";
-app.style.display="block";
-};
+  const startBtn = document.getElementById("start");
+  const flipBtn = document.getElementById("flip");
+  const mirrorBtn = document.getElementById("mirror");
+  const captureBtn = document.getElementById("capture");
 
-/* CAMERA */
-async function startCamera(){
-if(stream)stream.getTracks().forEach(t=>t.stop());
-stream=await navigator.mediaDevices.getUserMedia({
-video:{facingMode:facing}
-});
-camera.srcObject=stream;
-await camera.play();
-}
-startBtn.onclick=startCamera;
+  const photoboothToggle = document.getElementById("photoboothToggle");
+  const capturedPanel = document.getElementById("capturedPanel");
 
-flipBtn.onclick=()=>{
-facing=facing==="environment"?"user":"environment";
-startCamera();
-};
+  /* ==========
+     INTRO
+  ========== */
+  exploreBtn.addEventListener("click", () => {
+    introOverlay.classList.add("hidden");
+    app.style.display = "block";
+  });
 
-mirrorBtn.onclick=()=>{
-mirror=!mirror;
-camera.classList.toggle("mirror",mirror);
-};
+  /* ==========
+     CAMERA
+  ========== */
+  let stream = null;
+  let facing = "environment";
+  let mirrorMode = false;
 
-/* PUFF SOURCE */
-puff.src="puff.webm";
+  function applyMirrorPreview() {
+    camera.classList.toggle("mirror", mirrorMode);
+    mirrorBtn.textContent = mirrorMode ? "Mirror: On" : "Mirror: Off";
+  }
 
-/* TRANSFORM ENGINE */
-let state={x:50,y:70,scale:1.4,rotation:0};
-let rotateMode=false;
+  async function startCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: facing } }
+    });
+    camera.srcObject = stream;
+    await camera.play().catch(()=>{});
+  }
 
-window.addEventListener("keydown",e=>{
-if(e.key.toLowerCase()==="r") rotateMode=true;
-});
-window.addEventListener("keyup",e=>{
-if(e.key.toLowerCase()==="r") rotateMode=false;
-});
+  startBtn.addEventListener("click", async () => {
+    try {
+      await startCamera();
+      startBtn.textContent = "AR Running";
+    } catch (e) {
+      console.error(e);
+      alert("Camera permission required (HTTPS).");
+    }
+  });
 
-function updatePuff(){
-puff.style.left=state.x+"%";
-puff.style.top=state.y+"%";
-puff.style.transform=
-`translate(-50%,-50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
-}
-updatePuff();
+  flipBtn.addEventListener("click", async () => {
+    facing = (facing === "environment") ? "user" : "environment";
+    try { await startCamera(); } catch(e) { console.error(e); }
+  });
 
-let pointers=new Map();
-let gesture=null;
+  mirrorBtn.addEventListener("click", () => {
+    mirrorMode = !mirrorMode;
+    applyMirrorPreview();
+  });
 
-puff.addEventListener("pointerdown",e=>{
-pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-puff.setPointerCapture(e.pointerId);
+  applyMirrorPreview();
 
-if(pointers.size===2){
-const pts=[...pointers.values()];
-gesture={
-dist:distance(pts[0],pts[1]),
-angle:angle(pts[0],pts[1]),
-baseScale:state.scale,
-baseRot:state.rotation
-};
-}
-});
+  /* ==========
+     PUFF SOURCE + ASPECT LOCK (NO STRETCH)
+  ========== */
+  // Put your actual puff file(s) here:
+  // If you still use randomized puff bases, you can swap the src logic, but keep lockPuffAspect().
+  function setPuffSource() {
+    // Example: prefer webm (you can replace with your Safari logic if needed)
+    puff.innerHTML = `<source src="puff.webm" type="video/webm">`;
+    puff.load();
+  }
+  setPuffSource();
 
-puff.addEventListener("pointermove",e=>{
-if(!pointers.has(e.pointerId))return;
-pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  function lockPuffAspect() {
+    const vw = puff.videoWidth;
+    const vh = puff.videoHeight;
+    if (vw > 0 && vh > 0) {
+      // This prevents any stretching while rotating/zooming/capturing
+      puff.style.aspectRatio = `${vw} / ${vh}`;
+      puff.style.height = "auto";
+    }
+  }
+  puff.addEventListener("loadedmetadata", lockPuffAspect);
+  puff.addEventListener("loadeddata", lockPuffAspect);
 
-if(pointers.size===1){
-const p=[...pointers.values()][0];
+  /* ==========
+     TRANSFORM STATE
+  ========== */
+  const state = { x: 50, y: 70, scale: 1.4, rotation: 0 };
 
-if(rotateMode){
-const cx=window.innerWidth/2;
-const cy=window.innerHeight/2;
-state.rotation=Math.atan2(p.y-cy,p.x-cx)*180/Math.PI;
-}else{
-state.x=(p.x/window.innerWidth)*100;
-state.y=(p.y/window.innerHeight)*100;
-}
-updatePuff();
-}
+  function updatePuff() {
+    puff.style.left = state.x + "%";
+    puff.style.top = state.y + "%";
+    puff.style.transform =
+      `translate(-50%,-50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
+  }
+  updatePuff();
 
-if(pointers.size===2 && gesture){
-const pts=[...pointers.values()];
-const newDist=distance(pts[0],pts[1]);
-const newAngle=angle(pts[0],pts[1]);
-state.scale=gesture.baseScale*(newDist/gesture.dist);
-state.rotation=gesture.baseRot+(newAngle-gesture.angle);
-updatePuff();
-}
-});
+  /* ==========
+     ROTATE UX (Desktop)
+     - hold R + drag (smooth relative)
+     - also allow right-mouse drag rotate
+     Mobile:
+     - 2 finger pinch = scale
+     - 2 finger twist = rotate
+  ========== */
+  let rotateKeyDown = false;
+  window.addEventListener("keydown", (e) => {
+    if (e.key.toLowerCase() === "r") rotateKeyDown = true;
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.key.toLowerCase() === "r") rotateKeyDown = false;
+  });
 
-puff.addEventListener("pointerup",e=>{
-pointers.delete(e.pointerId);
-if(pointers.size<2)gesture=null;
-});
+  const pointers = new Map();
+  let gesture = null;         // for 2-pointer scale/rotate
+  let dragStart = null;       // for 1-pointer drag/rotate
+  puff.addEventListener("contextmenu", (e) => e.preventDefault());
 
-function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
-function angle(a,b){return Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI;}
+  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+  function ang(a,b){ return (Math.atan2(b.y-a.y, b.x-a.x) * 180) / Math.PI; }
 
-/* CAPTURE */
-function capture(){
-const dpr=window.devicePixelRatio||1;
-const W=window.innerWidth*dpr;
-const H=window.innerHeight*dpr;
+  puff.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    puff.setPointerCapture?.(e.pointerId);
 
-const canvas=document.createElement("canvas");
-canvas.width=W;
-canvas.height=H;
-const ctx=canvas.getContext("2d");
+    const isRightRotate = (e.pointerType === "mouse" && (e.button === 2 || e.buttons === 2));
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-if(mirror){
-ctx.translate(W,0);
-ctx.scale(-1,1);
-}
+    if (pointers.size === 1) {
+      dragStart = {
+        x: e.clientX,
+        y: e.clientY,
+        baseX: state.x,
+        baseY: state.y,
+        baseRot: state.rotation,
+        rotating: rotateKeyDown || isRightRotate
+      };
+      gesture = null;
+    }
 
-ctx.drawImage(camera,0,0,W,H);
+    if (pointers.size === 2) {
+      const pts = Array.from(pointers.values());
+      gesture = {
+        d: dist(pts[0], pts[1]),
+        a: ang(pts[0], pts[1]),
+        baseScale: state.scale,
+        baseRot: state.rotation
+      };
+      dragStart = null;
+    }
+  }, { passive:false });
 
-const rect=puff.getBoundingClientRect();
-const centerX=(rect.left+rect.width/2)*dpr;
-const centerY=(rect.top+rect.height/2)*dpr;
-const drawWidth=rect.width*dpr;
-const drawHeight=rect.height*dpr;
+  puff.addEventListener("pointermove", (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    e.preventDefault();
 
-ctx.save();
-ctx.translate(centerX,centerY);
-ctx.rotate(state.rotation*Math.PI/180);
-ctx.drawImage(
-puff,
--drawWidth/2,
--drawHeight/2,
-drawWidth,
-drawHeight
-);
-ctx.restore();
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-canvas.toBlob(blob=>{
-if(!photobooth){
-const url=URL.createObjectURL(blob);
-const a=document.createElement("a");
-a.href=url;
-a.download="Puff_Dragon.png";
-a.click();
-}else{
-const url=URL.createObjectURL(blob);
-captures.push(url);
-renderCaptures();
-}
-});
-}
-captureBtn.onclick=capture;
+    if (pointers.size === 1 && dragStart) {
+      const dx = e.clientX - dragStart.x;
+      const dy = e.clientY - dragStart.y;
 
-/* PHOTOBOOTH */
-photoboothToggle.onclick=()=>{
-photobooth=!photobooth;
-photoboothToggle.textContent=
-photobooth?"Photobooth ON":"Photobooth OFF";
-capturedPanel.style.display=photobooth?"block":"none";
-};
+      if (dragStart.rotating) {
+        // Smooth relative rotate: drag horizontally rotates
+        state.rotation = dragStart.baseRot + dx * 0.35;
+      } else {
+        // Move in % for consistent behavior across screens
+        state.x = Math.max(0, Math.min(100, dragStart.baseX + (dx / innerWidth) * 100));
+        state.y = Math.max(0, Math.min(100, dragStart.baseY + (dy / innerHeight) * 100));
+      }
+      updatePuff();
+    }
 
-function renderCaptures(){
-capturedPanel.innerHTML="";
-captures.forEach(url=>{
-const div=document.createElement("div");
-div.className="capThumb";
-div.innerHTML=`<img src="${url}">`;
-capturedPanel.appendChild(div);
-});
-}
+    if (pointers.size === 2 && gesture) {
+      const pts = Array.from(pointers.values());
+      const newD = dist(pts[0], pts[1]);
+      const newA = ang(pts[0], pts[1]);
+
+      const scaleFactor = newD / Math.max(10, gesture.d);
+      state.scale = Math.max(0.2, Math.min(6, gesture.baseScale * scaleFactor));
+      state.rotation = gesture.baseRot + (newA - gesture.a);
+
+      updatePuff();
+    }
+  }, { passive:false });
+
+  function clearPointer(e){
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) gesture = null;
+    if (pointers.size === 0) dragStart = null;
+  }
+  puff.addEventListener("pointerup", clearPointer);
+  puff.addEventListener("pointercancel", clearPointer);
+
+  // Desktop wheel zoom
+  puff.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const factor = (e.deltaY > 0) ? 0.92 : 1.08;
+    state.scale = Math.max(0.2, Math.min(6, state.scale * factor));
+    updatePuff();
+  }, { passive:false });
+
+  /* ==========
+     PHOTOBOOTH
+  ========== */
+  let photobooth = false;
+  const captures = []; // store blob urls
+
+  function setPhotobooth(on){
+    photobooth = on;
+    photoboothToggle.classList.toggle("on", on);
+    photoboothToggle.textContent = on ? "Photobooth ON" : "Photobooth OFF";
+    capturedPanel.style.display = on ? "block" : "none";
+  }
+  setPhotobooth(false);
+
+  photoboothToggle.addEventListener("click", () => setPhotobooth(!photobooth));
+
+  function renderCaptures(){
+    capturedPanel.innerHTML = "";
+    captures.forEach(url => {
+      const div = document.createElement("div");
+      div.className = "capThumb";
+      div.innerHTML = `<img src="${url}" alt="capture">`;
+      capturedPanel.appendChild(div);
+    });
+  }
+
+  /* ==========
+     CAPTURE (FIXED: NO STRETCH, NO DRIFT, MIRROR CAMERA ONLY)
+  ========== */
+  function drawCameraToCanvas(ctx, W, H) {
+    const camW = camera.videoWidth;
+    const camH = camera.videoHeight;
+    if (!camW || !camH) return;
+
+    // Cover crop to viewport
+    const scale = Math.max(W / camW, H / camH);
+    const sw = W / scale;
+    const sh = H / scale;
+    const sx = (camW - sw) / 2;
+    const sy = (camH - sh) / 2;
+
+    ctx.save();
+    // Mirror ONLY camera if preview is mirrored
+    if (mirrorMode) {
+      ctx.translate(W, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(camera, sx, sy, sw, sh, 0, 0, W, H);
+    ctx.restore();
+  }
+
+  function drawPuffToCanvas(ctx, dpr) {
+    // Use the *actual rendered rect* so capture matches preview position.
+    // This avoids "xê dịch" because we draw exactly where CSS placed it.
+    const rect = puff.getBoundingClientRect();
+    const w = rect.width * dpr;
+    const h = rect.height * dpr;
+    const cx = (rect.left + rect.width / 2) * dpr;
+    const cy = (rect.top + rect.height / 2) * dpr;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(state.rotation * Math.PI / 180);
+
+    // IMPORTANT: Draw puff to the exact rendered size.
+    // Aspect ratio is locked from metadata => no stretch.
+    ctx.drawImage(puff, -w/2, -h/2, w, h);
+    ctx.restore();
+  }
+
+  function capture() {
+    if (!stream || !camera.videoWidth) {
+      alert("Please Start AR first.");
+      return;
+    }
+
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const W = Math.round(window.innerWidth * dpr);
+    const H = Math.round(window.innerHeight * dpr);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d", { willReadFrequently:false });
+
+    // 1) camera (mirror camera only if mirror preview is on)
+    drawCameraToCanvas(ctx, W, H);
+
+    // 2) puff (never mirrored; matches preview)
+    drawPuffToCanvas(ctx, dpr);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return alert("Capture failed.");
+
+      if (!photobooth) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Puff_Dragon.png";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 15000);
+      } else {
+        const url = URL.createObjectURL(blob);
+        captures.push(url);
+        renderCaptures();
+      }
+    }, "image/png");
+  }
+
+  captureBtn.addEventListener("click", capture);
 </script>
 </body>
 </html>
