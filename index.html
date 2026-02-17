@@ -50,7 +50,7 @@
         object-fit: contain;
         background: #fff;
         display: block;
-        pointer-events: none; /* ✅ don't block tapping puff-close */
+        pointer-events: none;
       }
 
       #introClosePuff {
@@ -115,10 +115,10 @@
         top: 72%;
         width: min(90vw, 500px);
         height: auto;
-        object-fit: contain; /* ✅ prevent any internal stretching */
+        object-fit: contain;
         pointer-events: auto;
         touch-action: none;
-        transform: translate(-50%, -50%) scale(1.55);
+        transform: translate(-50%, -50%) scale(1.55) rotate(0deg);
         transform-origin: center;
         background: transparent;
         will-change: transform;
@@ -153,6 +153,41 @@
         outline: 2px solid rgba(255, 255, 255, 0.6);
         outline-offset: 6px;
         border-radius: 14px;
+      }
+
+      /* =========================
+         ROTATE HANDLE OVERLAY
+      ========================= */
+      #handleLayer {
+        position: fixed;
+        inset: 0;
+        z-index: 12;
+        pointer-events: none;
+      }
+
+      .bbox {
+        position: fixed;
+        border: 2px solid rgba(255, 255, 255, 0.65);
+        border-radius: 12px;
+        pointer-events: none;
+        box-sizing: border-box;
+      }
+
+      .rotateHandle {
+        position: fixed;
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        background: rgba(255, 241, 0, 0.95);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+        pointer-events: auto; /* important */
+        touch-action: none;
+        cursor: grab;
+      }
+
+      .rotateHandle:active {
+        cursor: grabbing;
+        transform: scale(0.98);
       }
 
       /* =========================
@@ -219,6 +254,12 @@
         background: #01b7ff;
         color: #00131c;
         font-weight: 900;
+      }
+
+      #timingBtn.on {
+        background: #fff100;
+        color: #060d3d;
+        font-weight: 1000;
       }
 
       /* Panels */
@@ -353,6 +394,31 @@
       }
 
       /* =========================
+         COUNTDOWN OVERLAY
+      ========================= */
+      #countdownOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(8px);
+      }
+
+      #countdownOverlay.show {
+        display: flex;
+      }
+
+      #countdownNumber {
+        font: 900 clamp(74px, 18vw, 160px) system-ui;
+        color: #fff100;
+        text-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+        letter-spacing: -2px;
+      }
+
+      /* =========================
          CAPTURED PANEL (movable, scrollable)
       ========================= */
       #capturedPanel {
@@ -470,7 +536,6 @@
         gap: 12px;
       }
 
-      /* ✅ Hide controls mode */
       #builderShell.controlsHidden {
         grid-template-columns: 1fr !important;
       }
@@ -505,11 +570,10 @@
         image-rendering: auto;
         border-radius: 0;
         background: transparent;
-        touch-action: none; /* ✅ important for drag+pinch */
+        touch-action: none;
         user-select: none;
       }
 
-      /* ✅ Open button when controls hidden */
       #builderOpenBtn {
         position: sticky;
         bottom: 12px;
@@ -684,7 +748,7 @@
     ========================= -->
     <div id="app" class="hidden">
       <div id="desktopHint">
-        Desktop: drag=move • wheel=zoom • Alt/Shift/right-drag=rotate • click=select
+        Desktop: drag=move • wheel=zoom • click=select • use rotate handle
       </div>
 
       <video id="camera" autoplay playsinline muted></video>
@@ -701,6 +765,14 @@
       ></video>
 
       <div id="stickerLayer"></div>
+
+      <!-- rotate handles -->
+      <div id="handleLayer"></div>
+
+      <!-- countdown -->
+      <div id="countdownOverlay" aria-hidden="true">
+        <div id="countdownNumber">3</div>
+      </div>
 
       <!-- Captured floating panel (photobooth ON) -->
       <div id="capturedPanel" class="hidden" aria-hidden="true">
@@ -725,6 +797,7 @@
           <button id="photoboothToggle" class="secondary" disabled>
             Photobooth: OFF
           </button>
+          <button id="timingBtn" class="secondary" disabled>Timing: OFF</button>
           <button id="stickers" class="secondary" disabled>Sticker</button>
           <button id="filterBtn" class="secondary" disabled>Filter</button>
           <button id="capture" disabled>Puff It!</button>
@@ -817,6 +890,9 @@
             <div class="ctrlGroup">
               <div class="ctrlTitle">Layout</div>
               <div class="pillRow" id="layoutRow"></div>
+              <div class="hint" style="margin-top:8px">
+                L8 = Insta-X photocard (auto tilt + stickers).
+              </div>
             </div>
 
             <div class="ctrlGroup">
@@ -831,6 +907,9 @@
 
             <div class="ctrlGroup">
               <button id="exportStripBtn" type="button">Export strip PNG</button>
+              <div class="hint" style="margin-top:8px">
+                In L8: export auto-randomizes stickers + tilt each time.
+              </div>
             </div>
           </div>
         </div>
@@ -841,7 +920,7 @@
       /* =========================
          CACHE BUSTING
       ========================= */
-      const ASSET_VERSION = "27";
+      const ASSET_VERSION = "28"; // bumped because new features
 
       /* =========================
          HELPERS
@@ -878,15 +957,26 @@
         return isIOS || isSafari;
       }
 
-      // ✅ Image cache for smooth performance
+      function sleep(ms) {
+        return new Promise((r) => setTimeout(r, ms));
+      }
+
+      /* =========================
+         Image cache
+      ========================= */
       const __imgCache = new Map();
 
-      // ✅ append cache-bust only for normal URLs (not blob:)
+      function withCacheBust(src) {
+        if (!src) return src;
+        const isBlob = src.startsWith("blob:") || src.startsWith("data:");
+        if (isBlob) return src;
+        if (src.includes("?")) return src; // keep existing
+        return `${src}?v=${encodeURIComponent(ASSET_VERSION)}`;
+      }
+
       function loadImage(src) {
         return new Promise((resolve) => {
           if (!src) return resolve(null);
-
-          // cache hit
           if (__imgCache.has(src)) return resolve(__imgCache.get(src));
 
           const img = new Image();
@@ -896,14 +986,7 @@
             resolve(img);
           };
           img.onerror = () => resolve(null);
-
-          const isBlob = src.startsWith("blob:") || src.startsWith("data:");
-          img.src = isBlob
-            ? src
-            : src +
-              (src.includes("?")
-                ? ""
-                : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+          img.src = withCacheBust(src);
         });
       }
 
@@ -913,6 +996,7 @@
       const cameraEl = document.getElementById("camera");
       const puffEl = document.getElementById("puff");
       const stickerLayer = document.getElementById("stickerLayer");
+      const handleLayer = document.getElementById("handleLayer");
 
       const startBtn = document.getElementById("start");
       const flipBtn = document.getElementById("flip");
@@ -920,6 +1004,10 @@
       const stickersBtn = document.getElementById("stickers");
       const captureBtn = document.getElementById("capture");
       const photoboothToggleBtn = document.getElementById("photoboothToggle");
+
+      const timingBtn = document.getElementById("timingBtn");
+      const countdownOverlay = document.getElementById("countdownOverlay");
+      const countdownNumber = document.getElementById("countdownNumber");
 
       const filterBtn = document.getElementById("filterBtn");
       const filterPanel = document.getElementById("filterPanel");
@@ -1363,12 +1451,10 @@
       puffEl.crossOrigin = "anonymous";
       setPuffSource(chosenBase);
 
-      /* ✅ Lock Puff aspect ratio to intrinsic video ratio (always) */
       function lockPuffAspect() {
         const vw = puffEl.videoWidth;
         const vh = puffEl.videoHeight;
         if (vw > 0 && vh > 0) {
-          // aspect-ratio keeps layout stable even if sources swap
           puffEl.style.aspectRatio = `${vw} / ${vh}`;
           puffEl.style.height = "auto";
         }
@@ -1425,6 +1511,7 @@
         mirrorBtn.disabled = true;
         filterBtn.disabled = true;
         photoboothToggleBtn.disabled = true;
+        timingBtn.disabled = true;
 
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -1455,6 +1542,7 @@
         mirrorBtn.disabled = false;
         filterBtn.disabled = false;
         photoboothToggleBtn.disabled = false;
+        timingBtn.disabled = false;
 
         applyMirrorToPreview();
         applyCameraFilterPreview();
@@ -1489,6 +1577,27 @@
           mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
         applyMirrorToPreview();
       });
+
+      /* =========================
+         TIMING (countdown)
+      ========================= */
+      let timingOn = false;
+      timingBtn.addEventListener("click", () => {
+        timingOn = !timingOn;
+        timingBtn.classList.toggle("on", timingOn);
+        timingBtn.textContent = timingOn ? "Timing: ON" : "Timing: OFF";
+      });
+
+      async function doCountdown3() {
+        countdownOverlay.classList.add("show");
+        countdownOverlay.setAttribute("aria-hidden", "false");
+        for (let n = 3; n >= 0; n--) {
+          countdownNumber.textContent = String(n);
+          await sleep(n === 0 ? 150 : 700);
+        }
+        countdownOverlay.classList.remove("show");
+        countdownOverlay.setAttribute("aria-hidden", "true");
+      }
 
       /* =========================
          TRANSFORMS (Puff: touch drag/pinch)
@@ -1608,12 +1717,13 @@
       const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
       function updatePuff() {
         applyTransform(puffEl, puffState);
+        updateHandles();
       }
       updatePuff();
       enableTouchDragPinch(puffEl, puffState, updatePuff);
 
       /* =========================
-         MULTI-STICKERS
+         MULTI-STICKERS (interactive stickers)
       ========================= */
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
@@ -1652,9 +1762,6 @@
           stopInertia();
           pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-          const isRightButtonRotate =
-            e.pointerType === "mouse" && (e.buttons === 2 || e.button === 2);
-
           if (pointers.size === 1) {
             dragStart = {
               x: e.clientX,
@@ -1663,8 +1770,8 @@
               baseY: state.y,
               w: innerWidth,
               h: innerHeight,
-              rotating: !!e.altKey || !!e.shiftKey || isRightButtonRotate,
               baseRotation: state.rotation,
+              rotating: false, // rotate via handle now
             };
             gestureStart = null;
             lastAngle = null;
@@ -1694,12 +1801,8 @@
             const dx = ((e.clientX - dragStart.x) / dragStart.w) * 100;
             const dy = ((e.clientY - dragStart.y) / dragStart.h) * 100;
 
-            if (dragStart.rotating) {
-              state.rotation = dragStart.baseRotation + dx * 3.0;
-            } else {
-              state.x = clamp(dragStart.baseX + dx, 0, 100);
-              state.y = clamp(dragStart.baseY + dy, 0, 100);
-            }
+            state.x = clamp(dragStart.baseX + dx, 0, 100);
+            state.y = clamp(dragStart.baseY + dy, 0, 100);
             onUpdate();
           }
 
@@ -1756,6 +1859,7 @@
       let stickersLoaded = false;
       const stickerStates = new Map();
       let selectedStickerEl = null;
+      let selectedTarget = null; // "puff" | "sticker" | null
 
       function setSelectedSticker(el) {
         if (selectedStickerEl && selectedStickerEl !== el) {
@@ -1766,6 +1870,28 @@
 
         stickerRemove.disabled = !selectedStickerEl;
         stickerClear.disabled = stickerStates.size === 0;
+
+        selectedTarget = el ? "sticker" : null;
+        updateHandles();
+      }
+
+      function selectPuff() {
+        if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
+        selectedStickerEl = null;
+        stickerRemove.disabled = true;
+        stickerClear.disabled = stickerStates.size === 0;
+
+        selectedTarget = "puff";
+        updateHandles();
+      }
+
+      function clearSelection() {
+        if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
+        selectedStickerEl = null;
+        selectedTarget = null;
+        stickerRemove.disabled = true;
+        stickerClear.disabled = stickerStates.size === 0;
+        updateHandles();
       }
 
       function createSticker(src) {
@@ -1782,6 +1908,7 @@
 
         function update() {
           applyTransform(el, state);
+          updateHandles();
         }
         update();
 
@@ -1816,7 +1943,8 @@
         selectedStickerEl = null;
 
         const last = Array.from(stickerStates.keys()).pop() || null;
-        setSelectedSticker(last);
+        if (last) setSelectedSticker(last);
+        else clearSelection();
 
         stickerClear.disabled = stickerStates.size === 0;
       });
@@ -1824,7 +1952,7 @@
       stickerClear.addEventListener("click", () => {
         for (const el of stickerStates.keys()) el.remove();
         stickerStates.clear();
-        setSelectedSticker(null);
+        clearSelection();
         stickerClear.disabled = true;
       });
 
@@ -1868,6 +1996,16 @@
         }
       }
 
+      // select puff by clicking it
+      puffEl.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        selectPuff();
+      }, true);
+      puffEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectPuff();
+      });
+
       document.addEventListener("pointerdown", (e) => {
         const isSticker =
           e.target &&
@@ -1877,17 +2015,125 @@
         const clickedFilter = filterPanel.contains(e.target);
         const clickedUI = document.getElementById("ui").contains(e.target);
         const clickedPuff = e.target === puffEl;
+        const clickedHandle = e.target && e.target.classList && e.target.classList.contains("rotateHandle");
 
-        if (!isSticker && !clickedPanel && !clickedFilter && !clickedUI && !clickedPuff) {
-          if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
-          selectedStickerEl = null;
-          stickerRemove.disabled = true;
-          stickerClear.disabled = stickerStates.size === 0;
+        if (!isSticker && !clickedPanel && !clickedFilter && !clickedUI && !clickedPuff && !clickedHandle) {
+          clearSelection();
         }
       });
 
       /* =========================
-         CAPTURE (viewport-accurate)
+         ROTATE HANDLE LOGIC
+      ========================= */
+      let bboxEl = null;
+      let handleEl = null;
+
+      function ensureHandleEls() {
+        if (!bboxEl) {
+          bboxEl = document.createElement("div");
+          bboxEl.className = "bbox";
+          bboxEl.style.display = "none";
+          handleLayer.appendChild(bboxEl);
+        }
+        if (!handleEl) {
+          handleEl = document.createElement("div");
+          handleEl.className = "rotateHandle";
+          handleEl.style.display = "none";
+          handleLayer.appendChild(handleEl);
+        }
+      }
+
+      function getSelectedRectAndCenter() {
+        if (selectedTarget === "puff") {
+          const r = puffEl.getBoundingClientRect();
+          return { rect: r, cx: r.left + r.width / 2, cy: r.top + r.height / 2, state: puffState };
+        }
+        if (selectedTarget === "sticker" && selectedStickerEl && stickerStates.has(selectedStickerEl)) {
+          const r = selectedStickerEl.getBoundingClientRect();
+          const st = stickerStates.get(selectedStickerEl);
+          return { rect: r, cx: r.left + r.width / 2, cy: r.top + r.height / 2, state: st };
+        }
+        return null;
+      }
+
+      function updateHandles() {
+        ensureHandleEls();
+        const info = getSelectedRectAndCenter();
+        if (!info) {
+          bboxEl.style.display = "none";
+          handleEl.style.display = "none";
+          return;
+        }
+
+        const { rect, cx, cy } = info;
+        bboxEl.style.display = "block";
+        bboxEl.style.left = rect.left + "px";
+        bboxEl.style.top = rect.top + "px";
+        bboxEl.style.width = rect.width + "px";
+        bboxEl.style.height = rect.height + "px";
+
+        // handle above top-center
+        const hx = cx - 10;
+        const hy = rect.top - 28;
+        handleEl.style.display = "block";
+        handleEl.style.left = hx + "px";
+        handleEl.style.top = hy + "px";
+      }
+
+      function attachRotateHandleDrag() {
+        ensureHandleEls();
+
+        let dragging = false;
+        let baseRot = 0;
+        let center = { x: 0, y: 0 };
+        let startAng = 0;
+        let targetState = null;
+
+        function getAngleTo(x, y) {
+          return (Math.atan2(y - center.y, x - center.x) * 180) / Math.PI;
+        }
+
+        handleEl.addEventListener("pointerdown", (e) => {
+          const info = getSelectedRectAndCenter();
+          if (!info) return;
+
+          e.preventDefault();
+          e.stopPropagation();
+          dragging = true;
+          handleEl.setPointerCapture?.(e.pointerId);
+
+          center = { x: info.cx, y: info.cy };
+          targetState = info.state;
+          baseRot = targetState.rotation || 0;
+          startAng = getAngleTo(e.clientX, e.clientY);
+        }, { passive: false });
+
+        window.addEventListener("pointermove", (e) => {
+          if (!dragging || !targetState) return;
+          e.preventDefault();
+
+          const ang = getAngleTo(e.clientX, e.clientY);
+          const delta = ang - startAng;
+          targetState.rotation = baseRot + delta;
+
+          if (selectedTarget === "puff") updatePuff();
+          else if (selectedTarget === "sticker" && selectedStickerEl && stickerStates.has(selectedStickerEl)) {
+            applyTransform(selectedStickerEl, targetState);
+            updateHandles();
+          }
+        }, { passive: false });
+
+        window.addEventListener("pointerup", () => {
+          dragging = false;
+          targetState = null;
+        });
+      }
+      attachRotateHandleDrag();
+
+      window.addEventListener("resize", () => updateHandles());
+
+      /* =========================
+         CAPTURE (viewport-accurate) + NO STRETCH ROTATION
       ========================= */
       function applyRecipeToImageData(imageData, r) {
         const d = imageData.data;
@@ -1944,6 +2190,47 @@
         return imageData;
       }
 
+      function rectToCanvas(rect, dpr) {
+        return {
+          x: rect.left * dpr,
+          y: rect.top * dpr,
+          w: rect.width * dpr,
+          h: rect.height * dpr,
+        };
+      }
+
+      // ✅ convert rotated bounding box back to "true" unrotated size using aspect ratio
+      function unrotatedSizeFromBBox(bw, bh, rotDeg, aspect) {
+        const th = (rotDeg * Math.PI) / 180;
+        const c = Math.abs(Math.cos(th));
+        const s = Math.abs(Math.sin(th));
+
+        // bw = h*(aspect*c + s)
+        // bh = h*(aspect*s + c)
+        // Solve for h with bw (more stable); fallback if division small
+        const denomW = aspect * c + s;
+        const denomH = aspect * s + c;
+
+        let h = denomW > 1e-6 ? (bw / denomW) : (bh / Math.max(1e-6, denomH));
+        let w = aspect * h;
+
+        // safety fallback
+        if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) {
+          w = bw;
+          h = bh;
+        }
+        return { w, h };
+      }
+
+      function drawRotatedNoStretch(ctx, sourceElOrImg, centerX, centerY, bboxW, bboxH, rotDeg, aspect) {
+        const { w, h } = unrotatedSizeFromBBox(bboxW, bboxH, rotDeg, aspect);
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate((rotDeg * Math.PI) / 180);
+        ctx.drawImage(sourceElOrImg, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      }
+
       function captureToBlob(cb) {
         if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
           alert("Start AR first.");
@@ -1959,23 +2246,13 @@
         out.height = H;
         const ctx = out.getContext("2d", { willReadFrequently: true });
 
-        // ✅ Mirror output must match preview EXACTLY:
-        // Preview mirrors ONLY the camera video (not puff/stickers).
         const mirrorCameraOnly = shouldMirrorPreview();
 
         const camSrcW = cameraEl.videoWidth;
         const camSrcH = cameraEl.videoHeight;
         const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
 
-        const rectToCanvas = (rect) => {
-          const x = rect.left * dpr;
-          const y = rect.top * dpr;
-          const w = rect.width * dpr;
-          const h = rect.height * dpr;
-          return { x, y, w, h };
-        };
-
-        // draw camera (mirrored if preview is mirrored)
+        // draw camera
         ctx.save();
         if (mirrorCameraOnly) {
           ctx.translate(W, 0);
@@ -1994,42 +2271,30 @@
         );
         ctx.restore();
 
-        // apply filter to camera (same as preview recipe)
+        // apply filter
         if (currentFilterId !== "none") {
           const imgData = ctx.getImageData(0, 0, W, H);
           applyRecipeToImageData(imgData, currentRecipe);
           ctx.putImageData(imgData, 0, 0);
         }
 
-        // draw Puff (NOT mirrored — matches preview)
-        const puffRect = rectToCanvas(puffEl.getBoundingClientRect());
-        ctx.save();
-        const px = puffRect.x + puffRect.w / 2;
-        const py = puffRect.y + puffRect.h / 2;
-        ctx.translate(px, py);
-        const puffRot = puffState.rotation * Math.PI / 180;
-        ctx.rotate(puffRot);
-        ctx.drawImage(
-          puffEl,
-          -puffRect.w / 2,
-          -puffRect.h / 2,
-          puffRect.w,
-          puffRect.h
-        );
-        ctx.restore();
+        // draw puff (NO stretch on rotate)
+        {
+          const r = rectToCanvas(puffEl.getBoundingClientRect(), dpr);
+          const cx = r.x + r.w / 2;
+          const cy = r.y + r.h / 2;
+          const aspect = (puffEl.videoWidth || 1) / (puffEl.videoHeight || 1);
+          drawRotatedNoStretch(ctx, puffEl, cx, cy, r.w, r.h, puffState.rotation, aspect);
+        }
 
-        // draw stickers (NOT mirrored — matches preview)
+        // draw stickers (NO stretch on rotate)
         for (const [el, st] of stickerStates.entries()) {
           if (!el.complete || !el.naturalWidth) continue;
-          const r = rectToCanvas(el.getBoundingClientRect());
-          ctx.save();
-          const sx = r.x + r.w / 2;
-          const sy = r.y + r.h / 2;
-          ctx.translate(sx, sy);
-          const rot = st.rotation * Math.PI / 180;
-          ctx.rotate(rot);
-          ctx.drawImage(el, -r.w / 2, -r.h / 2, r.w, r.h);
-          ctx.restore();
+          const r = rectToCanvas(el.getBoundingClientRect(), dpr);
+          const cx = r.x + r.w / 2;
+          const cy = r.y + r.h / 2;
+          const aspect = (el.naturalWidth || 1) / (el.naturalHeight || 1);
+          drawRotatedNoStretch(ctx, el, cx, cy, r.w, r.h, st.rotation, aspect);
         }
 
         out.toBlob((blob) => cb(blob), "image/png");
@@ -2172,9 +2437,11 @@
       })();
 
       /* =========================
-         CAPTURE BUTTON
+         CAPTURE BUTTON (with Timing optional)
       ========================= */
-      captureBtn.addEventListener("click", () => {
+      async function doCaptureFlow() {
+        if (timingOn) await doCountdown3();
+
         if (!photoboothOn) {
           captureToBlob((blob) => {
             if (!blob) {
@@ -2195,6 +2462,10 @@
           capturedItems.push({ blob, url });
           updateCapturedUI();
         });
+      }
+
+      captureBtn.addEventListener("click", () => {
+        doCaptureFlow();
       });
 
       /* =========================
@@ -2231,7 +2502,7 @@
         { id: "black", name: "Pure Black", value: "#000000", logo: "puff-logo-3.png" },
       ];
 
-      // layouts
+      // layouts (keep existing + add L8)
       const LAYOUTS = [
         { id: "L1", name: "Layout 1 (3 horizontal strip)" },
         { id: "L2", name: "Layout 2 (3 vertical strip)" },
@@ -2240,14 +2511,18 @@
         { id: "L5", name: "Layout 5 (2 horizontal, center bar)" },
         { id: "L6", name: "Layout 6 (4x6 landscape, 2 stacked + right bar)" },
         { id: "L7", name: "Layout 7 (4x6 landscape, 1 photo)" },
+        { id: "L8", name: "Layout 8 (Insta-X photocard)" }, // ✅ NEW
       ];
 
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        fitMode: "smart", // contain | smart | cover | manual  ✅ (4 modes)
+        fitMode: "smart",
         slotToCapture: [],
-        slotTransforms: [], // per slot: { scaleMul, offsetX, offsetY }
+        slotTransforms: [],
+        // Insta-X random state
+        instaxTiltDeg: 0,
+        instaxStickers: [], // {src, x,y,w,h,rot}
       };
 
       let activeSlot = 0;
@@ -2290,6 +2565,7 @@
         if (builderState.layoutId === "L3") { stripCanvas.width = 900; stripCanvas.height = 1350; return; }
         if (builderState.layoutId === "L4" || builderState.layoutId === "L5") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
         if (builderState.layoutId === "L6" || builderState.layoutId === "L7") { stripCanvas.width = 1350; stripCanvas.height = 900; return; }
+        if (builderState.layoutId === "L8") { stripCanvas.width = 1080; stripCanvas.height = 1350; return; } // ✅ 4:5
       }
 
       function slotsNeeded() {
@@ -2297,6 +2573,7 @@
         if (builderState.layoutId === "L4" || builderState.layoutId === "L5") return 2;
         if (builderState.layoutId === "L6") return 2;
         if (builderState.layoutId === "L7") return 1;
+        if (builderState.layoutId === "L8") return 1; // ✅ single panel
         return 3;
       }
 
@@ -2335,6 +2612,7 @@
           p.addEventListener("click", async () => {
             builderState.frameColorId = c.id;
             renderBuilderUI();
+            await maybeRerollInstax(false);
             await drawStrip({ forExport: false });
           });
           frameColorRow.appendChild(p);
@@ -2349,6 +2627,10 @@
             builderState.layoutId = l.id;
             syncCanvasToLayout();
             ensureSlotMapping();
+
+            // if switching to L8, immediately roll stickers+tilt for preview
+            await maybeRerollInstax(false);
+
             renderBuilderUI();
             await drawStrip({ forExport: false });
             document.getElementById("builderStageWrap").scrollTop = 0;
@@ -2356,7 +2638,6 @@
           layoutRow.appendChild(p);
         });
 
-        // ✅ 4 fit modes
         fitModeRow.innerHTML = "";
         [
           { id: "contain", label: "Contain (no crop)" },
@@ -2403,8 +2684,14 @@
 
           cell.addEventListener("click", async () => {
             builderState.slotToCapture[activeSlot] = idx;
+
+            // L8 only needs 1
             const n = slotsNeeded();
             activeSlot = (activeSlot + 1) % n;
+
+            // refresh Insta-X preview if selected
+            await maybeRerollInstax(false);
+
             renderBuilderUI();
             await drawStrip({ forExport: false });
           });
@@ -2422,7 +2709,10 @@
         syncCanvasToLayout();
         ensureSlotMapping();
         renderBuilderUI();
-        drawStrip({ forExport: false });
+
+        // if L8, roll immediately
+        maybeRerollInstax(false).then(() => drawStrip({ forExport: false }));
+
         document.getElementById("builderStageWrap").scrollTop = 0;
       }
 
@@ -2471,7 +2761,6 @@
         else drawContain(ctx, img, rx, ry, rw, rh);
       }
 
-      // ✅ Manual: pan/zoom strictly clipped inside panel bounds (no overflow)
       function drawManual(ctx, img, rx, ry, rw, rh, tr) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
@@ -2480,7 +2769,7 @@
         const coverS = Math.max(rw / iw, rh / ih);
         const containS = Math.min(rw / iw, rh / ih);
 
-        const minMul = containS / coverS; // allow zoom-out to contain
+        const minMul = containS / coverS;
         const maxMul = 3.0;
         tr.scaleMul = clamp(tr.scaleMul || 1, minMul, maxMul);
 
@@ -2522,6 +2811,9 @@
         ctx.restore();
       }
 
+      /* =========================
+         Layout slots (L1-L7 as is)
+      ========================= */
       function getLayoutSlots() {
         const W = stripCanvas.width;
         const H = stripCanvas.height;
@@ -2541,6 +2833,11 @@
 
         const topBarRect = { x: outer, y: outer, w: contentW, h: topBar };
         const botBarRect = { x: outer, y: H - outer - bottomBar, w: contentW, h: bottomBar };
+
+        // L8 handled separately
+        if (builderState.layoutId === "L8") {
+          return { topBar: topBarRect, botBar: botBarRect, slots: [{ x: 0, y: 0, w: W, h: H }] };
+        }
 
         if (builderState.layoutId === "L1") {
           const slotW = Math.floor((contentW - gap * 2) / 3);
@@ -2679,7 +2976,6 @@
         return -1;
       }
 
-      // ✅ single unified pointerdown handler (fix duplicate listeners)
       stripCanvas.addEventListener(
         "pointerdown",
         (e) => {
@@ -2688,7 +2984,6 @@
           const idx = setActiveSlotFromPoint(e.clientX, e.clientY);
           if (idx < 0) return;
 
-          // always show selection highlight
           drawStrip({ forExport: false });
 
           if (builderState.fitMode !== "manual") return;
@@ -2739,7 +3034,6 @@
         manualPointer.pointerId = null;
       });
 
-      // wheel zoom (manual)
       stripCanvas.addEventListener(
         "wheel",
         (e) => {
@@ -2758,7 +3052,6 @@
         { passive: false }
       );
 
-      // pinch zoom (touch)
       let pinchStart = null;
       stripCanvas.addEventListener(
         "touchstart",
@@ -2769,8 +3062,6 @@
           if (e.touches.length === 2) {
             const a = e.touches[0];
             const b = e.touches[1];
-
-            // set active slot using pinch center
             const cx = (a.clientX + b.clientX) / 2;
             const cy = (a.clientY + b.clientY) / 2;
             setActiveSlotFromPoint(cx, cy);
@@ -2806,6 +3097,330 @@
         pinchStart = null;
       });
 
+      /* =========================
+         Insta-X (L8) stickers + color rule
+      ========================= */
+      const INSTAX_FOLDER = "photoshoot%20stickers";
+      const INSTAX_COUNT = 51;
+
+      function instaxStickerSrc(i) {
+        const num = String(i).padStart(5, "0");
+        return `${INSTAX_FOLDER}/photobooth_sticker_${num}.png`;
+      }
+
+      function hexToRgb(hex) {
+        const h = hex.replace("#", "").trim();
+        if (h.length === 3) {
+          const r = parseInt(h[0] + h[0], 16);
+          const g = parseInt(h[1] + h[1], 16);
+          const b = parseInt(h[2] + h[2], 16);
+          return { r, g, b };
+        }
+        return {
+          r: parseInt(h.slice(0, 2), 16),
+          g: parseInt(h.slice(2, 4), 16),
+          b: parseInt(h.slice(4, 6), 16),
+        };
+      }
+
+      function colorDist(a, b) {
+        const dr = a.r - b.r, dg = a.g - b.g, db = a.b - b.b;
+        return Math.sqrt(dr*dr + dg*dg + db*db);
+      }
+
+      // sample dominant-ish color quickly
+      async function sampleImageColor(img) {
+        try {
+          const c = document.createElement("canvas");
+          const w = 64, h = 64;
+          c.width = w; c.height = h;
+          const ctx = c.getContext("2d", { willReadFrequently: true });
+          ctx.clearRect(0,0,w,h);
+          ctx.drawImage(img, 0, 0, w, h);
+
+          const data = ctx.getImageData(0,0,w,h).data;
+          let r=0,g=0,b=0,n=0;
+          for (let i=0;i<data.length;i+=4) {
+            const a = data[i+3];
+            if (a < 20) continue;
+            r += data[i];
+            g += data[i+1];
+            b += data[i+2];
+            n++;
+          }
+          if (!n) return { r: 255, g: 255, b: 255 };
+          return { r: r/n, g: g/n, b: b/n };
+        } catch (e) {
+          return { r: 255, g: 255, b: 255 };
+        }
+      }
+
+      const COLOR_SWATCH = {
+        fluorescentYellow: "#fff100",
+        azureBlue: "#01b7ff",
+        brightGrey: "#e8eef1",
+        white: "#ffffff",
+        safetyOrange: "#ff7800",
+        candyPink: "#ff7bc3",
+        imperialRed: "#fa213f",
+        vividRed: "#ff1212",
+        hotMagenta: "#f90066",
+        brightGreen: "#12911e",
+        deepPurple: "#4d064f",
+        deepCrimson: "#b1293a",
+        coralPink: "#f0546a",
+        darkBlue: "#060d3d",
+        black: "#000000",
+      };
+
+      function frameRule(frameId) {
+        if (frameId === "red") {
+          return {
+            preferred: ["fluorescentYellow","azureBlue","brightGrey","white"],
+            avoid: ["deepCrimson","coralPink"],
+          };
+        }
+        if (frameId === "blue" || frameId === "black") {
+          return {
+            preferred: ["fluorescentYellow","safetyOrange","candyPink","white","azureBlue"],
+            avoid: ["deepPurple"],
+          };
+        }
+        if (frameId === "grey") {
+          return {
+            preferred: ["imperialRed","vividRed","safetyOrange","hotMagenta","azureBlue","brightGreen","deepPurple"],
+            avoid: ["white"],
+          };
+        }
+        if (frameId === "white") {
+          return {
+            preferred: ["imperialRed","vividRed","safetyOrange","fluorescentYellow","hotMagenta","darkBlue","deepPurple"],
+            avoid: ["brightGrey"],
+          };
+        }
+        return { preferred: ["white"], avoid: [] };
+      }
+
+      async function chooseInstaxStickersUnique(k) {
+        // generate candidate list [1..51]
+        const ids = Array.from({length: INSTAX_COUNT}, (_,i)=>i+1);
+
+        // shuffle
+        for (let i = ids.length-1; i>0; i--) {
+          const j = Math.floor(Math.random()*(i+1));
+          [ids[i], ids[j]] = [ids[j], ids[i]];
+        }
+
+        const frameId = builderState.frameColorId;
+        const frameHex = (FRAME_COLORS.find(x=>x.id===frameId)?.value) || "#060d3d";
+        const frameRgb = hexToRgb(frameHex);
+
+        const rule = frameRule(frameId === "black" ? "black" : frameId);
+
+        // build palette arrays
+        const prefRgbs = rule.preferred.map(key => ({ key, rgb: hexToRgb(COLOR_SWATCH[key]) }));
+        const avoidRgbs = rule.avoid.map(key => ({ key, rgb: hexToRgb(COLOR_SWATCH[key]) }));
+
+        const picked = [];
+
+        // evaluate candidates progressively (load small amount)
+        for (let idx=0; idx<ids.length && picked.length<k; idx++) {
+          const id = ids[idx];
+          const src = instaxStickerSrc(id);
+          const img = await loadImage(src);
+          if (!img) continue;
+
+          const avg = await sampleImageColor(img);
+
+          // avoid too close to frame (dark-on-dark etc)
+          const dFrame = colorDist(avg, frameRgb);
+          if (dFrame < 70) continue;
+
+          // avoid palette if matches avoid closely
+          let isAvoid = false;
+          for (const a of avoidRgbs) {
+            if (colorDist(avg, a.rgb) < 85) { isAvoid = true; break; }
+          }
+          if (isAvoid) continue;
+
+          // prefer palette if close enough
+          let isPreferred = false;
+          for (const p of prefRgbs) {
+            if (colorDist(avg, p.rgb) < 110) { isPreferred = true; break; }
+          }
+
+          // If preferred: take. If not preferred: keep as fallback candidates
+          if (isPreferred) {
+            picked.push({ id, src, img });
+          }
+        }
+
+        // not enough preferred: fill remainder from remaining list without duplicates
+        if (picked.length < k) {
+          const already = new Set(picked.map(x=>x.id));
+          for (let idx=0; idx<ids.length && picked.length<k; idx++) {
+            const id = ids[idx];
+            if (already.has(id)) continue;
+            const src = instaxStickerSrc(id);
+            const img = await loadImage(src);
+            if (!img) continue;
+
+            const avg = await sampleImageColor(img);
+            const dFrame = colorDist(avg, frameRgb);
+            if (dFrame < 70) continue;
+            picked.push({ id, src, img });
+            already.add(id);
+          }
+        }
+
+        return picked.slice(0, k);
+      }
+
+      function randomBetween(a,b){ return a + Math.random()*(b-a); }
+
+      function computeInstaxGeometry() {
+        const W = stripCanvas.width;
+        const H = stripCanvas.height;
+
+        // outer padding (frame area)
+        const pad = Math.round(Math.min(W,H) * 0.08); // big enough for stickers
+        const card = { x: pad, y: pad, w: W - pad*2, h: H - pad*2 };
+
+        // inner photo window
+        const innerPad = Math.round(Math.min(W,H) * 0.07);
+        const photo = {
+          x: card.x + innerPad,
+          y: card.y + innerPad,
+          w: card.w - innerPad*2,
+          h: card.h - innerPad*2,
+        };
+
+        // safe "no sticker" region = photo rect inflated a bit
+        const safe = {
+          x: photo.x - Math.round(pad*0.2),
+          y: photo.y - Math.round(pad*0.2),
+          w: photo.w + Math.round(pad*0.4),
+          h: photo.h + Math.round(pad*0.4),
+        };
+
+        // logo center area
+        const center = { cx: W/2, cy: H/2 };
+
+        return { card, photo, safe, center, pad };
+      }
+
+      function randomInstaxTilt() {
+        // slight tilt left or right
+        const mag = randomBetween(2.0, 4.0);
+        const sign = Math.random() < 0.5 ? -1 : 1;
+        return sign * mag;
+      }
+
+      function rectsOverlap(a,b) {
+        return !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y);
+      }
+
+      async function rerollInstax(forExport) {
+        // only for L8
+        if (builderState.layoutId !== "L8") return;
+
+        builderState.instaxTiltDeg = randomInstaxTilt();
+
+        const { card, safe, pad } = computeInstaxGeometry();
+
+        const count = Math.floor(randomBetween(3, 6)); // 3–5
+        const chosen = await chooseInstaxStickersUnique(count);
+
+        const placements = [];
+        const maxTries = 220;
+
+        // define placement zones in the outer card area only
+        // top zone, bottom zone, left, right (outside safe rect)
+        function randomPointInZone(zone) {
+          return {
+            x: randomBetween(zone.x, zone.x + zone.w),
+            y: randomBetween(zone.y, zone.y + zone.h),
+          };
+        }
+
+        const zones = [
+          { name:"top", x: card.x, y: card.y, w: card.w, h: safe.y - card.y - 8 },
+          { name:"bottom", x: card.x, y: safe.y + safe.h + 8, w: card.w, h: (card.y+card.h) - (safe.y+safe.h) - 8 },
+          { name:"left", x: card.x, y: safe.y, w: safe.x - card.x - 8, h: safe.h },
+          { name:"right", x: safe.x + safe.w + 8, y: safe.y, w: (card.x+card.w) - (safe.x+safe.w) - 8, h: safe.h },
+        ].filter(z => z.w > 40 && z.h > 40);
+
+        const baseSize = Math.round(Math.min(stripCanvas.width, stripCanvas.height) * 0.14); // small-ish
+        const minSize = Math.round(baseSize * 0.55);
+        const maxSize = Math.round(baseSize * 0.9);
+
+        for (const item of chosen) {
+          const img = item.img;
+          const iw = img.naturalWidth || img.width || 1;
+          const ih = img.naturalHeight || img.height || 1;
+          const ar = iw / ih;
+
+          let placed = null;
+
+          for (let t=0; t<maxTries; t++) {
+            const z = zones[Math.floor(Math.random()*zones.length)];
+            const p = randomPointInZone(z);
+
+            const size = Math.round(randomBetween(minSize, maxSize));
+            let w = size;
+            let h = Math.round(size / ar);
+            if (h > size) { h = size; w = Math.round(size * ar); }
+
+            // keep within card
+            const x = clamp(p.x - w/2, card.x + 6, card.x + card.w - w - 6);
+            const y = clamp(p.y - h/2, card.y + 6, card.y + card.h - h - 6);
+
+            const rect = { x, y, w, h };
+
+            // must not overlap safe area
+            if (rectsOverlap(rect, safe)) continue;
+
+            // prefer corners/edges => bias by rejecting too close to center
+            const cx = x + w/2, cy = y + h/2;
+            const dc = Math.hypot(cx - stripCanvas.width/2, cy - stripCanvas.height/2);
+            if (dc < Math.min(stripCanvas.width, stripCanvas.height)*0.22) continue;
+
+            // avoid overlapping other stickers too much
+            let overlap = false;
+            for (const pl of placements) {
+              const grow = 8;
+              const a = { x: rect.x-grow, y: rect.y-grow, w: rect.w+grow*2, h: rect.h+grow*2 };
+              const b = { x: pl.x-grow, y: pl.y-grow, w: pl.w+grow*2, h: pl.h+grow*2 };
+              if (rectsOverlap(a,b)) { overlap = true; break; }
+            }
+            if (overlap) continue;
+
+            placed = {
+              src: item.src,
+              img,
+              x, y, w, h,
+              rot: randomBetween(-14, 14),
+            };
+            break;
+          }
+
+          if (placed) placements.push(placed);
+        }
+
+        builderState.instaxStickers = placements;
+      }
+
+      async function maybeRerollInstax(forExport) {
+        if (builderState.layoutId !== "L8") return;
+        // Always reroll if export OR missing preview state OR image changed
+        if (forExport || !builderState.instaxStickers || builderState.instaxStickers.length === 0) {
+          await rerollInstax(forExport);
+        }
+      }
+
+      /* =========================
+         DRAW STRIP (includes L8)
+      ========================= */
       async function drawStrip({ forExport } = { forExport: false }) {
         ensureSlotMapping();
 
@@ -2817,11 +3432,109 @@
         );
 
         const frameColor = getFrameColor();
-        const layout = getLayoutSlots();
 
         stripCtx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
         stripCtx.fillStyle = frameColor;
         stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
+
+        // ✅ L8 special
+        if (builderState.layoutId === "L8") {
+          // reroll stickers + tilt: preview (on select) already rolled; export rolls each export
+          await maybeRerollInstax(!!forExport);
+
+          const img = imgs[0];
+          const { card, photo } = computeInstaxGeometry();
+          const tilt = builderState.instaxTiltDeg || 0;
+
+          // photo stays straight: draw inside rotated card with counter-rotation
+          // 1) draw photo in local card coords, but counter-rotate it back
+          stripCtx.save();
+          const cx = stripCanvas.width/2;
+          const cy = stripCanvas.height/2;
+          stripCtx.translate(cx, cy);
+          stripCtx.rotate((tilt * Math.PI)/180);
+          stripCtx.translate(-cx, -cy);
+
+          // frame card background
+          stripCtx.fillStyle = frameColor;
+          stripCtx.fillRect(card.x, card.y, card.w, card.h);
+
+          // subtle inner border (clean photocard)
+          stripCtx.save();
+          stripCtx.strokeStyle = "rgba(255,255,255,0.9)";
+          stripCtx.lineWidth = Math.max(6, Math.round(Math.min(stripCanvas.width, stripCanvas.height)*0.006));
+          stripCtx.strokeRect(card.x, card.y, card.w, card.h);
+          stripCtx.restore();
+
+          // photo window background (white)
+          stripCtx.fillStyle = "#ffffff";
+          stripCtx.fillRect(photo.x, photo.y, photo.w, photo.h);
+
+          // draw the photo: counter-rotate around photo center so it remains straight on canvas
+          if (img) {
+            const pcx = photo.x + photo.w/2;
+            const pcy = photo.y + photo.h/2;
+
+            stripCtx.save();
+            stripCtx.translate(pcx, pcy);
+            stripCtx.rotate((-tilt * Math.PI)/180);
+            stripCtx.translate(-pcx, -pcy);
+
+            const mode = builderState.fitMode || "smart";
+            if (mode === "contain") drawContain(stripCtx, img, photo.x, photo.y, photo.w, photo.h);
+            else if (mode === "cover") drawCover(stripCtx, img, photo.x, photo.y, photo.w, photo.h);
+            else if (mode === "manual") drawManual(stripCtx, img, photo.x, photo.y, photo.w, photo.h, builderState.slotTransforms[0]);
+            else drawSmart(stripCtx, img, photo.x, photo.y, photo.w, photo.h);
+
+            stripCtx.restore();
+          }
+
+          // stickers ABOVE frame (per your rule: sticker on frame, but logo above stickers)
+          // (stickers should never cover photo area by placement rules)
+          for (const s of (builderState.instaxStickers || [])) {
+            if (!s.img) continue;
+            stripCtx.save();
+            const sx = s.x + s.w/2;
+            const sy = s.y + s.h/2;
+            stripCtx.translate(sx, sy);
+            stripCtx.rotate((s.rot*Math.PI)/180);
+            stripCtx.drawImage(s.img, -s.w/2, -s.h/2, s.w, s.h);
+            stripCtx.restore();
+          }
+
+          // logo centered (above stickers)
+          const logoImg = await getLogoImage();
+          if (logoImg) {
+            const iw = logoImg.naturalWidth || logoImg.width;
+            const ih = logoImg.naturalHeight || logoImg.height;
+            if (iw && ih) {
+              const maxW = card.w * 0.28;
+              const maxH = card.h * 0.12;
+              const s = Math.min(maxW / iw, maxH / ih);
+              const w = iw * s;
+              const h = ih * s;
+              const x = card.x + (card.w - w) / 2;
+              const y = card.y + (card.h - h) / 2; // centered
+              stripCtx.drawImage(logoImg, x, y, w, h);
+            }
+          }
+
+          stripCtx.restore(); // end rotated card group
+
+          // highlight selection (preview only)
+          if (!forExport) {
+            stripCtx.save();
+            stripCtx.strokeStyle = "rgba(255,255,255,0.85)";
+            stripCtx.lineWidth = Math.max(6, Math.round(Math.min(stripCanvas.width, stripCanvas.height) * 0.006));
+            stripCtx.strokeRect(0, 0, stripCanvas.width, stripCanvas.height);
+            stripCtx.restore();
+          }
+
+          return;
+        }
+
+        // L1-L7 normal
+        const layout = getLayoutSlots();
 
         for (let i = 0; i < layout.slots.length; i++) {
           const slot = layout.slots[i];
@@ -2874,6 +3587,7 @@
       }
 
       exportStripBtn.addEventListener("click", async () => {
+        // L8 rerolls inside drawStrip(forExport=true)
         await drawStrip({ forExport: true });
 
         stripCanvas.toBlob((blob) => {
@@ -2887,7 +3601,10 @@
             alert("Popup blocked.");
             return;
           }
-          const filename = `Puff_Dragon_Photobooth_${Date.now()}.png`;
+          const filename =
+            builderState.layoutId === "L8"
+              ? `Puff_Dragon_InstaX_${Date.now()}.png`
+              : `Puff_Dragon_Photobooth_${Date.now()}.png`;
 
           win.document.write(`
             <title>${filename}</title>
@@ -2912,11 +3629,12 @@
       ========================= */
       setPhotoboothMode(false);
       applyCameraFilterPreview();
+      timingBtn.textContent = "Timing: OFF";
+      timingBtn.classList.remove("on");
 
       /* =========================
-         START: enable buttons after intro close? (kept as original)
+         START: enable buttons after intro close? (kept)
       ========================= */
-      // Note: start button is user-triggered.
     </script>
   </body>
 </html>
