@@ -447,34 +447,58 @@
         }
       }
 
-      /* ==========
-         INTRO CLOSE (FIX: auto-start AR)
+     /* ==========
+     INTRO CLOSE (Manual AR start)
       ========== */
-      async function closeIntroAndStart() {
-        // kill intro clicks fully
+
+      async function closeIntro() {
         introOverlay.classList.add("hidden");
         app.classList.remove("hidden");
-
-        // IMPORTANT: start camera automatically so UI is alive
-        await startCamera();
+      
+        // ✅ Do NOT start camera automatically
+        // Reset AR button state
+        startBtn.disabled = false;
+        startBtn.textContent = "Start AR";
+      
+        flipBtn.disabled = true;
+        captureBtn.disabled = true;
+        stickersBtn.disabled = true;
+        mirrorBtn.disabled = true;
+        filterBtn.disabled = true;
+        photoboothToggleBtn.disabled = true;
+      
+        // Keep puff ready
+        try {
+          await puffEl.play();
+        } catch (_) {}
       }
-
-      introClosePuff.addEventListener("click", closeIntroAndStart);
-      exploreBtn.addEventListener("click", closeIntroAndStart);
-
+      
+      introClosePuff.addEventListener("click", closeIntro);
+      exploreBtn.addEventListener("click", closeIntro);
+      
       startBtn.addEventListener("click", startCamera);
-
+      
       flipBtn.addEventListener("click", async () => {
-        currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+        currentFacingMode =
+          currentFacingMode === "environment" ? "user" : "environment";
+      
         startBtn.disabled = false;
         startBtn.textContent = "Restart AR";
+      
         await startCamera();
       });
-
+      
       mirrorBtn.addEventListener("click", () => {
-        mirrorMode = mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
+        mirrorMode =
+          mirrorMode === "auto"
+            ? "on"
+            : mirrorMode === "on"
+            ? "off"
+            : "auto";
+      
         applyMirrorToPreview();
       });
+
 
       /* ==========
          PUFF DRAG / PINCH / ROTATE (as before)
