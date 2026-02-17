@@ -118,7 +118,7 @@
         object-fit: contain; /* prevent internal stretching */
         pointer-events: auto;
         touch-action: none;
-        transform: translate(-50%, -50%) scale(1.55) rotate(0deg);
+        transform: translate(-50%, -50%) scale(1.55);
         transform-origin: center;
         background: transparent;
         will-change: transform;
@@ -150,68 +150,10 @@
         -webkit-user-drag: none;
       }
 
+      /* ✅ remove outlines (no yellow/selection strokes) */
       .sticker.selected {
-        outline: 2px solid rgba(255, 255, 255, 0.6);
-        outline-offset: 6px;
-        border-radius: 14px;
-      }
-
-      /* =========================
-         ROTATE HANDLE (desktop + touch)
-      ========================= */
-      #rotateUI {
-        position: fixed;
-        inset: 0;
-        z-index: 12;
-        pointer-events: none;
-      }
-
-      #rotateBox {
-        position: absolute;
-        border: 2px dashed rgba(255, 255, 255, 0.65);
-        border-radius: 14px;
-        display: none;
-        pointer-events: none;
-        box-sizing: border-box;
-      }
-
-      #rotateHandle {
-        position: absolute;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #fff100;
-        border: 2px solid rgba(0, 0, 0, 0.45);
-        right: -11px;
-        top: -11px;
-        display: none;
-        pointer-events: auto; /* allow drag */
-        touch-action: none;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-        cursor: grab;
-      }
-      #rotateHandle:active {
-        cursor: grabbing;
-      }
-
-      /* =========================
-         COUNTDOWN
-      ========================= */
-      #countdownOverlay {
-        position: fixed;
-        inset: 0;
-        z-index: 1000;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.25);
-        backdrop-filter: blur(2px);
-        pointer-events: none;
-      }
-      #countdownNum {
-        font: 900 96px system-ui;
-        color: #fff;
-        text-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+        outline: none !important;
+        border-radius: 0 !important;
       }
 
       /* =========================
@@ -233,7 +175,6 @@
           rgba(0, 0, 0, 0)
         );
         z-index: 10;
-        pointer-events: auto;
       }
 
       .ui-row {
@@ -254,8 +195,6 @@
         color: #fff;
         background: #e11d2e;
         min-width: 92px;
-        cursor: pointer;
-        -webkit-tap-highlight-color: transparent;
       }
 
       #start {
@@ -268,7 +207,6 @@
 
       button:disabled {
         opacity: 0.5;
-        cursor: not-allowed;
       }
 
       #capture {
@@ -276,12 +214,6 @@
         color: #060d3d;
         font-weight: 900;
         min-width: 110px;
-      }
-
-      #timingBtn.on {
-        background: #01b7ff;
-        color: #00131c;
-        font-weight: 900;
       }
 
       #photoboothToggle.on {
@@ -376,7 +308,6 @@
         color: rgba(255, 255, 255, 0.95);
         font: 800 12px system-ui;
         text-align: left;
-        cursor: pointer;
       }
 
       .filterItem .sub {
@@ -423,7 +354,7 @@
       }
 
       /* =========================
-         CAPTURED PANEL
+         CAPTURED PANEL (movable, scrollable)
       ========================= */
       #capturedPanel {
         position: fixed;
@@ -575,10 +506,11 @@
         image-rendering: auto;
         border-radius: 0;
         background: transparent;
-        touch-action: none;
+        touch-action: none; /* drag+pinch */
         user-select: none;
       }
 
+      /* Open button when controls hidden */
       #builderOpenBtn {
         position: sticky;
         bottom: 12px;
@@ -705,15 +637,6 @@
         padding: 10px 12px;
       }
 
-      #rerollInstaBtn {
-        width: 100%;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.16);
-        color: rgba(255, 255, 255, 0.92);
-        font-weight: 900;
-        padding: 10px 12px;
-      }
-
       @media (max-width: 860px) {
         #builderShell {
           grid-template-columns: 1fr;
@@ -762,7 +685,7 @@
     ========================= -->
     <div id="app" class="hidden">
       <div id="desktopHint">
-        Desktop: drag=move • wheel=zoom • rotate handle = rotate • click=select
+        Desktop: drag=move • wheel=zoom • two-finger rotate (trackpad) • click=select
       </div>
 
       <video id="camera" autoplay playsinline muted></video>
@@ -780,18 +703,6 @@
 
       <div id="stickerLayer"></div>
 
-      <!-- rotate UI -->
-      <div id="rotateUI">
-        <div id="rotateBox">
-          <div id="rotateHandle" title="Drag to rotate"></div>
-        </div>
-      </div>
-
-      <!-- countdown -->
-      <div id="countdownOverlay">
-        <div id="countdownNum">3</div>
-      </div>
-
       <!-- Captured floating panel (photobooth ON) -->
       <div id="capturedPanel" class="hidden" aria-hidden="true">
         <div id="capturedHeader">
@@ -806,29 +717,18 @@
 
       <div id="ui">
         <div class="ui-row">
-          <button id="start" type="button">Start AR</button>
-          <button id="flip" class="secondary" disabled type="button">
-            Flip Camera
-          </button>
-          <button id="mirror" class="secondary" disabled type="button">
-            Mirror: Auto
-          </button>
+          <button id="start">Start AR</button>
+          <button id="flip" class="secondary" disabled>Flip Camera</button>
+          <button id="mirror" class="secondary" disabled>Mirror: Auto</button>
         </div>
 
         <div class="ui-row">
-          <button id="photoboothToggle" class="secondary" disabled type="button">
+          <button id="photoboothToggle" class="secondary" disabled>
             Photobooth: OFF
           </button>
-          <button id="timingBtn" class="secondary" disabled type="button">
-            Timing: OFF
-          </button>
-          <button id="stickers" class="secondary" disabled type="button">
-            Sticker
-          </button>
-          <button id="filterBtn" class="secondary" disabled type="button">
-            Filter
-          </button>
-          <button id="capture" disabled type="button">Puff It!</button>
+          <button id="stickers" class="secondary" disabled>Sticker</button>
+          <button id="filterBtn" class="secondary" disabled>Filter</button>
+          <button id="capture" disabled>Puff It!</button>
         </div>
       </div>
 
@@ -836,9 +736,7 @@
       <div id="stickerPanel" aria-hidden="true">
         <div id="stickerPanelHeader">
           <div style="color:#fff;font:800 14px system-ui">Choose a sticker</div>
-          <button id="stickerClose" class="secondary" type="button">
-            Close
-          </button>
+          <button id="stickerClose" class="secondary">Close</button>
         </div>
 
         <div class="panelBody">
@@ -853,10 +751,10 @@
                 flex-wrap: wrap;
               "
             >
-              <button id="stickerRemove" class="secondary" disabled type="button">
+              <button id="stickerRemove" class="secondary" disabled>
                 Remove selected
               </button>
-              <button id="stickerClear" class="secondary" disabled type="button">
+              <button id="stickerClear" class="secondary" disabled>
                 Clear all
               </button>
             </div>
@@ -868,9 +766,7 @@
       <div id="filterPanel" aria-hidden="true">
         <div id="filterPanelHeader">
           <div style="color:#fff;font:800 14px system-ui">Choose a filter</div>
-          <button id="filterClose" class="secondary" type="button">
-            Close
-          </button>
+          <button id="filterClose" class="secondary">Close</button>
         </div>
 
         <div class="panelBody">
@@ -910,17 +806,7 @@
               </div>
             </div>
 
-            <div class="ctrlGroup" id="instaControls" style="display:none;">
-              <div class="ctrlTitle">Insta-X Decor</div>
-              <div class="hint" style="margin-top:6px">
-                Uses photoshoot_stickers/photobooth_sticker_00001.png…00051.png
-                (random 3–5 each render). Stickers + logo rotate together with the tilted frame.
-              </div>
-              <div style="height:10px"></div>
-              <button id="rerollInstaBtn" type="button">Reroll stickers + tilt</button>
-            </div>
-
-            <div class="ctrlGroup" id="fitGroup">
+            <div class="ctrlGroup">
               <div class="ctrlTitle">Image fit</div>
               <div class="pillRow" id="fitModeRow"></div>
               <div class="hint" style="margin-top:8px">
@@ -934,7 +820,7 @@
               <div class="pillRow" id="layoutRow"></div>
             </div>
 
-            <div class="ctrlGroup" id="slotsGroup">
+            <div class="ctrlGroup">
               <div class="ctrlTitle">Select photos</div>
               <div class="pillRow" id="slotRow"></div>
               <div class="hint" style="margin-top:8px">
@@ -945,7 +831,7 @@
             </div>
 
             <div class="ctrlGroup">
-              <button id="exportStripBtn" type="button">Export PNG</button>
+              <button id="exportStripBtn" type="button">Export strip PNG</button>
             </div>
           </div>
         </div>
@@ -967,8 +853,6 @@
       const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
       const angleDeg = (a, b) =>
         (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
-
-      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
       function applyTransform(el, state) {
         el.style.left = state.x + "%";
@@ -995,8 +879,9 @@
         return isIOS || isSafari;
       }
 
-      // Image cache
+      // ✅ Image cache
       const __imgCache = new Map();
+
       function loadImage(src) {
         return new Promise((resolve) => {
           if (!src) return resolve(null);
@@ -1014,9 +899,7 @@
           img.src = isBlob
             ? src
             : src +
-              (src.includes("?")
-                ? ""
-                : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+              (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
         });
       }
 
@@ -1033,10 +916,6 @@
       const stickersBtn = document.getElementById("stickers");
       const captureBtn = document.getElementById("capture");
       const photoboothToggleBtn = document.getElementById("photoboothToggle");
-      const timingBtn = document.getElementById("timingBtn");
-
-      const countdownOverlay = document.getElementById("countdownOverlay");
-      const countdownNum = document.getElementById("countdownNum");
 
       const filterBtn = document.getElementById("filterBtn");
       const filterPanel = document.getElementById("filterPanel");
@@ -1092,7 +971,7 @@
       async function closeIntro() {
         introOverlay.classList.add("hidden");
         app.classList.remove("hidden");
-        // IMPORTANT: do NOT auto-start AR. User clicks "Start AR".
+        // ✅ do NOT auto-start AR. User clicks "Start AR".
         try {
           await puffEl.play();
         } catch (_) {}
@@ -1101,7 +980,7 @@
       exploreBtn.addEventListener("click", closeIntro);
 
       /* =========================================================
-         FILTERS (same as your current)
+         FILTERS
       ========================================================= */
       function srgbToLin(c) {
         c /= 255;
@@ -1155,10 +1034,7 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0,
-              g = 0,
-              b = 0,
-              n = 0;
+            let r = 0, g = 0, b = 0, n = 0;
             for (let dy = -radius; dy <= radius; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -1173,9 +1049,7 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n,
-              bg = g / n,
-              bb = b / n;
+            const br = r / n, bg = g / n, bb = b / n;
 
             data[p] = clamp255(src[p] + amount * (src[p] - br));
             data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
@@ -1192,10 +1066,7 @@
 
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            let r = 0,
-              g = 0,
-              b = 0,
-              n = 0;
+            let r = 0, g = 0, b = 0, n = 0;
             for (let dy = -1; dy <= 1; dy++) {
               const yy = y + dy;
               if (yy < 0 || yy >= h) continue;
@@ -1210,9 +1081,7 @@
               }
             }
             const p = idx(x, y);
-            const br = r / n,
-              bg = g / n,
-              bb = b / n;
+            const br = r / n, bg = g / n, bb = b / n;
 
             data[p] = clamp255(src[p] * (1 - strength) + br * strength);
             data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
@@ -1385,11 +1254,11 @@
         const sat = 1 + r.saturation * 0.75;
         const hue = r.warmth * -18;
         const sep = clamp01(r.warmth * 0.35 + 0.05);
-        return `brightness(${bright.toFixed(
+        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(
           3
-        )}) contrast(${cont.toFixed(3)}) saturate(${sat.toFixed(
+        )}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(
           3
-        )}) sepia(${sep.toFixed(3)}) hue-rotate(${hue.toFixed(1)}deg)`;
+        )}) hue-rotate(${hue.toFixed(1)}deg)`;
       }
 
       function applyCameraFilterPreview() {
@@ -1481,7 +1350,7 @@
       puffEl.crossOrigin = "anonymous";
       setPuffSource(chosenBase);
 
-      /* Lock Puff aspect ratio to intrinsic video ratio (always) */
+      /* ✅ Lock Puff aspect ratio to intrinsic video ratio (always) */
       function lockPuffAspect() {
         const vw = puffEl.videoWidth;
         const vh = puffEl.videoHeight;
@@ -1542,7 +1411,6 @@
         mirrorBtn.disabled = true;
         filterBtn.disabled = true;
         photoboothToggleBtn.disabled = true;
-        timingBtn.disabled = true;
 
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -1573,16 +1441,12 @@
         mirrorBtn.disabled = false;
         filterBtn.disabled = false;
         photoboothToggleBtn.disabled = false;
-        timingBtn.disabled = false;
 
         applyMirrorToPreview();
         applyCameraFilterPreview();
 
         startBtn.textContent = "AR Running";
         startBtn.disabled = true;
-
-        // ensure rotate UI correct after camera starts
-        requestAnimationFrame(updateRotateHandle);
       }
 
       startBtn.addEventListener("click", async () => {
@@ -1613,135 +1477,10 @@
       });
 
       /* =========================
-         TIMING (3..0)
-      ========================= */
-      let timingOn = false;
-      timingBtn.addEventListener("click", () => {
-        if (timingBtn.disabled) return;
-        timingOn = !timingOn;
-        timingBtn.classList.toggle("on", timingOn);
-        timingBtn.textContent = timingOn ? "Timing: ON" : "Timing: OFF";
-      });
-
-      async function runCountdown() {
-        countdownOverlay.style.display = "flex";
-        const seq = [3, 2, 1, 0];
-        for (const n of seq) {
-          countdownNum.textContent = String(n);
-          await sleep(n === 0 ? 120 : 650);
-        }
-        countdownOverlay.style.display = "none";
-      }
-
-      /* =========================
-         SELECTION TARGET (DECLARE EARLY - FIX TDZ)
-      ========================= */
-      let selectedStickerEl = null;
-      let selectedTarget = { type: "puff", el: puffEl }; // default
-
-      function setSelectedTarget(t) {
-        selectedTarget = t || { type: "puff", el: puffEl };
-
-        if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
-        selectedStickerEl = null;
-
-        if (selectedTarget?.type === "sticker" && selectedTarget.el) {
-          selectedStickerEl = selectedTarget.el;
-          selectedStickerEl.classList.add("selected");
-        }
-
-        stickerRemove.disabled = !selectedStickerEl;
-        stickerClear.disabled = stickerStates.size === 0;
-
-        updateRotateHandle();
-      }
-
-      /* =========================
-         ROTATE HANDLE UI
-      ========================= */
-      const rotateBox = document.getElementById("rotateBox");
-      const rotateHandle = document.getElementById("rotateHandle");
-
-      function updateRotateHandle() {
-        const t = selectedTarget;
-        if (!t || !t.el || !app || app.classList.contains("hidden")) {
-          rotateBox.style.display = "none";
-          rotateHandle.style.display = "none";
-          return;
-        }
-
-        // if panels open, still show selection (ok)
-        const rect = t.el.getBoundingClientRect();
-        if (!rect || rect.width <= 2 || rect.height <= 2) {
-          rotateBox.style.display = "none";
-          rotateHandle.style.display = "none";
-          return;
-        }
-
-        rotateBox.style.display = "block";
-        rotateHandle.style.display = "block";
-        rotateBox.style.left = rect.left + "px";
-        rotateBox.style.top = rect.top + "px";
-        rotateBox.style.width = rect.width + "px";
-        rotateBox.style.height = rect.height + "px";
-      }
-
-      // Rotate handle drag
-      (function enableRotateHandleDrag() {
-        let dragging = false;
-        let baseRotation = 0;
-        let startAngle = 0;
-
-        function getCenterOfTarget() {
-          const t = selectedTarget;
-          const rect = t.el.getBoundingClientRect();
-          return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        }
-
-        function getTargetState() {
-          if (selectedTarget.type === "puff") return puffState;
-          return stickerStates.get(selectedTarget.el);
-        }
-
-        rotateHandle.addEventListener("pointerdown", (e) => {
-          if (!selectedTarget?.el) return;
-          e.preventDefault();
-          dragging = true;
-          rotateHandle.setPointerCapture?.(e.pointerId);
-
-          const center = getCenterOfTarget();
-          startAngle = angleDeg(center, { x: e.clientX, y: e.clientY });
-
-          const st = getTargetState();
-          baseRotation = st?.rotation || 0;
-        });
-
-        window.addEventListener("pointermove", (e) => {
-          if (!dragging) return;
-          const center = getCenterOfTarget();
-          const a = angleDeg(center, { x: e.clientX, y: e.clientY });
-          const delta = a - startAngle;
-
-          const st = getTargetState();
-          if (!st) return;
-          st.rotation = baseRotation + delta;
-
-          if (selectedTarget.type === "puff") updatePuff();
-          else {
-            const el = selectedTarget.el;
-            const state = stickerStates.get(el);
-            if (state) applyTransform(el, state);
-            updateRotateHandle();
-          }
-        });
-
-        window.addEventListener("pointerup", () => {
-          dragging = false;
-        });
-      })();
-
-      /* =========================
-         TRANSFORMS (Puff: touch drag/pinch)
+         TRANSFORMS (Puff: touch drag/pinch/rotate)
+         - Mobile: 2 fingers rotate/zoom
+         - Desktop: trackpad 2-finger rotate works via pointer events when supported
+         - Mouse: drag move + wheel zoom (rotation via multi-touch only)
       ========================= */
       function enableTouchDragPinch(el, state, onUpdate) {
         let mode = null;
@@ -1811,7 +1550,7 @@
           }
         }
 
-        // Mouse fallback drag + wheel zoom
+        // Mouse fallback drag + wheel zoom (no mouse rotate)
         let mouseDown = false;
         let mouseStart = null;
 
@@ -1858,53 +1597,26 @@
       const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
       function updatePuff() {
         applyTransform(puffEl, puffState);
-        updateRotateHandle();
       }
       updatePuff();
       enableTouchDragPinch(puffEl, puffState, updatePuff);
 
-      // select puff on click
-      puffEl.addEventListener("pointerdown", () => setSelectedTarget({ type: "puff", el: puffEl }));
-      puffEl.addEventListener("click", () => setSelectedTarget({ type: "puff", el: puffEl }));
-
       /* =========================
          MULTI-STICKERS
+         - 1 pointer: move
+         - 2 pointers: rotate + scale
+         - wheel: zoom
       ========================= */
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
         let dragStart = null;
 
-        let inertiaRAF = null;
-        let angularVelocity = 0;
-        let lastAngle = null;
-        let lastTime = null;
-
-        function stopInertia() {
-          if (inertiaRAF) cancelAnimationFrame(inertiaRAF);
-          inertiaRAF = null;
-        }
-        function startInertia() {
-          stopInertia();
-          let prev = performance.now();
-          function tick(now) {
-            const dt = (now - prev) / 1000;
-            prev = now;
-            state.rotation += angularVelocity * dt;
-            onUpdate();
-            angularVelocity *= 0.92;
-            if (Math.abs(angularVelocity) < 5) return;
-            inertiaRAF = requestAnimationFrame(tick);
-          }
-          inertiaRAF = requestAnimationFrame(tick);
-        }
-
         el.addEventListener("contextmenu", (e) => e.preventDefault());
 
         el.addEventListener("pointerdown", (e) => {
           e.preventDefault();
           el.setPointerCapture?.(e.pointerId);
-          stopInertia();
           pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
           if (pointers.size === 1) {
@@ -1915,24 +1627,17 @@
               baseY: state.y,
               w: innerWidth,
               h: innerHeight,
-              baseRotation: state.rotation,
             };
             gestureStart = null;
-            lastAngle = null;
-            lastTime = null;
           } else if (pointers.size === 2) {
             const pts = Array.from(pointers.values());
-            const a = pts[0],
-              b = pts[1];
-            const ang = angleDeg(a, b);
+            const a = pts[0], b = pts[1];
             gestureStart = {
               distance: dist(a, b),
-              angle: ang,
+              angle: angleDeg(a, b),
               scale: state.scale,
               rotation: state.rotation,
             };
-            lastAngle = ang;
-            lastTime = performance.now();
             dragStart = null;
           }
         });
@@ -1944,7 +1649,6 @@
           if (pointers.size === 1 && dragStart) {
             const dx = ((e.clientX - dragStart.x) / dragStart.w) * 100;
             const dy = ((e.clientY - dragStart.y) / dragStart.h) * 100;
-
             state.x = clamp(dragStart.baseX + dx, 0, 100);
             state.y = clamp(dragStart.baseY + dy, 0, 100);
             onUpdate();
@@ -1952,8 +1656,7 @@
 
           if (pointers.size === 2 && gestureStart) {
             const pts = Array.from(pointers.values());
-            const a = pts[0],
-              b = pts[1];
+            const a = pts[0], b = pts[1];
             const newDistance = dist(a, b);
             const newAngle = angleDeg(a, b);
 
@@ -1962,30 +1665,37 @@
               0.2,
               6
             );
-            state.rotation =
-              gestureStart.rotation + (newAngle - gestureStart.angle);
-
-            const now = performance.now();
-            const dt = (now - lastTime) / 1000;
-            if (dt > 0) angularVelocity = (newAngle - lastAngle) / dt;
-            lastAngle = newAngle;
-            lastTime = now;
-
+            state.rotation = gestureStart.rotation + (newAngle - gestureStart.angle);
             onUpdate();
           }
         });
 
-        el.addEventListener("pointerup", () => {
-          pointers.clear();
-          dragStart = null;
-          gestureStart = null;
-          if (Math.abs(angularVelocity) > 30) startInertia();
+        el.addEventListener("pointerup", (e) => {
+          pointers.delete(e.pointerId);
+          if (pointers.size === 0) {
+            dragStart = null;
+            gestureStart = null;
+          } else if (pointers.size === 1) {
+            // continue dragging with remaining pointer if any
+            const pt = Array.from(pointers.values())[0];
+            dragStart = {
+              x: pt.x,
+              y: pt.y,
+              baseX: state.x,
+              baseY: state.y,
+              w: innerWidth,
+              h: innerHeight,
+            };
+            gestureStart = null;
+          }
         });
 
-        el.addEventListener("pointercancel", () => {
-          pointers.clear();
-          dragStart = null;
-          gestureStart = null;
+        el.addEventListener("pointercancel", (e) => {
+          pointers.delete(e.pointerId);
+          if (pointers.size === 0) {
+            dragStart = null;
+            gestureStart = null;
+          }
         });
 
         el.addEventListener(
@@ -2002,6 +1712,18 @@
 
       let stickersLoaded = false;
       const stickerStates = new Map();
+      let selectedStickerEl = null;
+
+      function setSelectedSticker(el) {
+        if (selectedStickerEl && selectedStickerEl !== el) {
+          selectedStickerEl.classList.remove("selected");
+        }
+        selectedStickerEl = el;
+        if (selectedStickerEl) selectedStickerEl.classList.add("selected");
+
+        stickerRemove.disabled = !selectedStickerEl;
+        stickerClear.disabled = stickerStates.size === 0;
+      }
 
       function createSticker(src) {
         const el = document.createElement("img");
@@ -2017,15 +1739,14 @@
 
         function update() {
           applyTransform(el, state);
-          updateRotateHandle();
         }
         update();
 
-        el.addEventListener("pointerdown", () => setSelectedTarget({ type: "sticker", el }), true);
-        el.addEventListener("click", () => setSelectedTarget({ type: "sticker", el }));
+        el.addEventListener("pointerdown", () => setSelectedSticker(el), true);
+        el.addEventListener("click", () => setSelectedSticker(el));
         makeTransformable(el, state, update);
 
-        setSelectedTarget({ type: "sticker", el });
+        setSelectedSticker(el);
         stickerClear.disabled = stickerStates.size === 0;
       }
 
@@ -2051,14 +1772,16 @@
         selectedStickerEl.remove();
         selectedStickerEl = null;
 
-        setSelectedTarget({ type: "puff", el: puffEl });
+        const last = Array.from(stickerStates.keys()).pop() || null;
+        setSelectedSticker(last);
+
         stickerClear.disabled = stickerStates.size === 0;
       });
 
       stickerClear.addEventListener("click", () => {
         for (const el of stickerStates.keys()) el.remove();
         stickerStates.clear();
-        setSelectedTarget({ type: "puff", el: puffEl });
+        setSelectedSticker(null);
         stickerClear.disabled = true;
       });
 
@@ -2102,7 +1825,6 @@
         }
       }
 
-      // click outside => deselect sticker, keep puff selected
       document.addEventListener("pointerdown", (e) => {
         const isSticker =
           e.target &&
@@ -2112,24 +1834,17 @@
         const clickedFilter = filterPanel.contains(e.target);
         const clickedUI = document.getElementById("ui").contains(e.target);
         const clickedPuff = e.target === puffEl;
-        const clickedRotate = e.target === rotateHandle;
 
-        if (
-          !isSticker &&
-          !clickedPanel &&
-          !clickedFilter &&
-          !clickedUI &&
-          !clickedPuff &&
-          !clickedRotate
-        ) {
-          setSelectedTarget({ type: "puff", el: puffEl });
+        if (!isSticker && !clickedPanel && !clickedFilter && !clickedUI && !clickedPuff) {
+          if (selectedStickerEl) selectedStickerEl.classList.remove("selected");
+          selectedStickerEl = null;
+          stickerRemove.disabled = true;
+          stickerClear.disabled = stickerStates.size === 0;
         }
       });
 
       /* =========================
-         CAPTURE (FIX: puff position shift)
-         - draw Puff + stickers from their STATE, not boundingClientRect
-         - this removes subtle "xê dịch" (especially when rotated)
+         CAPTURE (viewport-accurate + fixed puff position)
       ========================= */
       function applyRecipeToImageData(imageData, r) {
         const d = imageData.data;
@@ -2186,55 +1901,32 @@
         return imageData;
       }
 
-      function getElementBaseSizePx(el) {
-        const cs = getComputedStyle(el);
-        const w = parseFloat(cs.width) || el.getBoundingClientRect().width || 0;
-
-        // prefer intrinsic aspect ratio if available
-        let ar = 1;
-        if (el === puffEl) {
-          const vw = puffEl.videoWidth || 1;
-          const vh = puffEl.videoHeight || 1;
-          ar = vw / vh;
-        } else if (el.tagName === "IMG") {
-          const iw = el.naturalWidth || 1;
-          const ih = el.naturalHeight || 1;
-          ar = iw / ih;
-        } else {
-          // fallback rect
-          const r = el.getBoundingClientRect();
-          if (r.height > 0) ar = r.width / r.height;
-        }
-
-        const h = w / ar;
-        return { w, h };
-      }
-
       function captureToBlob(cb) {
         if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
           alert("Start AR first.");
           return;
         }
 
+        // ✅ stable size based on viewport
+        const vw = document.documentElement.clientWidth || window.innerWidth;
+        const vh = document.documentElement.clientHeight || window.innerHeight;
         const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-        const W = Math.round(window.innerWidth * dpr);
-        const H = Math.round(window.innerHeight * dpr);
+        const W = Math.round(vw * dpr);
+        const H = Math.round(vh * dpr);
 
         const out = document.createElement("canvas");
         out.width = W;
         out.height = H;
         const ctx = out.getContext("2d", { willReadFrequently: true });
-        ctx.imageSmoothingEnabled = true;
 
-        // mirror output matches preview EXACTLY:
-        // preview mirrors ONLY the camera video (not puff/stickers)
+        // Preview mirrors ONLY the camera video (not puff/stickers).
         const mirrorCameraOnly = shouldMirrorPreview();
 
         const camSrcW = cameraEl.videoWidth;
         const camSrcH = cameraEl.videoHeight;
         const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
 
-        // draw camera
+        // draw camera (mirrored if preview is mirrored)
         ctx.save();
         if (mirrorCameraOnly) {
           ctx.translate(W, 0);
@@ -2253,42 +1945,37 @@
         );
         ctx.restore();
 
-        // filter
+        // apply filter to camera (same as preview recipe)
         if (currentFilterId !== "none") {
           const imgData = ctx.getImageData(0, 0, W, H);
           applyRecipeToImageData(imgData, currentRecipe);
           ctx.putImageData(imgData, 0, 0);
         }
 
-        // ===== Draw Puff from STATE (no rect drift) =====
-        // center in canvas px:
-        const cx = (puffState.x / 100) * W;
-        const cy = (puffState.y / 100) * H;
-
-        // base size in px from computed CSS width + intrinsic ratio
-        const base = getElementBaseSizePx(puffEl);
-        const pw = base.w * dpr * puffState.scale;
-        const ph = base.h * dpr * puffState.scale;
+        // ✅ draw Puff EXACTLY as preview (no drift)
+        const puffRect = puffEl.getBoundingClientRect();
+        const px = (puffRect.left + puffRect.width / 2) * dpr;
+        const py = (puffRect.top + puffRect.height / 2) * dpr;
+        const pw = puffRect.width * dpr;
+        const ph = puffRect.height * dpr;
 
         ctx.save();
-        ctx.translate(cx, cy);
+        ctx.translate(px, py);
         ctx.rotate((puffState.rotation * Math.PI) / 180);
         ctx.drawImage(puffEl, -pw / 2, -ph / 2, pw, ph);
         ctx.restore();
 
-        // ===== Draw stickers from STATE =====
+        // draw stickers (NOT mirrored — matches preview)
         for (const [el, st] of stickerStates.entries()) {
           if (!el.complete || !el.naturalWidth) continue;
-
-          const scx = (st.x / 100) * W;
-          const scy = (st.y / 100) * H;
-
-          const sb = getElementBaseSizePx(el);
-          const sw = sb.w * dpr * st.scale;
-          const sh = sb.h * dpr * st.scale;
+          const r = el.getBoundingClientRect();
+          const sx = (r.left + r.width / 2) * dpr;
+          const sy = (r.top + r.height / 2) * dpr;
+          const sw = r.width * dpr;
+          const sh = r.height * dpr;
 
           ctx.save();
-          ctx.translate(scx, scy);
+          ctx.translate(sx, sy);
           ctx.rotate((st.rotation * Math.PI) / 180);
           ctx.drawImage(el, -sw / 2, -sh / 2, sw, sh);
           ctx.restore();
@@ -2348,7 +2035,7 @@
       const capturedItems = []; // { blob, url }
 
       function setPhotoboothMode(on) {
-        photoboothOn = !!on;
+        photoboothOn = on;
         photoboothToggleBtn.textContent = on ? "Photobooth: ON" : "Photobooth: OFF";
         photoboothToggleBtn.classList.toggle("on", on);
 
@@ -2435,15 +2122,9 @@
       })();
 
       /* =========================
-         CAPTURE BUTTON (Timing optional)
+         CAPTURE BUTTON
       ========================= */
-      captureBtn.addEventListener("click", async () => {
-        if (captureBtn.disabled) return;
-
-        if (timingOn) {
-          await runCountdown();
-        }
-
+      captureBtn.addEventListener("click", () => {
         if (!photoboothOn) {
           captureToBlob((blob) => {
             if (!blob) {
@@ -2485,18 +2166,13 @@
       const builderOpenBtn = document.getElementById("builderOpenBtn");
       const builderShell = document.getElementById("builderShell");
 
-      const instaControls = document.getElementById("instaControls");
-      const rerollInstaBtn = document.getElementById("rerollInstaBtn");
-      const fitGroup = document.getElementById("fitGroup");
-      const slotsGroup = document.getElementById("slotsGroup");
-
       cueBtn.addEventListener("click", () => openBuilder());
       builderCloseBtn.addEventListener("click", () => closeBuilder());
       builderOverlay.addEventListener("pointerdown", (e) => {
         if (e.target === builderOverlay) closeBuilder();
       });
 
-      // frame colors (same as your current ones)
+      // frame colors
       const FRAME_COLORS = [
         { id: "red", name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
         { id: "blue", name: "Dark Blue", value: "#060d3d", logo: "puff-logo-3.png" },
@@ -2505,7 +2181,7 @@
         { id: "black", name: "Pure Black", value: "#000000", logo: "puff-logo-3.png" },
       ];
 
-      // layouts (keep existing + add Insta-X)
+      // layouts (keep existing)
       const LAYOUTS = [
         { id: "L1", name: "Layout 1 (3 horizontal strip)" },
         { id: "L2", name: "Layout 2 (3 vertical strip)" },
@@ -2514,35 +2190,19 @@
         { id: "L5", name: "Layout 5 (2 horizontal, center bar)" },
         { id: "L6", name: "Layout 6 (4x6 landscape, 2 stacked + right bar)" },
         { id: "L7", name: "Layout 7 (4x6 landscape, 1 photo)" },
-        { id: "IX", name: "Insta-X (1 photocard)" },
       ];
 
-      // Insta-X sticker source folder + naming
-      const INSTA_STICKER_FOLDER = "photoshoot_stickers";
-      const INSTA_STICKER_COUNT = 51;
-
-      function instaStickerPath(i) {
-        const n = String(i).padStart(5, "0");
-        return `${INSTA_STICKER_FOLDER}/photobooth_sticker_${n}.png`;
-      }
-
-      // builder state
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
         fitMode: "smart", // contain | smart | cover | manual
         slotToCapture: [],
-        slotTransforms: [],
-        instaX: {
-          tiltDeg: 0,
-          stickers: [], // {idx, x,y, w,h, rotDeg}
-          stampKey: "", // used to keep stable until reroll
-        },
+        slotTransforms: [], // per slot: { scaleMul, offsetX, offsetY }
       };
 
       let activeSlot = 0;
 
-      // hide/show controls
+      // hide/show controls state
       let builderControlsHidden = false;
       function setBuilderControlsHidden(hidden) {
         builderControlsHidden = hidden;
@@ -2580,11 +2240,9 @@
         if (builderState.layoutId === "L3") { stripCanvas.width = 900; stripCanvas.height = 1350; return; }
         if (builderState.layoutId === "L4" || builderState.layoutId === "L5") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
         if (builderState.layoutId === "L6" || builderState.layoutId === "L7") { stripCanvas.width = 1350; stripCanvas.height = 900; return; }
-        if (builderState.layoutId === "IX") { stripCanvas.width = 900; stripCanvas.height = 1350; return; } // photocard
       }
 
       function slotsNeeded() {
-        if (builderState.layoutId === "IX") return 1;
         if (builderState.layoutId === "L3") return 4;
         if (builderState.layoutId === "L4" || builderState.layoutId === "L5") return 2;
         if (builderState.layoutId === "L6") return 2;
@@ -2617,78 +2275,6 @@
         activeSlot = clamp(activeSlot, 0, n - 1);
       }
 
-      function rand(min, max) {
-        return min + Math.random() * (max - min);
-      }
-      function randInt(min, max) {
-        return Math.floor(rand(min, max + 1));
-      }
-      function sampleUnique(arr, k) {
-        const copy = arr.slice();
-        for (let i = copy.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [copy[i], copy[j]] = [copy[j], copy[i]];
-        }
-        return copy.slice(0, k);
-      }
-
-      async function rerollInstaX() {
-        // keep stable until reroll
-        builderState.instaX.tiltDeg = rand(-4.2, 4.2);
-        const count = randInt(3, 5);
-
-        const allIdx = Array.from({ length: INSTA_STICKER_COUNT }, (_, i) => i + 1);
-        const chosen = sampleUnique(allIdx, count);
-
-        // placements in outer frame area: corners/edges
-        // We'll generate placements relative to canvas size.
-        const W = stripCanvas.width;
-        const H = stripCanvas.height;
-
-        const framePad = Math.round(Math.min(W, H) * 0.08);
-        const photoPad = Math.round(Math.min(W, H) * 0.16);
-
-        // candidate zones (outer ring, avoid center)
-        const zones = [
-          // corners
-          { x: framePad, y: framePad, w: photoPad, h: photoPad },
-          { x: W - framePad - photoPad, y: framePad, w: photoPad, h: photoPad },
-          { x: framePad, y: H - framePad - photoPad, w: photoPad, h: photoPad },
-          { x: W - framePad - photoPad, y: H - framePad - photoPad, w: photoPad, h: photoPad },
-          // edges
-          { x: Math.round(W*0.18), y: framePad, w: Math.round(W*0.22), h: Math.round(photoPad*0.9) },
-          { x: Math.round(W*0.60), y: framePad, w: Math.round(W*0.22), h: Math.round(photoPad*0.9) },
-          { x: framePad, y: Math.round(H*0.22), w: Math.round(photoPad*0.9), h: Math.round(H*0.22) },
-          { x: W - framePad - Math.round(photoPad*0.9), y: Math.round(H*0.22), w: Math.round(photoPad*0.9), h: Math.round(H*0.22) },
-          { x: framePad, y: Math.round(H*0.60), w: Math.round(photoPad*0.9), h: Math.round(H*0.22) },
-          { x: W - framePad - Math.round(photoPad*0.9), y: Math.round(H*0.60), w: Math.round(photoPad*0.9), h: Math.round(H*0.22) },
-        ];
-
-        const placements = [];
-        for (let i = 0; i < chosen.length; i++) {
-          const z = zones[i % zones.length];
-          const base = Math.min(W, H) * 0.12;
-          const scale = rand(0.55, 0.9); // small
-          const size = base * scale;
-
-          placements.push({
-            idx: chosen[i],
-            x: rand(z.x, z.x + z.w),
-            y: rand(z.y, z.y + z.h),
-            w: size,
-            h: size,
-            rotDeg: rand(-10, 10),
-          });
-        }
-        builderState.instaX.stickers = placements;
-        builderState.instaX.stampKey = String(Date.now()) + "_" + Math.random().toFixed(5);
-      }
-
-      rerollInstaBtn.addEventListener("click", async () => {
-        await rerollInstaX();
-        await drawStrip({ forExport: false });
-      });
-
       function renderBuilderUI() {
         frameColorRow.innerHTML = "";
         FRAME_COLORS.forEach((c) => {
@@ -2713,18 +2299,6 @@
             builderState.layoutId = l.id;
             syncCanvasToLayout();
             ensureSlotMapping();
-
-            // toggle Insta UI
-            const isIX = builderState.layoutId === "IX";
-            instaControls.style.display = isIX ? "block" : "none";
-            // For Insta-X: fit modes and slots UI still relevant (1 slot),
-            // but we keep them visible. Manual still allowed.
-
-            if (isIX) {
-              // if no decor yet, generate once
-              if (!builderState.instaX?.stampKey) await rerollInstaX();
-            }
-
             renderBuilderUI();
             await drawStrip({ forExport: false });
             document.getElementById("builderStageWrap").scrollTop = 0;
@@ -2787,9 +2361,6 @@
 
           photoPickGrid.appendChild(cell);
         });
-
-        // show/hide Insta controls group
-        instaControls.style.display = builderState.layoutId === "IX" ? "block" : "none";
       }
 
       function openBuilder() {
@@ -2800,17 +2371,8 @@
 
         syncCanvasToLayout();
         ensureSlotMapping();
-
-        if (builderState.layoutId === "IX" && !builderState.instaX?.stampKey) {
-          rerollInstaX().then(() => {
-            renderBuilderUI();
-            drawStrip({ forExport: false });
-          });
-        } else {
-          renderBuilderUI();
-          drawStrip({ forExport: false });
-        }
-
+        renderBuilderUI();
+        drawStrip({ forExport: false });
         document.getElementById("builderStageWrap").scrollTop = 0;
       }
 
@@ -2859,6 +2421,7 @@
         else drawContain(ctx, img, rx, ry, rw, rh);
       }
 
+      // Manual: pan/zoom clipped inside panel bounds
       function drawManual(ctx, img, rx, ry, rw, rh, tr) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
@@ -2884,12 +2447,16 @@
         if (dw > rw) {
           const maxPanX = (dw - rw) / 2;
           offX = clamp(offX, -maxPanX, +maxPanX);
-        } else offX = 0;
+        } else {
+          offX = 0;
+        }
 
         if (dh > rh) {
           const maxPanY = (dh - rh) / 2;
           offY = clamp(offY, -maxPanY, +maxPanY);
-        } else offY = 0;
+        } else {
+          offY = 0;
+        }
 
         tr.offsetX = offX;
         tr.offsetY = offY;
@@ -2923,21 +2490,12 @@
         const contentH = H - outer - bottomBar - contentY;
 
         const topBarRect = { x: outer, y: outer, w: contentW, h: topBar };
-        const botBarRect = { x: outer, y: H - outer - bottomBar, w: contentW, h: bottomBar };
-
-        // Insta-X: one big photo slot (no top/bot bar usage)
-        if (builderState.layoutId === "IX") {
-          const inset = Math.round(minSide * 0.08);
-          const slotX = inset;
-          const slotY = inset;
-          const slotW = W - inset * 2;
-          const slotH = H - inset * 2;
-          return {
-            topBar: { x: 0, y: 0, w: W, h: 0 },
-            botBar: { x: 0, y: H, w: W, h: 0 },
-            slots: [{ x: slotX, y: slotY, w: slotW, h: slotH }],
-          };
-        }
+        const botBarRect = {
+          x: outer,
+          y: H - outer - bottomBar,
+          w: contentW,
+          h: bottomBar,
+        };
 
         if (builderState.layoutId === "L1") {
           const slotW = Math.floor((contentW - gap * 2) / 3);
@@ -2977,7 +2535,12 @@
               { x: contentX, y: contentY, w: slotW, h: slotH },
               { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
               { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
-              { x: contentX + slotW + gap, y: contentY + slotH + gap, w: slotW, h: slotH },
+              {
+                x: contentX + slotW + gap,
+                y: contentY + slotH + gap,
+                w: slotW,
+                h: slotH,
+              },
             ],
           };
         }
@@ -2992,7 +2555,12 @@
             botBar: botBarRect,
             slots: [
               { x: contentX + barW + gap, y: contentY, w: slotW, h: slotH },
-              { x: contentX + barW + gap + slotW + gap, y: contentY, w: slotW, h: slotH },
+              {
+                x: contentX + barW + gap + slotW + gap,
+                y: contentY,
+                w: slotW,
+                h: slotH,
+              },
             ],
           };
         }
@@ -3006,7 +2574,12 @@
             botBar: botBarRect,
             slots: [
               { x: contentX, y: contentY, w: slotW, h: slotH },
-              { x: contentX + slotW + gap + barW + gap, y: contentY, w: slotW, h: slotH },
+              {
+                x: contentX + slotW + gap + barW + gap,
+                y: contentY,
+                w: slotW,
+                h: slotH,
+              },
             ],
           };
         }
@@ -3054,7 +2627,7 @@
         return -1;
       }
 
-      // Manual gestures
+      /* Manual gestures: desktop + mobile */
       let manualPointer = {
         active: false,
         pointerId: null,
@@ -3083,8 +2656,6 @@
 
           const idx = setActiveSlotFromPoint(e.clientX, e.clientY);
           if (idx < 0) return;
-
-          drawStrip({ forExport: false });
 
           if (builderState.fitMode !== "manual") return;
 
@@ -3134,6 +2705,7 @@
         manualPointer.pointerId = null;
       });
 
+      // wheel zoom (manual)
       stripCanvas.addEventListener(
         "wheel",
         (e) => {
@@ -3152,6 +2724,7 @@
         { passive: false }
       );
 
+      // pinch zoom (touch)
       let pinchStart = null;
       stripCanvas.addEventListener(
         "touchstart",
@@ -3162,6 +2735,7 @@
           if (e.touches.length === 2) {
             const a = e.touches[0];
             const b = e.touches[1];
+
             const cx = (a.clientX + b.clientX) / 2;
             const cy = (a.clientY + b.clientY) / 2;
             setActiveSlotFromPoint(cx, cy);
@@ -3211,109 +2785,6 @@
         const layout = getLayoutSlots();
 
         stripCtx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
-
-        // ========= Insta-X special rendering =========
-        if (builderState.layoutId === "IX") {
-          const W = stripCanvas.width;
-          const H = stripCanvas.height;
-          const slot = layout.slots[0];
-
-          // 1) draw photo (straight)
-          stripCtx.fillStyle = "#000";
-          stripCtx.fillRect(0, 0, W, H);
-
-          if (imgs[0]) {
-            const mode = builderState.fitMode || "smart";
-            if (mode === "contain") drawContain(stripCtx, imgs[0], slot.x, slot.y, slot.w, slot.h);
-            else if (mode === "cover") drawCover(stripCtx, imgs[0], slot.x, slot.y, slot.w, slot.h);
-            else if (mode === "manual") drawManual(stripCtx, imgs[0], slot.x, slot.y, slot.w, slot.h, builderState.slotTransforms[0]);
-            else drawSmart(stripCtx, imgs[0], slot.x, slot.y, slot.w, slot.h);
-          }
-
-          // 2) draw rotated frame + stickers + logo on top (together)
-          const fx = Math.round(W * 0.08);
-          const fy = Math.round(H * 0.08);
-          const fw = W - fx * 2;
-          const fh = H - fy * 2;
-
-          const holePad = Math.round(Math.min(W, H) * 0.16);
-          const hx = fx + holePad;
-          const hy = fy + holePad;
-          const hw = fw - holePad * 2;
-          const hh = fh - holePad * 2;
-
-          const off = document.createElement("canvas");
-          off.width = W;
-          off.height = H;
-          const o = off.getContext("2d");
-
-          // fill transparent
-          o.clearRect(0, 0, W, H);
-
-          const tilt = builderState.instaX?.tiltDeg || 0;
-
-          o.save();
-          o.translate(W / 2, H / 2);
-          o.rotate((tilt * Math.PI) / 180);
-          o.translate(-W / 2, -H / 2);
-
-          // frame background
-          o.fillStyle = frameColor;
-          o.fillRect(fx, fy, fw, fh);
-
-          // "hole" (transparent) so photo stays straight
-          o.globalCompositeOperation = "destination-out";
-          o.fillRect(hx, hy, hw, hh);
-          o.globalCompositeOperation = "source-over";
-
-          // stickers (above frame)
-          if (!builderState.instaX?.stampKey) await rerollInstaX();
-          const placements = builderState.instaX.stickers || [];
-          for (const p of placements) {
-            const img = await loadImage(instaStickerPath(p.idx));
-            if (!img) continue;
-
-            o.save();
-            o.translate(p.x, p.y);
-            o.rotate((p.rotDeg * Math.PI) / 180);
-            o.drawImage(img, -p.w / 2, -p.h / 2, p.w, p.h);
-            o.restore();
-          }
-
-          // logo (always above stickers, centered)
-          const logoImg = await getLogoImage();
-          if (logoImg) {
-            const iw = logoImg.naturalWidth || logoImg.width;
-            const ih = logoImg.naturalHeight || logoImg.height;
-            if (iw && ih) {
-              const maxW = fw * 0.36;
-              const maxH = fh * 0.12;
-              const s = Math.min(maxW / iw, maxH / ih);
-              const lw = iw * s;
-              const lh = ih * s;
-              const lx = fx + (fw - lw) / 2;
-              const ly = fy + (fh - lh) / 2 - lh * 0.1;
-              o.drawImage(logoImg, lx, ly, lw, lh);
-            }
-          }
-
-          o.restore();
-
-          // composite rotated frame layer
-          stripCtx.drawImage(off, 0, 0);
-
-          // selection outline for preview
-          if (!forExport) {
-            stripCtx.save();
-            stripCtx.strokeStyle = "rgba(255,255,255,0.85)";
-            stripCtx.lineWidth = Math.max(6, Math.round(Math.min(W, H) * 0.006));
-            stripCtx.strokeRect(slot.x, slot.y, slot.w, slot.h);
-            stripCtx.restore();
-          }
-          return;
-        }
-
-        // ========= Normal layouts (your existing) =========
         stripCtx.fillStyle = frameColor;
         stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
 
@@ -3333,19 +2804,8 @@
           }
         }
 
-        if (!forExport) {
-          const active = layout.slots[activeSlot];
-          if (active) {
-            stripCtx.save();
-            stripCtx.strokeStyle = "rgba(255,255,255,0.85)";
-            stripCtx.lineWidth = Math.max(
-              6,
-              Math.round(Math.min(stripCanvas.width, stripCanvas.height) * 0.006)
-            );
-            stripCtx.strokeRect(active.x, active.y, active.w, active.h);
-            stripCtx.restore();
-          }
-        }
+        // ✅ removed selection stroke (clean UI)
+        // if (!forExport) { ... }
 
         const logoImg = await getLogoImage();
         if (logoImg) {
@@ -3402,37 +2862,10 @@
       });
 
       /* =========================
-         Photobooth default
+         Photobooth toggle default
       ========================= */
       setPhotoboothMode(false);
       applyCameraFilterPreview();
-
-      /* =========================
-         UI panel toggles
-      ========================= */
-      function openFilterIfReady() {
-        if (filterBtn.disabled) return;
-        openFilterPanel();
-      }
-
-      /* =========================
-         Enable sticker/filter buttons after AR start
-      ========================= */
-      // Already handled in startCamera()
-
-      /* =========================
-         Keep rotate UI synced on resize
-      ========================= */
-      window.addEventListener("resize", () => {
-        updateRotateHandle();
-      });
-
-      // Close builder when ESC
-      window.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && !builderOverlay.classList.contains("hidden")) {
-          closeBuilder();
-        }
-      });
     </script>
   </body>
 </html>
