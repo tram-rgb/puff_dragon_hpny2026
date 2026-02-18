@@ -15,6 +15,8 @@
         font-display: swap;
       }
 
+      /* ✅ FIX: allow normal page/overlay scrolling on mobile.
+         We will disable touch where needed (puff/stickers/canvas manual). */
       html,
       body {
         margin: 0;
@@ -22,7 +24,7 @@
         background: #000;
         overflow: hidden;
         height: 100%;
-        touch-action: none;
+        touch-action: auto;
       }
 
       .hidden {
@@ -117,7 +119,10 @@
         height: auto;
         object-fit: contain;
         pointer-events: auto;
+
+        /* ✅ AR needs direct manipulation */
         touch-action: none;
+
         transform: translate(-50%, -50%) scale(1.55) rotate(0deg);
         transform-origin: center;
         background: transparent;
@@ -141,7 +146,10 @@
         width: min(45vw, 260px);
         height: auto;
         pointer-events: auto;
+
+        /* ✅ stickers need direct manipulation */
         touch-action: none;
+
         transform: translate(-50%, -50%) scale(1) rotate(0deg);
         transform-origin: center;
         background: transparent;
@@ -236,11 +244,12 @@
         z-index: 20;
         border-top-left-radius: 18px;
         border-top-right-radius: 18px;
-
         max-height: min(78vh, 560px);
         display: flex;
         flex-direction: column;
 
+        /* ✅ allow scrolling */
+        touch-action: pan-y;
         -webkit-overflow-scrolling: touch;
       }
 
@@ -269,6 +278,10 @@
         overflow-y: auto;
         flex: 1;
         padding-right: 2px;
+
+        /* ✅ allow scrolling */
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
       }
 
       #stickerGrid {
@@ -408,6 +421,9 @@
         background: rgba(0, 0, 0, 0.35);
         cursor: grab;
         user-select: none;
+
+        /* don't break scroll on list */
+        touch-action: none;
       }
 
       #capturedHeader .title {
@@ -431,6 +447,9 @@
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
+
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
       }
 
       .capThumb {
@@ -481,6 +500,9 @@
         align-items: center;
         justify-content: center;
         padding: 14px;
+
+        /* ✅ allow vertical scroll gestures inside overlay areas */
+        touch-action: pan-y;
       }
       #builderOverlay.hidden {
         display: none !important;
@@ -512,6 +534,9 @@
         padding: 12px;
         -webkit-overflow-scrolling: touch;
         position: relative;
+
+        /* ✅ allow scroll on mobile */
+        touch-action: pan-y;
       }
 
       #builderStage {
@@ -528,7 +553,10 @@
         image-rendering: auto;
         border-radius: 0;
         background: transparent;
-        touch-action: none;
+
+        /* ⚠ we will toggle this in JS depending on fitMode */
+        touch-action: pan-y;
+
         user-select: none;
       }
 
@@ -553,6 +581,8 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
+
+        touch-action: pan-y;
       }
 
       #builderTopbar {
@@ -584,6 +614,10 @@
         flex-direction: column;
         gap: 12px;
         min-height: 0;
+
+        /* ✅ FIX: allow scrolling on Samsung etc */
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
       }
 
       .ctrlGroup {
@@ -2084,6 +2118,7 @@
       const builderHideBtn = document.getElementById("builderHideBtn");
       const builderOpenBtn = document.getElementById("builderOpenBtn");
       const builderShell = document.getElementById("builderShell");
+      const builderStageWrap = document.getElementById("builderStageWrap");
 
       cueBtn.addEventListener("click", () => openBuilder());
       builderCloseBtn.addEventListener("click", () => closeBuilder());
@@ -2182,8 +2217,8 @@
           const prev = tArr[i];
           return {
             scaleMul: prev?.scaleMul ?? 1,
-            offsetX: prev?.offsetX ?? 0,
-            offsetY: prev?.offsetY ?? 0,
+            offsetX: prev?.offsetX ?? 0,  // px in canvas-space
+            offsetY: prev?.offsetY ?? 0,  // px in canvas-space
           };
         });
         builderState.slotTransforms = tNext;
@@ -2217,7 +2252,7 @@
             ensureSlotMapping();
             renderBuilderUI();
             await drawStrip({ forExport: false });
-            document.getElementById("builderStageWrap").scrollTop = 0;
+            builderStageWrap.scrollTop = 0;
           });
           layoutRow.appendChild(p);
         });
@@ -2234,6 +2269,11 @@
           p.textContent = m.label;
           p.addEventListener("click", async () => {
             builderState.fitMode = m.id;
+
+            /* ✅ important: enable pinch/drag only in manual mode.
+               If not manual, allow normal scroll on mobile over the canvas. */
+            stripCanvas.style.touchAction = (m.id === "manual") ? "none" : "pan-y";
+
             renderBuilderUI();
             await drawStrip({ forExport: false });
           });
@@ -2286,14 +2326,19 @@
 
         syncCanvasToLayout();
         ensureSlotMapping();
+
+        /* ensure correct default touchAction */
+        stripCanvas.style.touchAction = (builderState.fitMode === "manual") ? "none" : "pan-y";
+
         renderBuilderUI();
         drawStrip({ forExport: false });
-        document.getElementById("builderStageWrap").scrollTop = 0;
+        builderStageWrap.scrollTop = 0;
       }
 
       function closeBuilder() {
         builderOverlay.classList.add("hidden");
         builderOverlay.setAttribute("aria-hidden", "true");
+        endManualGesture();
       }
 
       function drawCover(ctx, img, rx, ry, rw, rh) {
@@ -2336,63 +2381,62 @@
       }
 
       function drawManual(ctx, img, rx, ry, rw, rh, tr) {
-      const iw = img.naturalWidth || img.width;
-      const ih = img.naturalHeight || img.height;
-      if (!iw || !ih) return;
-    
-      // Base cover scale (panel always filled)
-      const coverScale = Math.max(rw / iw, rh / ih);
-    
-      // Contain scale (smallest allowed)
-      const containScale = Math.min(rw / iw, rh / ih);
-    
-      // Minimum zoom-out = contain relative to cover
-      const minMul = containScale / coverScale;
-      const maxMul = 3.0;
-    
-      tr.scaleMul = clamp(tr.scaleMul || 1, minMul, maxMul);
-    
-      const finalScale = coverScale * tr.scaleMul;
-    
-      const drawW = iw * finalScale;
-      const drawH = ih * finalScale;
-    
-      // Base centered position
-      let dx = rx + (rw - drawW) / 2;
-      let dy = ry + (rh - drawH) / 2;
-    
-      // Clamp panning so image never leaves panel bounds
-      let offX = tr.offsetX || 0;
-      let offY = tr.offsetY || 0;
-    
-      if (drawW > rw) {
-        const maxX = (drawW - rw) / 2;
-        offX = clamp(offX, -maxX, maxX);
-      } else {
-        offX = 0;
-      }
-    
-      if (drawH > rh) {
-        const maxY = (drawH - rh) / 2;
-        offY = clamp(offY, -maxY, maxY);
-      } else {
-        offY = 0;
-      }
-    
-      tr.offsetX = offX;
-      tr.offsetY = offY;
-    
-      dx += offX;
-      dy += offY;
-    
-      // Strict clipping to panel rectangle
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(rx, ry, rw, rh);
-      ctx.clip();
-      ctx.drawImage(img, dx, dy, drawW, drawH);
-      ctx.restore();
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
 
+        // Base cover scale (panel always filled)
+        const coverScale = Math.max(rw / iw, rh / ih);
+
+        // Contain scale (smallest allowed)
+        const containScale = Math.min(rw / iw, rh / ih);
+
+        // Minimum zoom-out = contain relative to cover
+        const minMul = containScale / coverScale;
+        const maxMul = 3.0;
+
+        tr.scaleMul = clamp(tr.scaleMul || 1, minMul, maxMul);
+
+        const finalScale = coverScale * tr.scaleMul;
+
+        const drawW = iw * finalScale;
+        const drawH = ih * finalScale;
+
+        // Base centered position
+        let dx = rx + (rw - drawW) / 2;
+        let dy = ry + (rh - drawH) / 2;
+
+        // Clamp panning so image never leaves panel bounds
+        let offX = tr.offsetX || 0;
+        let offY = tr.offsetY || 0;
+
+        if (drawW > rw) {
+          const maxX = (drawW - rw) / 2;
+          offX = clamp(offX, -maxX, maxX);
+        } else {
+          offX = 0;
+        }
+
+        if (drawH > rh) {
+          const maxY = (drawH - rh) / 2;
+          offY = clamp(offY, -maxY, maxY);
+        } else {
+          offY = 0;
+        }
+
+        tr.offsetX = offX;
+        tr.offsetY = offY;
+
+        dx += offX;
+        dy += offY;
+
+        // Strict clipping to panel rectangle
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(rx, ry, rw, rh);
+        ctx.clip();
+        ctx.drawImage(img, dx, dy, drawW, drawH);
+        ctx.restore();
       }
 
       function getLayoutSlots() {
@@ -2602,6 +2646,158 @@
           setTimeout(() => URL.revokeObjectURL(url), 15000);
         }, "image/png");
       });
+
+      // =========================
+      // ✅ MANUAL MODE INTERACTION ON CANVAS (tap slot + pan/zoom inside)
+      // =========================
+      const manualPointers = new Map();
+      let manualDragStart = null;
+      let manualGestureStart = null;
+
+      function canvasPointFromClient(clientX, clientY) {
+        const rect = stripCanvas.getBoundingClientRect();
+        const xN = (clientX - rect.left) / Math.max(1, rect.width);
+        const yN = (clientY - rect.top) / Math.max(1, rect.height);
+        return {
+          x: clamp(xN, 0, 1) * stripCanvas.width,
+          y: clamp(yN, 0, 1) * stripCanvas.height,
+        };
+      }
+
+      function hitTestSlot(canvasPt) {
+        const layout = getLayoutSlots();
+        for (let i = 0; i < layout.slots.length; i++) {
+          const s = layout.slots[i];
+          if (
+            canvasPt.x >= s.x &&
+            canvasPt.x <= s.x + s.w &&
+            canvasPt.y >= s.y &&
+            canvasPt.y <= s.y + s.h
+          ) return i;
+        }
+        return -1;
+      }
+
+      function endManualGesture() {
+        manualPointers.clear();
+        manualDragStart = null;
+        manualGestureStart = null;
+      }
+
+      stripCanvas.addEventListener("pointerdown", async (e) => {
+        if (builderOverlay.classList.contains("hidden")) return;
+        if (builderState.fitMode !== "manual") return;
+
+        // Only handle direct manipulation when manual
+        e.preventDefault();
+        stripCanvas.setPointerCapture?.(e.pointerId);
+
+        manualPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        const pt = canvasPointFromClient(e.clientX, e.clientY);
+        const slotIdx = hitTestSlot(pt);
+
+        // If tap inside a slot: activate it
+        if (slotIdx >= 0) {
+          activeSlot = slotIdx;
+          renderBuilderUI();
+        }
+
+        ensureSlotMapping();
+
+        if (manualPointers.size === 1) {
+          manualGestureStart = null;
+          manualDragStart = {
+            slot: activeSlot,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            baseOffX: builderState.slotTransforms[activeSlot]?.offsetX || 0,
+            baseOffY: builderState.slotTransforms[activeSlot]?.offsetY || 0,
+          };
+        } else if (manualPointers.size === 2) {
+          const pts = Array.from(manualPointers.values());
+          const a = pts[0], b = pts[1];
+          manualDragStart = null;
+          manualGestureStart = {
+            slot: activeSlot,
+            dist: dist(a, b),
+            baseScaleMul: builderState.slotTransforms[activeSlot]?.scaleMul || 1,
+          };
+        }
+
+        await drawStrip({ forExport: false });
+      });
+
+      stripCanvas.addEventListener("pointermove", async (e) => {
+        if (!manualPointers.has(e.pointerId)) return;
+        if (builderState.fitMode !== "manual") return;
+
+        e.preventDefault();
+        manualPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        ensureSlotMapping();
+
+        if (manualPointers.size === 1 && manualDragStart) {
+          const slot = manualDragStart.slot;
+          const tr = builderState.slotTransforms[slot];
+          if (!tr) return;
+
+          // Convert screen movement into canvas px movement (respect canvas CSS scale)
+          const rect = stripCanvas.getBoundingClientRect();
+          const dxClient = e.clientX - manualDragStart.startClientX;
+          const dyClient = e.clientY - manualDragStart.startClientY;
+
+          const dxCanvas = (dxClient / Math.max(1, rect.width)) * stripCanvas.width;
+          const dyCanvas = (dyClient / Math.max(1, rect.height)) * stripCanvas.height;
+
+          tr.offsetX = manualDragStart.baseOffX + dxCanvas;
+          tr.offsetY = manualDragStart.baseOffY + dyCanvas;
+
+          await drawStrip({ forExport: false });
+        }
+
+        if (manualPointers.size === 2 && manualGestureStart) {
+          const slot = manualGestureStart.slot;
+          const tr = builderState.slotTransforms[slot];
+          if (!tr) return;
+
+          const pts = Array.from(manualPointers.values());
+          const a = pts[0], b = pts[1];
+          const newD = dist(a, b);
+          const s = newD / Math.max(10, manualGestureStart.dist);
+
+          tr.scaleMul = manualGestureStart.baseScaleMul * s;
+
+          await drawStrip({ forExport: false });
+        }
+      });
+
+      stripCanvas.addEventListener("pointerup", () => {
+        endManualGesture();
+      });
+      stripCanvas.addEventListener("pointercancel", () => {
+        endManualGesture();
+      });
+
+      // Also support wheel zoom on desktop in manual mode
+      stripCanvas.addEventListener(
+        "wheel",
+        async (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+          if (builderState.fitMode !== "manual") return;
+          e.preventDefault();
+
+          ensureSlotMapping();
+          const tr = builderState.slotTransforms[activeSlot];
+          if (!tr) return;
+
+          const factor = e.deltaY > 0 ? 0.92 : 1.08;
+          tr.scaleMul = (tr.scaleMul || 1) * factor;
+
+          await drawStrip({ forExport: false });
+        },
+        { passive: false }
+      );
 
       setPhotoboothMode(false);
       applyCameraFilterPreview();
