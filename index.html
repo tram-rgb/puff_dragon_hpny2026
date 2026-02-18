@@ -1850,94 +1850,132 @@
         return imageData;
       }
 
-      function getViewportBox(dpr) {
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        return {
-          vw: w,
-          vh: h,
-          W: Math.round(w * dpr),
-          H: Math.round(h * dpr),
-        };
+      function getCaptureRect() {
+  // Prefer the actual rendered #camera box (matches preview)
+  let r = cameraEl.getBoundingClientRect();
+
+  // If layout is not ready / returns 0 (happens on some mobile edge cases), fallback:
+  let w = r.width;
+  let h = r.height;
+  let left = r.left;
+  let top = r.top;
+
+  const vv = window.visualViewport;
+
+  // On iOS Safari, visualViewport can shift/scale during UI bar changes
+  // We keep everything in CSS px, but use visualViewport as a sanity fallback.
+  const fallbackW = document.documentElement.clientWidth || window.innerWidth;
+  const fallbackH = document.documentElement.clientHeight || window.innerHeight;
+
+  if (!w || !h) {
+    w = vv?.width || fallbackW;
+    h = vv?.height || fallbackH;
+    left = 0;
+    top = 0;
+  }
+
+  return { left, top, width: w, height: h };
+}
+
+function elementCenterRelativeToRect(el, baseRect, dpr) {
+  const r = el.getBoundingClientRect();
+  return {
+    cx: (r.left - baseRect.left + r.width / 2) * dpr,
+    cy: (r.top - baseRect.top + r.height / 2) * dpr,
+  };
+}
+
+// ✅ Cross-platform capture: everything positioned relative to camera rect
+function captureToBlob(cb) {
+  if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
+    alert("Start AR first.");
+    return;
+  }
+
+  // 2 frames = more stable on Android + iOS when UI bars animate
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const vv = window.visualViewport;
+      const scale = vv?.scale || 1;
+
+      // If user pinch-zoomed page, scale affects perceived pixels; include it.
+      const rawDpr = (window.devicePixelRatio || 1) * scale;
+      const dpr = Math.max(1, Math.min(3, rawDpr));
+
+      const capRect = getCaptureRect();
+      const W = Math.round(capRect.width * dpr);
+      const H = Math.round(capRect.height * dpr);
+
+      const out = document.createElement("canvas");
+      out.width = W;
+      out.height = H;
+      const ctx = out.getContext("2d", { willReadFrequently: true });
+
+      const mirrorCameraOnly = shouldMirrorPreview();
+
+      // Draw camera exactly like CSS object-fit: cover into the camera rect size
+      const camSrcW = cameraEl.videoWidth;
+      const camSrcH = cameraEl.videoHeight;
+      const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
+
+      ctx.save();
+      if (mirrorCameraOnly) {
+        ctx.translate(W, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(
+        cameraEl,
+        crop.sx, crop.sy, crop.sw, crop.sh,
+        0, 0, W, H
+      );
+      ctx.restore();
+
+      // Apply export filter (preview uses CSS filter, export uses pixels)
+      if (currentFilterId !== "none") {
+        const imgData = ctx.getImageData(0, 0, W, H);
+        applyRecipeToImageData(imgData, currentRecipe);
+        ctx.putImageData(imgData, 0, 0);
       }
 
-      function elementCenterInViewport(el, dpr) {
-        const r = el.getBoundingClientRect();
-        return {
-          cx: (r.left + r.width / 2) * dpr,
-          cy: (r.top + r.height / 2) * dpr,
-        };
+      // Puff: measure relative to camera rect to prevent drift
+      const puffCenter = elementCenterRelativeToRect(puffEl, capRect, dpr);
+
+      // ✅ use layout size (pre-transform) to avoid double-scaling
+      const baseW = puffEl.offsetWidth * dpr;
+      const baseH = puffEl.offsetHeight * dpr;
+      
+      const drawW = baseW * puffState.scale;
+      const drawH = baseH * puffState.scale;
+
+      ctx.save();
+      ctx.translate(puffCenter.cx, puffCenter.cy);
+      ctx.rotate((puffState.rotation * Math.PI) / 180);
+      ctx.drawImage(puffEl, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.restore();
+
+      // Stickers: same rule
+      for (const [el, st] of stickerStates.entries()) {
+        if (!el.complete || !el.naturalWidth) continue;
+
+        const c = elementCenterRelativeToRect(el, capRect, dpr);
+  
+        // ✅ use layout size (pre-transform) to avoid double-scaling
+        const bw = el.offsetWidth * dpr;
+        const bh = el.offsetHeight * dpr;
+        
+        const w = bw * st.scale;
+        const h = bh * st.scale;
+
+        ctx.save();
+        ctx.translate(c.cx, c.cy);
+        ctx.rotate((st.rotation * Math.PI) / 180);
+        ctx.drawImage(el, -w / 2, -h / 2, w, h);
+        ctx.restore();
       }
 
-      // ✅ Capture: mirrored preview only mirrors CAMERA, Puff stays identical to preview
-      function captureToBlob(cb) {
-        if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
-          alert("Start AR first.");
-          return;
-        }
-
-        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-        const vp = getViewportBox(dpr);
-        const W = vp.W;
-        const H = vp.H;
-
-        const out = document.createElement("canvas");
-        out.width = W;
-        out.height = H;
-        const ctx = out.getContext("2d", { willReadFrequently: true });
-
-        const mirrorCameraOnly = shouldMirrorPreview();
-
-        const camSrcW = cameraEl.videoWidth;
-        const camSrcH = cameraEl.videoHeight;
-        const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
-
-        ctx.save();
-        if (mirrorCameraOnly) {
-          ctx.translate(W, 0);
-          ctx.scale(-1, 1);
-        }
-        ctx.drawImage(
-          cameraEl,
-          crop.sx, crop.sy, crop.sw, crop.sh,
-          0, 0, W, H
-        );
-        ctx.restore();
-
-        if (currentFilterId !== "none") {
-          const imgData = ctx.getImageData(0, 0, W, H);
-          applyRecipeToImageData(imgData, currentRecipe);
-          ctx.putImageData(imgData, 0, 0);
-        }
-
-        const puffCenter = elementCenterInViewport(puffEl, dpr);
-        const baseW = puffEl.offsetWidth * dpr;
-        const baseH = puffEl.offsetHeight * dpr;
-        const drawW = baseW * puffState.scale;
-        const drawH = baseH * puffState.scale;
-
-        ctx.save();
-        ctx.translate(puffCenter.cx, puffCenter.cy);
-        ctx.rotate((puffState.rotation * Math.PI) / 180);
-        ctx.drawImage(puffEl, -drawW / 2, -drawH / 2, drawW, drawH);
-        ctx.restore();
-
-        for (const [el, st] of stickerStates.entries()) {
-          if (!el.complete || !el.naturalWidth) continue;
-          const c = elementCenterInViewport(el, dpr);
-          const bw = el.offsetWidth * dpr;
-          const bh = el.offsetHeight * dpr;
-          const w = bw * st.scale;
-          const h = bh * st.scale;
-
-          ctx.save();
-          ctx.translate(c.cx, c.cy);
-          ctx.rotate((st.rotation * Math.PI) / 180);
-          ctx.drawImage(el, -w / 2, -h / 2, w, h);
-          ctx.restore();
-        }
-
-        out.toBlob((blob) => cb(blob), "image/png");
+      out.toBlob((blob) => cb(blob), "image/png");
+    });
+  });
       }
 
       function nextCaptureFilename() {
