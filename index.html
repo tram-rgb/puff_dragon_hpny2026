@@ -1,1148 +1,2817 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Puff Dragon AR Viewer</title>
-
-<style>
-html,body{
-  margin:0;
-  padding:0;
-  background:#000;
-  overflow:hidden;
-  height:100%;
-  touch-action:none;
-  font-family:system-ui;
-}
-
-.hidden{display:none!important;}
-
-#introOverlay{
-  position:fixed;
-  inset:0;
-  background:#fff;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:9999;
-}
-
-#exploreBtn{
-  position:absolute;
-  bottom:15%;
-  padding:16px 30px;
-  font-weight:900;
-  background:#fa213f;
-  border-radius:14px;
-  border:0;
-  color:#fff;
-  font-size:20px;
-}
-
-#camera{
-  position:fixed;
-  inset:0;
-  width:100vw;
-  height:100vh;
-  object-fit:cover;
-  z-index:1;
-}
-
-#camera.mirror{transform:scaleX(-1);}
-
-#puff{
-  position:fixed;
-  left:50%;
-  top:70%;
-  width:min(90vw,450px);
-  height:auto;
-  object-fit:contain;
-  transform:translate(-50%,-50%);
-  transform-origin:center;
-  z-index:3;
-  touch-action:none;
-  user-select:none;
-  pointer-events:auto;
-}
-
-#ui{
-  position:fixed;
-  bottom:0;
-  left:0;
-  right:0;
-  padding:12px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  background:linear-gradient(to top,rgba(0,0,0,.7),transparent);
-  z-index:10;
-}
-
-.ui-row{
-  display:flex;
-  justify-content:center;
-  gap:8px;
-  flex-wrap:wrap;
-}
-
-button{
-  border:0;
-  border-radius:10px;
-  padding:8px 12px;
-  font-weight:800;
-}
-
-#capture{background:#fff100;color:#000;}
-#photoboothToggle.on{background:#01b7ff;color:#000;}
-
-#countdown{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:120px;
-  font-weight:900;
-  color:#fff;
-  z-index:9998;
-  pointer-events:none;
-  background:rgba(0,0,0,.3);
-}
-</style>
-</head>
-<body>
-
-<div id="introOverlay">
-  <button id="exploreBtn">Explore</button>
-</div>
-
-<video id="camera" autoplay playsinline muted></video>
-<video id="puff" autoplay playsinline muted loop></video>
-
-<div id="countdown" class="hidden"></div>
-
-<div id="ui">
-  <div class="ui-row">
-    <button id="start">Start AR</button>
-    <button id="flip" disabled>Flip</button>
-    <button id="mirror" disabled>Mirror: Auto</button>
-  </div>
-  <div class="ui-row">
-    <button id="photoboothToggle" disabled>Photobooth: OFF</button>
-    <button id="timerBtn" disabled>Timer: 0</button>
-    <button id="capture" disabled>Puff It!</button>
-  </div>
-</div>
-
-<script>
-/* ==============================
-   INTRO
-============================== */
-const introOverlay=document.getElementById("introOverlay");
-document.getElementById("exploreBtn").onclick=()=>{
-  introOverlay.classList.add("hidden");
-};
-
-/* ==============================
-   CAMERA
-============================== */
-const cameraEl=document.getElementById("camera");
-const puffEl=document.getElementById("puff");
-
-let stream=null;
-let currentFacingMode="environment";
-let mirrorMode="auto";
-
-function shouldMirror(){
-  return mirrorMode==="on"||(mirrorMode==="auto"&&currentFacingMode==="user");
-}
-
-function applyMirror(){
-  cameraEl.classList.toggle("mirror",shouldMirror());
-  document.getElementById("mirror").textContent=
-    mirrorMode==="auto"?"Mirror: Auto":
-    mirrorMode==="on"?"Mirror: On":"Mirror: Off";
-}
-
-async function startCamera(){
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-  stream=await navigator.mediaDevices.getUserMedia({
-    video:{facingMode:{ideal:currentFacingMode}}
-  });
-  cameraEl.srcObject=stream;
-  await cameraEl.play();
-  document.getElementById("flip").disabled=false;
-  document.getElementById("mirror").disabled=false;
-  document.getElementById("capture").disabled=false;
-  document.getElementById("photoboothToggle").disabled=false;
-  document.getElementById("timerBtn").disabled=false;
-  applyMirror();
-}
-
-document.getElementById("start").onclick=startCamera;
-
-document.getElementById("flip").onclick=async()=>{
-  currentFacingMode=currentFacingMode==="environment"?"user":"environment";
-  await startCamera();
-};
-
-document.getElementById("mirror").onclick=()=>{
-  mirrorMode=mirrorMode==="auto"?"on":mirrorMode==="on"?"off":"auto";
-  applyMirror();
-};
-
-/* ==============================
-   PUFF VIDEO
-============================== */
-puffEl.src="puff.mov"; // keep your original file
-puffEl.addEventListener("loadedmetadata",()=>{
-  puffEl.style.aspectRatio=puffEl.videoWidth+" / "+puffEl.videoHeight;
-});
-
-/* ==============================
-   PUFF TRANSFORM
-============================== */
-const puffState={x:50,y:70,scale:1.4,rotation:0};
-
-function updatePuff(){
-  puffEl.style.left=puffState.x+"%";
-  puffEl.style.top=puffState.y+"%";
-  puffEl.style.transform=
-    `translate(-50%,-50%) scale(${puffState.scale}) rotate(${puffState.rotation}deg)`;
-}
-
-updatePuff();
-
-/* TOUCH */
-let touchStart=null;
-puffEl.addEventListener("touchstart",e=>{
-  if(e.touches.length===1){
-    const t=e.touches[0];
-    touchStart={x:t.clientX,y:t.clientY,bx:puffState.x,by:puffState.y};
-  }
-  if(e.touches.length===2){
-    const a=e.touches[0],b=e.touches[1];
-    touchStart={
-      d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),
-      r:puffState.rotation,
-      s:puffState.scale
-    };
-  }
-},{passive:false});
-
-puffEl.addEventListener("touchmove",e=>{
-  e.preventDefault();
-  if(e.touches.length===1&&touchStart){
-    const t=e.touches[0];
-    puffState.x=touchStart.bx+(t.clientX-touchStart.x)/window.innerWidth*100;
-    puffState.y=touchStart.by+(t.clientY-touchStart.y)/window.innerHeight*100;
-  }
-  if(e.touches.length===2&&touchStart.d){
-    const a=e.touches[0],b=e.touches[1];
-    const nd=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
-    puffState.scale=touchStart.s*(nd/touchStart.d);
-    const angle=Math.atan2(b.clientY-a.clientY,b.clientX-a.clientX)*180/Math.PI;
-    puffState.rotation=touchStart.r+(angle);
-  }
-  updatePuff();
-},{passive:false});
-
-/* DESKTOP */
-let rKey=false;
-document.addEventListener("keydown",e=>{
-  if(e.key.toLowerCase()==="r") rKey=true;
-});
-document.addEventListener("keyup",e=>{
-  if(e.key.toLowerCase()==="r") rKey=false;
-});
-
-let mouseStart=null;
-puffEl.addEventListener("mousedown",e=>{
-  mouseStart={x:e.clientX,y:e.clientY,bx:puffState.x,by:puffState.y,br:puffState.rotation};
-  window.onmousemove=(ev)=>{
-    if(rKey){
-      puffState.rotation=mouseStart.br+(ev.clientX-mouseStart.x);
-    }else{
-      puffState.x=mouseStart.bx+(ev.clientX-mouseStart.x)/window.innerWidth*100;
-      puffState.y=mouseStart.by+(ev.clientY-mouseStart.y)/window.innerHeight*100;
-    }
-    updatePuff();
-  };
-  window.onmouseup=()=>window.onmousemove=null;
-});
-
-/* ==============================
-   TIMER
-============================== */
-let timerValue=0;
-const countdown=document.getElementById("countdown");
-
-document.getElementById("timerBtn").onclick=()=>{
-  timerValue=timerValue===0?1:timerValue===1?3:0;
-  document.getElementById("timerBtn").textContent="Timer: "+timerValue;
-};
-
-async function runCountdown(){
-  if(timerValue===0) return;
-  countdown.classList.remove("hidden");
-  for(let i=timerValue;i>0;i--){
-    countdown.textContent=i;
-    await new Promise(r=>setTimeout(r,1000));
-  }
-  countdown.classList.add("hidden");
-}
-
-/* ==============================
-   CAPTURE (pixel perfect)
-============================== */
-function capture(){
-  const dpr=window.devicePixelRatio||1;
-  const W=Math.round(window.innerWidth*dpr);
-  const H=Math.round(window.innerHeight*dpr);
-
-  const canvas=document.createElement("canvas");
-  canvas.width=W;
-  canvas.height=H;
-  const ctx=canvas.getContext("2d");
-
-  const camW=cameraEl.videoWidth;
-  const camH=cameraEl.videoHeight;
-  const scale=Math.max(W/camW,H/camH);
-  const sw=W/scale;
-  const sh=H/scale;
-  const sx=(camW-sw)/2;
-  const sy=(camH-sh)/2;
-
-  ctx.save();
-  if(shouldMirror()){
-    ctx.translate(W,0);
-    ctx.scale(-1,1);
-  }
-  ctx.drawImage(cameraEl,sx,sy,sw,sh,0,0,W,H);
-  ctx.restore();
-
-  const px=puffState.x/100*W;
-  const py=puffState.y/100*H;
-  const puffW=puffEl.offsetWidth*dpr;
-  const puffH=puffEl.offsetHeight*dpr;
-
-  ctx.save();
-  ctx.translate(px,py);
-  ctx.rotate(puffState.rotation*Math.PI/180);
-  ctx.drawImage(puffEl,-puffW/2,-puffH/2,puffW,puffH);
-  ctx.restore();
-
-  canvas.toBlob(blob=>{
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url;
-    a.download="puff.png";
-    a.click();
-  });
-}
-
-
-/* ==============================
-   PHOTOBOOTH TOGGLE BASE
-============================== */
-let photoboothOn=false;
-document.getElementById("photoboothToggle").onclick=()=>{
-  photoboothOn=!photoboothOn;
-  document.getElementById("photoboothToggle").classList.toggle("on",photoboothOn);
-  document.getElementById("photoboothToggle").textContent=
-    photoboothOn?"Photobooth: ON":"Photobooth: OFF";
-};
-
-/* ==== PHOTObooth + BUILDER WILL BE INSERTED BELOW ==== */
-/* ==============================
-   PHOTOBOOTH (Captured Panel + Builder)
-   - Keeps existing layouts
-   - Manual mode: pan/zoom is CLIPPED to slot rect (panel size never changes)
-   - Capture flow:
-       Photobooth OFF -> download immediately
-       Photobooth ON  -> push into captured list (same capture output)
-============================== */
-
-// ---------- UI: captured panel ----------
-const capturedPanel = document.createElement("div");
-capturedPanel.id = "capturedPanel";
-capturedPanel.className = "hidden";
-capturedPanel.style.cssText = `
-  position:fixed; right:14px; top:14px;
-  width:min(42vw,240px); height:min(48vh,360px);
-  z-index:50; border-radius:14px;
-  background:rgba(10,10,10,.65); backdrop-filter:blur(12px);
-  border:1px solid rgba(255,255,255,.12);
-  overflow:hidden; display:flex; flex-direction:column;
-`;
-
-capturedPanel.innerHTML = `
-  <div id="capturedHeader" style="
-    padding:10px; display:flex; align-items:center; justify-content:space-between;
-    background:rgba(0,0,0,.35); cursor:grab; user-select:none;">
-    <div style="color:#fff;font-weight:900;font-size:12px;">Captured</div>
-    <button id="clearCapturedBtn" style="border:0;border-radius:10px;padding:6px 10px;background:rgba(255,255,255,.14);color:#fff;font-weight:800;">Clear</button>
-  </div>
-  <div id="capturedList" style="
-    flex:1; overflow:auto; padding:10px;
-    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;">
-  </div>
-  <div style="padding:10px;background:rgba(0,0,0,.35);display:flex;justify-content:center;gap:8px;">
-    <button id="cueBtn" disabled style="width:100%;border:0;border-radius:12px;padding:10px 12px;background:#fff100;color:#060d3d;font-weight:1000;">
-      Visuals, cue!
-    </button>
-  </div>
-`;
-document.body.appendChild(capturedPanel);
-
-const capturedHeader = document.getElementById("capturedHeader");
-const capturedList = document.getElementById("capturedList");
-const clearCapturedBtn = document.getElementById("clearCapturedBtn");
-const cueBtn = document.getElementById("cueBtn");
-
-// store captures
-const capturedItems = []; // { blob, url }
-
-// Update captured UI
-function updateCapturedUI(){
-  capturedList.innerHTML = "";
-  capturedItems.forEach(it=>{
-    const cell=document.createElement("div");
-    cell.style.cssText = `
-      border-radius:10px; overflow:hidden;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      aspect-ratio:4/3;
-    `;
-    const img=document.createElement("img");
-    img.src=it.url;
-    img.alt="capture";
-    img.style.cssText="width:100%;height:100%;object-fit:contain;display:block;background:rgba(0,0,0,.55);";
-    cell.appendChild(img);
-    capturedList.appendChild(cell);
-  });
-  cueBtn.disabled = capturedItems.length === 0;
-}
-
-// Clear captures
-clearCapturedBtn.addEventListener("click", ()=>{
-  capturedItems.forEach(it=>URL.revokeObjectURL(it.url));
-  capturedItems.length = 0;
-  updateCapturedUI();
-});
-
-// draggable captured panel
-(function enableDragCaptured(){
-  let dragging=false;
-  let start=null;
-  capturedHeader.addEventListener("pointerdown",(e)=>{
-    e.preventDefault();
-    dragging=true;
-    capturedHeader.setPointerCapture?.(e.pointerId);
-    const r=capturedPanel.getBoundingClientRect();
-    start={x:e.clientX,y:e.clientY,left:r.left,top:r.top};
-    capturedHeader.style.cursor="grabbing";
-  });
-  window.addEventListener("pointermove",(e)=>{
-    if(!dragging||!start) return;
-    e.preventDefault();
-    const dx=e.clientX-start.x;
-    const dy=e.clientY-start.y;
-    const newLeft=Math.max(6,Math.min(window.innerWidth-capturedPanel.offsetWidth-6,start.left+dx));
-    const newTop=Math.max(6,Math.min(window.innerHeight-capturedPanel.offsetHeight-6,start.top+dy));
-    capturedPanel.style.left=newLeft+"px";
-    capturedPanel.style.top=newTop+"px";
-    capturedPanel.style.right="auto";
-  },{passive:false});
-  window.addEventListener("pointerup",()=>{
-    dragging=false; start=null;
-    capturedHeader.style.cursor="grab";
-  });
-})();
-
-// Photobooth toggle affects where capture goes
-function setPhotoboothMode(on){
-  photoboothOn = on;
-  document.getElementById("photoboothToggle").classList.toggle("on", on);
-  document.getElementById("photoboothToggle").textContent = on ? "Photobooth: ON" : "Photobooth: OFF";
-  capturedPanel.classList.toggle("hidden", !on);
-  updateCapturedUI();
-}
-setPhotoboothMode(false);
-
-// ---------- Patch capture button behavior to support photobooth ----------
-const captureBtn = document.getElementById("capture");
-captureBtn.onclick = async ()=>{
-  await runCountdown();
-
-  // Use the SAME capture output as before, but route it.
-  const dpr=window.devicePixelRatio||1;
-  const W=Math.round(window.innerWidth*dpr);
-  const H=Math.round(window.innerHeight*dpr);
-
-  const canvas=document.createElement("canvas");
-  canvas.width=W; canvas.height=H;
-  const ctx=canvas.getContext("2d");
-
-  // camera cover crop
-  const camW=cameraEl.videoWidth;
-  const camH=cameraEl.videoHeight;
-  const scale=Math.max(W/camW,H/camH);
-  const sw=W/scale;
-  const sh=H/scale;
-  const sx=(camW-sw)/2;
-  const sy=(camH-sh)/2;
-
-  ctx.save();
-  if(shouldMirror()){
-    ctx.translate(W,0);
-    ctx.scale(-1,1);
-  }
-  ctx.drawImage(cameraEl,sx,sy,sw,sh,0,0,W,H);
-  ctx.restore();
-
-  // puff overlay (same math as preview) — no stretching
-  const px=puffState.x/100*W;
-  const py=puffState.y/100*H;
-  const puffRect = puffEl.getBoundingClientRect();
-  const puffW = puffRect.width * dpr;
-  const puffH = puffRect.height * dpr;
-
-
-  ctx.save();
-  ctx.translate(px,py);
-  ctx.rotate(puffState.rotation*Math.PI/180);
-  ctx.drawImage(puffEl,-puffW/2,-puffH/2,puffW,puffH);
-  ctx.restore();
-
-  canvas.toBlob((blob)=>{
-    if(!blob){ alert("Capture failed."); return; }
-
-    if(!photoboothOn){
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");
-      a.href=url;
-      a.download="puff.png";
-      a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),15000);
-      return;
-    }
-
-    const url=URL.createObjectURL(blob);
-    capturedItems.push({blob,url});
-    updateCapturedUI();
-  },"image/png");
-};
-
-// ---------- BUILDER OVERLAY ----------
-const builderOverlay = document.createElement("div");
-builderOverlay.id="builderOverlay";
-builderOverlay.className="hidden";
-builderOverlay.style.cssText=`
-  position:fixed; inset:0; z-index:200;
-  background:rgba(0,0,0,.72);
-  backdrop-filter:blur(14px);
-  display:flex; align-items:center; justify-content:center;
-  padding:14px;
-`;
-
-builderOverlay.innerHTML=`
-  <div id="builderShell" style="
-    width:min(980px,100%); height:min(720px,100%);
-    display:grid; grid-template-columns:1.2fr .8fr; gap:12px;">
-    <div id="builderStageWrap" style="
-      border-radius:16px; overflow:auto;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(0,0,0,.25);
-      display:flex; align-items:flex-start; justify-content:center;
-      padding:12px; position:relative;">
-      <canvas id="stripCanvas" width="400" height="1200"
-        style="max-width:100%; height:auto; border-radius:0; background:transparent; touch-action:none;"></canvas>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Puff Dragon AR Viewer</title>
+
+    <style>
+      @font-face {
+        font-family: "BeautifulFreak";
+        src: url("BeautifulFreak.otf") format("opentype");
+        font-display: swap;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #000;
+        overflow: hidden;
+        height: 100%;
+        touch-action: none;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      /* =========================
+         INTRO OVERLAY
+      ========================= */
+      #introOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      #introVideo {
+        width: 100vw;
+        height: auto;
+        max-height: 100vh;
+        object-fit: contain;
+        background: #fff;
+        display: block;
+        pointer-events: none;
+      }
+
+      #introClosePuff {
+        position: absolute;
+        top: calc(14px + env(safe-area-inset-top));
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(22vw, 96px);
+        height: auto;
+        z-index: 3;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      #introClosePuff:active {
+        transform: translateX(-50%) scale(0.96);
+      }
+
+      #exploreBtn {
+        position: absolute;
+        left: 50%;
+        top: 55%;
+        transform: translate(-50%, -50%);
+        border: 0;
+        border-radius: 16px;
+        padding: 18px 34px;
+        font-size: clamp(20px, 4.2vw, 30px);
+        font-weight: 900;
+        letter-spacing: 0.2px;
+        color: #fff;
+        background: #fa213f;
+        cursor: pointer;
+        z-index: 2;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      }
+
+      #exploreBtn:active {
+        transform: translate(-50%, -50%) scale(0.98);
+      }
+
+      /* =========================
+         MAIN APP
+      ========================= */
+      #camera {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        z-index: 1;
+        transform-origin: center;
+      }
+
+      #camera.mirror {
+        transform: scaleX(-1);
+      }
+
+      #puff {
+        position: fixed;
+        left: 50%;
+        top: 72%;
+        width: min(90vw, 500px);
+        height: auto;
+        object-fit: contain;
+        pointer-events: auto;
+        touch-action: none;
+        transform: translate(-50%, -50%) scale(1.55) rotate(0deg);
+        transform-origin: center;
+        background: transparent;
+        will-change: transform;
+        z-index: 2;
+        user-select: none;
+        -webkit-user-drag: none;
+      }
+
+      #stickerLayer {
+        position: fixed;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+      }
+
+      .sticker {
+        position: fixed;
+        left: 50%;
+        top: 40%;
+        width: min(45vw, 260px);
+        height: auto;
+        pointer-events: auto;
+        touch-action: none;
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+        transform-origin: center;
+        background: transparent;
+        will-change: transform;
+        user-select: none;
+      }
+
+      /* =========================
+         UI
+      ========================= */
+      #ui {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        background: linear-gradient(
+          to top,
+          rgba(0, 0, 0, 0.65),
+          rgba(0, 0, 0, 0)
+        );
+        z-index: 10;
+      }
+
+      .ui-row {
+        display: flex;
+        gap: 7px;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: 0;
+        border-radius: 9px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+        color: #fff;
+        background: #e11d2e;
+        min-width: 92px;
+      }
+
+      #start {
+        background: #fa213f;
+      }
+
+      button.secondary {
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+      }
+
+      #capture {
+        background: #fff100;
+        color: #060d3d;
+        font-weight: 900;
+        min-width: 110px;
+      }
+
+      #photoboothToggle.on {
+        background: #01b7ff;
+        color: #00131c;
+        font-weight: 900;
+      }
+
+      #timingBtn.on {
+        background: #fff100;
+        color: #060d3d;
+        font-weight: 900;
+      }
+
+      /* Panels */
+      #stickerPanel,
+      #filterPanel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transform: translateY(110%);
+        transition: transform 0.22s ease;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(10px);
+        padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+        z-index: 20;
+        border-top-left-radius: 18px;
+        border-top-right-radius: 18px;
+
+        max-height: min(78vh, 560px);
+        display: flex;
+        flex-direction: column;
+
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #stickerPanel.open,
+      #filterPanel.open {
+        transform: translateY(0);
+      }
+
+      #stickerPanelHeader,
+      #filterPanelHeader {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(10px);
+
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+      }
+
+      .panelBody {
+        overflow-y: auto;
+        flex: 1;
+        padding-right: 2px;
+      }
+
+      #stickerGrid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 9px;
+      }
+
+      .stickerItem {
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        padding: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        aspect-ratio: 1 / 1;
+      }
+
+      .stickerItem img {
+        max-width: 100%;
+        max-height: 100%;
+        display: block;
+      }
+
+      #filterList {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+      }
+
+      .filterItem {
+        border: 0;
+        border-radius: 14px;
+        padding: 10px 10px;
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.95);
+        font: 800 12px system-ui;
+        text-align: left;
+      }
+
+      .filterItem .sub {
+        display: block;
+        margin-top: 4px;
+        opacity: 0.78;
+        font: 700 10px system-ui;
+        line-height: 1.1;
+      }
+
+      .filterItem.active {
+        outline: 2px solid rgba(255, 255, 255, 0.55);
+        outline-offset: 2px;
+      }
+
+      .panelFooter {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(10px);
+        padding-top: 10px;
+      }
+
+      /* Desktop hint */
+      #desktopHint {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 11;
+        padding: 7px 9px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.45);
+        color: rgba(255, 255, 255, 0.85);
+        font: 700 11px system-ui;
+        display: none;
+        user-select: none;
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        #desktopHint {
+          display: block;
+        }
+      }
+
+      /* =========================
+         COUNTDOWN
+      ========================= */
+      #countdownOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 120;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(2px);
+        pointer-events: none;
+      }
+      #countdownOverlay.show {
+        display: flex;
+      }
+      #countdownNumber {
+        font: 1000 clamp(64px, 12vw, 140px) system-ui;
+        color: #fff100;
+        text-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+        transform: translateZ(0);
+      }
+
+      /* =========================
+         CAPTURED PANEL (movable, scrollable)
+      ========================= */
+      #capturedPanel {
+        position: fixed;
+        right: 14px;
+        top: calc(14px + env(safe-area-inset-top));
+        width: min(42vw, 240px);
+        height: min(48vh, 360px);
+        z-index: 50;
+        border-radius: 14px;
+        background: rgba(10, 10, 10, 0.65);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #capturedPanel.hidden {
+        display: none !important;
+      }
+
+      #capturedHeader {
+        padding: 10px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        background: rgba(0, 0, 0, 0.35);
+        cursor: grab;
+        user-select: none;
+      }
+
+      #capturedHeader .title {
+        color: #fff;
+        font: 900 12px system-ui;
+        letter-spacing: 0.2px;
+      }
+
+      #capturedHeader button {
+        min-width: unset;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      #capturedList {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .capThumb {
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        aspect-ratio: 4 / 3;
+      }
+      .capThumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+        background: rgba(0, 0, 0, 0.55);
+      }
+
+      #capturedFooter {
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.35);
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+      }
+
+      #cueBtn {
+        width: 100%;
+        border-radius: 12px;
+        background: #fff100;
+        color: #060d3d;
+        font-weight: 1000;
+        min-width: unset;
+      }
+      #cueBtn:disabled {
+        opacity: 0.5;
+      }
+
+      /* =========================
+         BUILDER OVERLAY
+      ========================= */
+      #builderOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: rgba(0, 0, 0, 0.72);
+        backdrop-filter: blur(14px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+      }
+      #builderOverlay.hidden {
+        display: none !important;
+      }
+
+      #builderShell {
+        width: min(980px, 100%);
+        height: min(720px, 100%);
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 12px;
+      }
+
+      #builderShell.controlsHidden {
+        grid-template-columns: 1fr !important;
+      }
+      #builderShell.controlsHidden #builderControls {
+        display: none;
+      }
+
+      #builderStageWrap {
+        border-radius: 16px;
+        overflow: auto;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.25);
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 12px;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+      }
+
+      #builderStage {
+        position: relative;
+        width: 100%;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+      }
+
+      #stripCanvas {
+        max-width: 100%;
+        height: auto;
+        image-rendering: auto;
+        border-radius: 0;
+        background: transparent;
+        touch-action: none;
+        user-select: none;
+      }
+
+      #builderOpenBtn {
+        position: sticky;
+        bottom: 12px;
+        margin-left: auto;
+        margin-right: 0;
+        z-index: 5;
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.92);
+        min-width: unset;
+      }
+
+      #builderControls {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.35);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      #builderTopbar {
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        background: rgba(0, 0, 0, 0.35);
+      }
+
+      #builderTopbar .label {
+        color: #fff;
+        font: 900 12px system-ui;
+        opacity: 0.95;
+      }
+
+      #builderTopbar button {
+        min-width: unset;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.14);
+      }
+
+      #builderBody {
+        padding: 10px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+      }
+
+      .ctrlGroup {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .ctrlTitle {
+        color: rgba(255, 255, 255, 0.92);
+        font: 900 12px system-ui;
+        margin-bottom: 8px;
+      }
+
+      .pillRow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .pill {
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.92);
+        padding: 7px 10px;
+        border-radius: 999px;
+        font: 900 11px system-ui;
+        cursor: pointer;
+        user-select: none;
+      }
+      .pill.active {
+        outline: 2px solid rgba(255, 255, 255, 0.55);
+        outline-offset: 1px;
+      }
+
+      .hint {
+        color: rgba(255, 255, 255, 0.75);
+        font: 700 11px system-ui;
+        line-height: 1.25;
+      }
+
+      #photoPickGrid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .pickThumb {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 12px;
+        overflow: hidden;
+        aspect-ratio: 4/3;
+        background: rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      .pickThumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        pointer-events: none;
+      }
+
+      #exportStripBtn {
+        width: 100%;
+        border-radius: 12px;
+        background: #fff100;
+        color: #060d3d;
+        font-weight: 1000;
+        padding: 10px 12px;
+      }
+
+      @media (max-width: 860px) {
+        #builderShell {
+          grid-template-columns: 1fr;
+          grid-template-rows: 1.35fr 0.65fr;
+          height: 100%;
+        }
+        #builderStageWrap {
+          padding: 10px;
+        }
+        #builderBody {
+          max-height: 34vh;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- =========================
+         INTRO
+    ========================= -->
+    <div id="introOverlay">
+      <video
+        id="introVideo"
+        autoplay
+        playsinline
+        webkit-playsinline
+        muted
+        preload="auto"
+      >
+        <source id="introMp4" src="" type="video/mp4" />
+        <source id="introWebm" src="" type="video/webm" />
+      </video>
+
+      <img
+        id="introClosePuff"
+        src="puff-close.png"
+        alt="Close intro"
+        role="button"
+      />
+
+      <button id="exploreBtn" class="hidden" type="button">Explore</button>
     </div>
 
-    <div id="builderControls" style="
-      border-radius:16px; overflow:hidden;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(0,0,0,.35);
-      display:flex; flex-direction:column; min-height:0;">
-      <div style="padding:10px; display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,.35);">
-        <div style="color:#fff;font-weight:900;font-size:12px;">Photoshoot Customize</div>
-        <button id="builderCloseBtn" style="border:0;border-radius:10px;padding:6px 10px;background:rgba(255,255,255,.14);color:#fff;font-weight:800;">Close</button>
+    <!-- =========================
+         MAIN APP
+    ========================= -->
+    <div id="app" class="hidden">
+      <div id="desktopHint">
+        Desktop: drag=move • wheel=zoom • Hold <b>R</b> + drag=rotate
       </div>
 
-      <div id="builderBody" style="padding:10px; overflow:auto; display:flex; flex-direction:column; gap:12px; min-height:0;">
-        <div style="border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:10px; background:rgba(255,255,255,.06);">
-          <div style="color:#fff;font-weight:900;font-size:12px; margin-bottom:8px;">Frame color</div>
-          <div id="frameColorRow" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      <video id="camera" autoplay playsinline muted></video>
+
+      <video
+        id="puff"
+        autoplay
+        playsinline
+        webkit-playsinline
+        muted
+        loop
+        preload="metadata"
+        crossorigin="anonymous"
+      ></video>
+
+      <div id="stickerLayer"></div>
+
+      <!-- countdown -->
+      <div id="countdownOverlay" aria-hidden="true">
+        <div id="countdownNumber">3</div>
+      </div>
+
+      <!-- Captured floating panel (photobooth ON) -->
+      <div id="capturedPanel" class="hidden" aria-hidden="true">
+        <div id="capturedHeader">
+          <div class="title">Captured</div>
+          <button id="clearCapturedBtn" type="button">Clear</button>
+        </div>
+        <div id="capturedList"></div>
+        <div id="capturedFooter">
+          <button id="cueBtn" type="button" disabled>Visuals, cue!</button>
+        </div>
+      </div>
+
+      <div id="ui">
+        <div class="ui-row">
+          <button id="start">Start AR</button>
+          <button id="flip" class="secondary" disabled>Flip Camera</button>
+          <button id="mirror" class="secondary" disabled>Mirror: Auto</button>
         </div>
 
-        <div style="border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:10px; background:rgba(255,255,255,.06);">
-          <div style="color:#fff;font-weight:900;font-size:12px; margin-bottom:8px;">Image fit</div>
-          <div id="fitModeRow" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
-          <div style="color:rgba(255,255,255,.75); font-size:11px; font-weight:700; margin-top:8px; line-height:1.2;">
-            Manual = pan/zoom inside slot (always clipped). Panel size never changes.
+        <div class="ui-row">
+          <button id="photoboothToggle" class="secondary" disabled>
+            Photobooth: OFF
+          </button>
+          <button id="timingBtn" class="secondary" disabled>Timing: OFF</button>
+          <button id="stickers" class="secondary" disabled>Sticker</button>
+          <button id="filterBtn" class="secondary" disabled>Filter</button>
+          <button id="capture" disabled>Puff It!</button>
+        </div>
+      </div>
+
+      <!-- Sticker panel -->
+      <div id="stickerPanel" aria-hidden="true">
+        <div id="stickerPanelHeader">
+          <div style="color:#fff;font:800 14px system-ui">Choose a sticker</div>
+          <button id="stickerClose" class="secondary">Close</button>
+        </div>
+
+        <div class="panelBody">
+          <div id="stickerGrid"></div>
+
+          <div class="panelFooter">
+            <div
+              style="
+                display: flex;
+                gap: 8px;
+                justify-content: center;
+                flex-wrap: wrap;
+              "
+            >
+              <button id="stickerRemove" class="secondary" disabled>
+                Remove last
+              </button>
+              <button id="stickerClear" class="secondary" disabled>
+                Clear all
+              </button>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div style="border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:10px; background:rgba(255,255,255,.06);">
-          <div style="color:#fff;font-weight:900;font-size:12px; margin-bottom:8px;">Layout</div>
-          <div id="layoutRow" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      <!-- Filter panel -->
+      <div id="filterPanel" aria-hidden="true">
+        <div id="filterPanelHeader">
+          <div style="color:#fff;font:800 14px system-ui">Choose a filter</div>
+          <button id="filterClose" class="secondary">Close</button>
         </div>
 
-        <div style="border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:10px; background:rgba(255,255,255,.06);">
-          <div style="color:#fff;font-weight:900;font-size:12px; margin-bottom:8px;">Select photos</div>
-          <div id="slotRow" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
-          <div style="height:10px"></div>
-          <div id="photoPickGrid" style="display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px;"></div>
+        <div class="panelBody">
+          <div id="filterList"></div>
         </div>
-
-        <button id="exportStripBtn" style="width:100%;border:0;border-radius:12px;padding:10px 12px;background:#fff100;color:#060d3d;font-weight:1000;">
-          Export strip PNG
-        </button>
       </div>
     </div>
-  </div>
-`;
-document.body.appendChild(builderOverlay);
-
-const stripCanvas = document.getElementById("stripCanvas");
-const stripCtx = stripCanvas.getContext("2d");
-const builderCloseBtn = document.getElementById("builderCloseBtn");
-const frameColorRow = document.getElementById("frameColorRow");
-const layoutRow = document.getElementById("layoutRow");
-const fitModeRow = document.getElementById("fitModeRow");
-const slotRow = document.getElementById("slotRow");
-const photoPickGrid = document.getElementById("photoPickGrid");
-const exportStripBtn = document.getElementById("exportStripBtn");
-
-// close builder
-builderCloseBtn.addEventListener("click", ()=>closeBuilder());
-builderOverlay.addEventListener("pointerdown",(e)=>{
-  if(e.target===builderOverlay) closeBuilder();
-});
-
-// open builder from cue button
-cueBtn.addEventListener("click", ()=>openBuilder());
-
-// -------- Builder state (keep layouts) --------
-const FRAME_COLORS = [
-  { id:"red", name:"Imperial Red", value:"#fa213f", logo:"puff-logo-2.png" },
-  { id:"blue", name:"Dark Blue", value:"#060d3d", logo:"puff-logo-3.png" },
-  { id:"grey", name:"Bright Grey", value:"#e8eef1", logo:"puff-logo-1.png" },
-  { id:"white", name:"White", value:"#ffffff", logo:"puff-logo-1.png" },
-  { id:"black", name:"Pure Black", value:"#000000", logo:"puff-logo-3.png" },
-];
-
-const LAYOUTS = [
-  { id:"L1", name:"Layout 1 (3 horizontal strip)" },
-  { id:"L2", name:"Layout 2 (3 vertical strip)" },
-  { id:"L3", name:"Layout 3 (4 grid 2x2)" },
-  { id:"L4", name:"Layout 4 (2 horizontal, left bar)" },
-  { id:"L5", name:"Layout 5 (2 horizontal, center bar)" },
-  { id:"L6", name:"Layout 6 (2 stacked left)" },
-  { id:"L7", name:"Layout 7 (1 photo)" },
-];
-
-let builderState = {
-  frameColorId:"blue",
-  layoutId:"L2",
-  fitMode:"smart",         // contain | smart | cover | manual
-  slotToCapture:[],
-  slotTransforms:[],       // { scaleMul, offsetX, offsetY }
-};
-
-let activeSlot=0;
-
-function getFrameColor(){
-  const c = FRAME_COLORS.find(x=>x.id===builderState.frameColorId) || FRAME_COLORS[1];
-  return c.value;
-}
-
-const logoCache = new Map();
-async function loadImageSafe(src){
-  return new Promise((resolve)=>{
-    if(!src) return resolve(null);
-    if(logoCache.has(src)) return resolve(logoCache.get(src));
-    const img=new Image();
-    img.crossOrigin="anonymous";
-    img.onload=()=>{ logoCache.set(src,img); resolve(img); };
-    img.onerror=()=>resolve(null);
-    img.src=src;
-  });
-}
-
-async function getLogo(){
-  const c = FRAME_COLORS.find(x=>x.id===builderState.frameColorId) || FRAME_COLORS[1];
-  return await loadImageSafe(c.logo);
-}
-
-function syncCanvasToLayout(){
-  if(builderState.layoutId==="L1"){ stripCanvas.width=1200; stripCanvas.height=400; return; }
-  if(builderState.layoutId==="L2"){ stripCanvas.width=400; stripCanvas.height=1200; return; }
-  if(builderState.layoutId==="L3"){ stripCanvas.width=900; stripCanvas.height=1350; return; }
-  if(builderState.layoutId==="L4"||builderState.layoutId==="L5"){ stripCanvas.width=1200; stripCanvas.height=400; return; }
-  if(builderState.layoutId==="L6"||builderState.layoutId==="L7"){ stripCanvas.width=1350; stripCanvas.height=900; return; }
-}
-
-function slotsNeeded(){
-  if(builderState.layoutId==="L3") return 4;
-  if(builderState.layoutId==="L4"||builderState.layoutId==="L5") return 2;
-  if(builderState.layoutId==="L6") return 2;
-  if(builderState.layoutId==="L7") return 1;
-  return 3;
-}
-
-function ensureSlotMapping(){
-  const n=slotsNeeded();
-
-  const arr=builderState.slotToCapture||[];
-  const next=new Array(n).fill(-1);
-  for(let i=0;i<n;i++) next[i]=arr[i] ?? (i < capturedItems.length ? i : -1);
-  for(let i=0;i<n;i++){
-    if(next[i] >= capturedItems.length) next[i] = -1;
-  }
-  builderState.slotToCapture = next;
-
-  const tArr=builderState.slotTransforms||[];
-  builderState.slotTransforms = new Array(n).fill(null).map((_,i)=>{
-    const prev=tArr[i];
-    return { scaleMul: prev?.scaleMul ?? 1, offsetX: prev?.offsetX ?? 0, offsetY: prev?.offsetY ?? 0 };
-  });
-
-  activeSlot=Math.max(0,Math.min(n-1,activeSlot));
-}
-
-function pill(label, active){
-  const d=document.createElement("div");
-  d.textContent=label;
-  d.style.cssText=`
-    border:1px solid rgba(255,255,255,.16);
-    background:${active ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.08)"};
-    color:rgba(255,255,255,.92);
-    padding:7px 10px; border-radius:999px;
-    font-weight:900; font-size:11px;
-    cursor:pointer; user-select:none;
-  `;
-  if(active){
-    d.style.outline="2px solid rgba(255,255,255,.65)";
-    d.style.outlineOffset="1px";
-  }
-  return d;
-}
-
-function renderBuilderUI(){
-  // frame color
-  frameColorRow.innerHTML="";
-  FRAME_COLORS.forEach(c=>{
-    const p=pill(c.name, builderState.frameColorId===c.id);
-    p.onclick=async()=>{
-      builderState.frameColorId=c.id;
-      renderBuilderUI();
-      await drawStrip(false);
-    };
-    frameColorRow.appendChild(p);
-  });
-
-  // fit modes
-  fitModeRow.innerHTML="";
-  [
-    {id:"contain", label:"Contain"},
-    {id:"smart", label:"Smart"},
-    {id:"cover", label:"Cover"},
-    {id:"manual", label:"Manual"},
-  ].forEach(m=>{
-    const p=pill(m.label, builderState.fitMode===m.id);
-    p.onclick=async()=>{
-      builderState.fitMode=m.id;
-      renderBuilderUI();
-      await drawStrip(false);
-    };
-    fitModeRow.appendChild(p);
-  });
-
-  // layouts
-  layoutRow.innerHTML="";
-  LAYOUTS.forEach(l=>{
-    const p=pill(l.name, builderState.layoutId===l.id);
-    p.onclick=async()=>{
-      builderState.layoutId=l.id;
-      syncCanvasToLayout();
-      ensureSlotMapping();
-      renderBuilderUI();
-      await drawStrip(false);
-    };
-    layoutRow.appendChild(p);
-  });
-
-  // slots
-  slotRow.innerHTML="";
-  const n=slotsNeeded();
-  for(let i=0;i<n;i++){
-    const p=pill(`Slot ${i+1}`, activeSlot===i);
-    p.onclick=async()=>{
-      activeSlot=i;
-      renderBuilderUI();
-      await drawStrip(false);
-    };
-    slotRow.appendChild(p);
-  }
-
-  // photo pick grid
-  photoPickGrid.innerHTML="";
-  capturedItems.forEach((it,idx)=>{
-    const b=document.createElement("button");
-    b.type="button";
-    b.style.cssText=`
-      border:0; padding:0; cursor:pointer;
-      border-radius:12px; overflow:hidden;
-      background:rgba(0,0,0,.25);
-      border:1px solid rgba(255,255,255,.14);
-      aspect-ratio:4/3;
-    `;
-    const img=document.createElement("img");
-    img.src=it.url;
-    img.style.cssText="width:100%;height:100%;object-fit:cover;display:block;";
-    b.appendChild(img);
-
-    b.onclick=async()=>{
-      builderState.slotToCapture[activeSlot]=idx;
-      activeSlot=(activeSlot+1)%n;
-      renderBuilderUI();
-      await drawStrip(false);
-    };
-
-    photoPickGrid.appendChild(b);
-  });
-}
-
-function openBuilder(){
-  if(capturedItems.length===0) return;
-  builderOverlay.classList.remove("hidden");
-  syncCanvasToLayout();
-  ensureSlotMapping();
-  renderBuilderUI();
-  drawStrip(false);
-}
-
-function closeBuilder(){
-  builderOverlay.classList.add("hidden");
-}
-
-// ---- drawing helpers (panel fixed size) ----
-function drawContain(ctx,img,rx,ry,rw,rh){
-  const iw=img.naturalWidth||img.width;
-  const ih=img.naturalHeight||img.height;
-  if(!iw||!ih) return;
-  const s=Math.min(rw/iw,rh/ih);
-  const dw=iw*s, dh=ih*s;
-  const dx=rx+(rw-dw)/2, dy=ry+(rh-dh)/2;
-  ctx.drawImage(img,dx,dy,dw,dh);
-}
-
-function drawCover(ctx,img,rx,ry,rw,rh){
-  const iw=img.naturalWidth||img.width;
-  const ih=img.naturalHeight||img.height;
-  if(!iw||!ih) return;
-  const s=Math.max(rw/iw,rh/ih);
-  const dw=iw*s, dh=ih*s;
-  const dx=rx+(rw-dw)/2, dy=ry+(rh-dh)/2;
-  ctx.drawImage(img,dx,dy,dw,dh);
-}
-
-function drawSmart(ctx,img,rx,ry,rw,rh){
-  const iw=img.naturalWidth||img.width;
-  const ih=img.naturalHeight||img.height;
-  if(!iw||!ih) return;
-  const imgAR=iw/ih;
-  const slotAR=rw/rh;
-  const ratio=imgAR/slotAR;
-  const closeEnough=ratio>0.82 && ratio<1.22;
-  if(closeEnough) drawCover(ctx,img,rx,ry,rw,rh);
-  else drawContain(ctx,img,rx,ry,rw,rh);
-}
-
-// MANUAL: clipped inside slot ALWAYS (panel size never changes)
-function drawManual(ctx,img,rx,ry,rw,rh,tr){
-  const iw=img.naturalWidth||img.width;
-  const ih=img.naturalHeight||img.height;
-  if(!iw||!ih) return;
-
-  const coverS=Math.max(rw/iw,rh/ih);
-  const containS=Math.min(rw/iw,rh/ih);
-  const minMul=containS/coverS;   // allow zoom out to contain
-  const maxMul=3.0;
-  tr.scaleMul=Math.max(minMul,Math.min(maxMul,tr.scaleMul||1));
-
-  const s=coverS*tr.scaleMul;
-  const dw=iw*s, dh=ih*s;
-
-  // base centered
-  let dx=rx+(rw-dw)/2;
-  let dy=ry+(rh-dh)/2;
-
-  // clamp pan to bounds
-  let offX=tr.offsetX||0;
-  let offY=tr.offsetY||0;
-
-  if(dw>rw){
-    const maxPanX=(dw-rw)/2;
-    offX=Math.max(-maxPanX,Math.min(maxPanX,offX));
-  }else offX=0;
-
-  if(dh>rh){
-    const maxPanY=(dh-rh)/2;
-    offY=Math.max(-maxPanY,Math.min(maxPanY,offY));
-  }else offY=0;
-
-  tr.offsetX=offX; tr.offsetY=offY;
-
-  dx+=offX; dy+=offY;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(rx,ry,rw,rh);
-  ctx.clip();
-  ctx.drawImage(img,dx,dy,dw,dh);
-  ctx.restore();
-}
-
-function getLayoutSlots(){
-  const W=stripCanvas.width, H=stripCanvas.height;
-  const minSide=Math.min(W,H);
-  const outer=Math.round(minSide*0.06);
-  const topBar=Math.round(minSide*0.16);
-  const bottomBar=Math.round(minSide*0.10);
-  const gap=Math.max(6,Math.round(minSide*0.012));
-
-  const contentX=outer;
-  const contentY=outer+topBar;
-  const contentW=W-outer*2;
-  const contentH=H-outer-bottomBar-contentY;
-
-  const topBarRect={x:outer,y:outer,w:contentW,h:topBar};
-
-  if(builderState.layoutId==="L1"){
-    const slotW=Math.floor((contentW-gap*2)/3);
-    const slotH=contentH;
-    return { topBar:topBarRect, slots:[
-      {x:contentX,y:contentY,w:slotW,h:slotH},
-      {x:contentX+slotW+gap,y:contentY,w:slotW,h:slotH},
-      {x:contentX+(slotW+gap)*2,y:contentY,w:slotW,h:slotH},
-    ]};
-  }
-
-  if(builderState.layoutId==="L2"){
-    const slotH=Math.floor((contentH-gap*2)/3);
-    const slotW=contentW;
-    return { topBar:topBarRect, slots:[
-      {x:contentX,y:contentY,w:slotW,h:slotH},
-      {x:contentX,y:contentY+slotH+gap,w:slotW,h:slotH},
-      {x:contentX,y:contentY+(slotH+gap)*2,w:slotW,h:slotH},
-    ]};
-  }
-
-  if(builderState.layoutId==="L3"){
-    const slotW=Math.floor((contentW-gap)/2);
-    const slotH=Math.floor((contentH-gap)/2);
-    return { topBar:topBarRect, slots:[
-      {x:contentX,y:contentY,w:slotW,h:slotH},
-      {x:contentX+slotW+gap,y:contentY,w:slotW,h:slotH},
-      {x:contentX,y:contentY+slotH+gap,w:slotW,h:slotH},
-      {x:contentX+slotW+gap,y:contentY+slotH+gap,w:slotW,h:slotH},
-    ]};
-  }
-
-  if(builderState.layoutId==="L4"){
-    const barW=Math.floor(contentW*0.22);
-    const photosW=contentW-barW-gap;
-    const slotW=Math.floor((photosW-gap)/2);
-    const slotH=contentH;
-    return { topBar:topBarRect, slots:[
-      {x:contentX+barW+gap,y:contentY,w:slotW,h:slotH},
-      {x:contentX+barW+gap+slotW+gap,y:contentY,w:slotW,h:slotH},
-    ]};
-  }
-
-  if(builderState.layoutId==="L5"){
-    const barW=Math.floor(contentW*0.24);
-    const slotW=Math.floor((contentW-barW-gap*2)/2);
-    const slotH=contentH;
-    return { topBar:topBarRect, slots:[
-      {x:contentX,y:contentY,w:slotW,h:slotH},
-      {x:contentX+slotW+gap+barW+gap,y:contentY,w:slotW,h:slotH},
-    ]};
-  }
-
-  if(builderState.layoutId==="L6"){
-    const rightW=Math.floor(contentW*0.4);
-    const leftW=contentW-rightW-gap;
-    const slotH=Math.floor((contentH-gap)/2);
-    return { topBar:topBarRect, slots:[
-      {x:contentX,y:contentY,w:leftW,h:slotH},
-      {x:contentX,y:contentY+slotH+gap,w:leftW,h:slotH},
-    ]};
-  }
-
-  if(builderState.layoutId==="L7"){
-    const inset=Math.round(minSide*0.04);
-    const slotX=contentX+inset;
-    const slotY=contentY+inset;
-    const slotW=contentW-inset*2;
-    const slotH=contentH-inset*2;
-    return { topBar:topBarRect, slots:[{x:slotX,y:slotY,w:slotW,h:slotH}] };
-  }
-
-  return { topBar:topBarRect, slots:[] };
-}
-
-async function drawStrip(forExport){
-  ensureSlotMapping();
-
-  const frameColor=getFrameColor();
-  const layout=getLayoutSlots();
-
-  // load slot images
-  const imgs = await Promise.all(builderState.slotToCapture.map(async (ci)=>{
-    if(ci<0) return null;
-    const url = capturedItems[ci]?.url;
-    if(!url) return null;
-    return await loadImageSafe(url);
-  }));
-
-  stripCtx.clearRect(0,0,stripCanvas.width,stripCanvas.height);
-  stripCtx.fillStyle=frameColor;
-  stripCtx.fillRect(0,0,stripCanvas.width,stripCanvas.height);
-
-  // draw slots
-  for(let i=0;i<layout.slots.length;i++){
-    const s=layout.slots[i];
-    const img=imgs[i];
-    stripCtx.fillStyle=frameColor;
-    stripCtx.fillRect(s.x,s.y,s.w,s.h);
-
-    if(img){
-      const mode=builderState.fitMode||"smart";
-      if(mode==="contain") drawContain(stripCtx,img,s.x,s.y,s.w,s.h);
-      else if(mode==="cover") drawCover(stripCtx,img,s.x,s.y,s.w,s.h);
-      else if(mode==="manual") drawManual(stripCtx,img,s.x,s.y,s.w,s.h,builderState.slotTransforms[i]);
-      else drawSmart(stripCtx,img,s.x,s.y,s.w,s.h);
-    }
-  }
-
-  // highlight active slot (preview only)
-  if(!forExport){
-    const a=layout.slots[activeSlot];
-    if(a){
-      stripCtx.save();
-      stripCtx.strokeStyle="rgba(255,255,255,.85)";
-      stripCtx.lineWidth=Math.max(6,Math.round(Math.min(stripCanvas.width,stripCanvas.height)*0.006));
-      stripCtx.strokeRect(a.x,a.y,a.w,a.h);
-      stripCtx.restore();
-    }
-  }
-
-  // logo at top bar center
-  const logo = await getLogo();
-  if(logo){
-    const top=layout.topBar;
-    const maxW=top.w*0.4;
-    const maxH=top.h*0.8;
-    const iw=logo.naturalWidth||logo.width;
-    const ih=logo.naturalHeight||logo.height;
-    if(iw&&ih){
-      const sc=Math.min(maxW/iw,maxH/ih);
-      const w=iw*sc, h=ih*sc;
-      const x=top.x+(top.w-w)/2;
-      const y=top.y+(top.h-h)/2;
-      stripCtx.drawImage(logo,x,y,w,h);
-    }
-  }
-}
-
-// manual interactions on canvas (pan/zoom) — clipped always
-let manualPointer={active:false, id:null, sx:0, sy:0, bx:0, by:0};
-
-function canvasPointToSlotIndex(cx,cy){
-  const r=stripCanvas.getBoundingClientRect();
-  const x=(cx-r.left)/r.width*stripCanvas.width;
-  const y=(cy-r.top)/r.height*stripCanvas.height;
-  const layout=getLayoutSlots();
-  for(let i=0;i<layout.slots.length;i++){
-    const s=layout.slots[i];
-    if(x>=s.x && x<=s.x+s.w && y>=s.y && y<=s.y+s.h) return i;
-  }
-  return -1;
-}
-
-stripCanvas.addEventListener("pointerdown",(e)=>{
-  if(builderOverlay.classList.contains("hidden")) return;
-  const idx=canvasPointToSlotIndex(e.clientX,e.clientY);
-  if(idx<0) return;
-  activeSlot=idx;
-  renderBuilderUI();
-  drawStrip(false);
-
-  if(builderState.fitMode!=="manual") return;
-  e.preventDefault();
-  manualPointer.active=true;
-  manualPointer.id=e.pointerId;
-  manualPointer.sx=e.clientX;
-  manualPointer.sy=e.clientY;
-  const tr=builderState.slotTransforms[activeSlot];
-  manualPointer.bx=tr.offsetX||0;
-  manualPointer.by=tr.offsetY||0;
-  stripCanvas.setPointerCapture?.(e.pointerId);
-},{passive:false});
-
-stripCanvas.addEventListener("pointermove",(e)=>{
-  if(!manualPointer.active) return;
-  if(builderState.fitMode!=="manual") return;
-  if(e.pointerId!==manualPointer.id) return;
-  e.preventDefault();
-  const dx=e.clientX-manualPointer.sx;
-  const dy=e.clientY-manualPointer.sy;
-  const tr=builderState.slotTransforms[activeSlot];
-  tr.offsetX=manualPointer.bx+dx;
-  tr.offsetY=manualPointer.by+dy;
-  drawStrip(false);
-},{passive:false});
-
-stripCanvas.addEventListener("pointerup",(e)=>{
-  if(e.pointerId===manualPointer.id){
-    manualPointer.active=false; manualPointer.id=null;
-  }
-});
-stripCanvas.addEventListener("pointercancel",()=>{
-  manualPointer.active=false; manualPointer.id=null;
-});
-
-// wheel zoom manual
-stripCanvas.addEventListener("wheel",(e)=>{
-  if(builderOverlay.classList.contains("hidden")) return;
-  if(builderState.fitMode!=="manual") return;
-  const idx=canvasPointToSlotIndex(e.clientX,e.clientY);
-  if(idx>=0){ activeSlot=idx; renderBuilderUI(); }
-  e.preventDefault();
-  const tr=builderState.slotTransforms[activeSlot];
-  tr.scaleMul=(tr.scaleMul||1)*(e.deltaY>0?0.92:1.08);
-  drawStrip(false);
-},{passive:false});
-
-// Export
-exportStripBtn.addEventListener("click", async ()=>{
-  await drawStrip(true);
-  stripCanvas.toBlob((blob)=>{
-    if(!blob){ alert("Export failed."); return; }
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url;
-    a.download=`Puff_Dragon_Photobooth_${Date.now()}.png`;
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),15000);
-  },"image/png");
-});
-
-</script>
-</body>
+
+    <!-- =========================
+         BUILDER OVERLAY
+    ========================= -->
+    <div id="builderOverlay" class="hidden" aria-hidden="true">
+      <div id="builderShell">
+        <div id="builderStageWrap">
+          <div id="builderStage">
+            <canvas id="stripCanvas" width="400" height="1200"></canvas>
+          </div>
+
+          <button id="builderOpenBtn" type="button" class="hidden">Show</button>
+        </div>
+
+        <div id="builderControls">
+          <div id="builderTopbar">
+            <div class="label">Photoshoot Customize</div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button id="builderHideBtn" type="button">Hide</button>
+              <button id="builderCloseBtn" type="button">Close</button>
+            </div>
+          </div>
+
+          <div id="builderBody">
+            <div class="ctrlGroup">
+              <div class="ctrlTitle">Frame color</div>
+              <div class="pillRow" id="frameColorRow"></div>
+              <div class="hint" style="margin-top:8px">
+                Logo auto-applies based on frame color.
+              </div>
+            </div>
+
+            <div class="ctrlGroup">
+              <div class="ctrlTitle">Image fit</div>
+              <div class="pillRow" id="fitModeRow"></div>
+              <div class="hint" style="margin-top:8px">
+                Smart = mostly full image (contain), but auto fills when aspect is close.
+                Manual = pan/zoom inside the frame (clipped).
+              </div>
+            </div>
+
+            <div class="ctrlGroup">
+              <div class="ctrlTitle">Layout</div>
+              <div class="pillRow" id="layoutRow"></div>
+            </div>
+
+            <div class="ctrlGroup">
+              <div class="ctrlTitle">Select photos</div>
+              <div class="pillRow" id="slotRow"></div>
+              <div class="hint" style="margin-top:8px">
+                Tap a slot (or tap a panel in preview), then tap a captured photo to assign it.
+              </div>
+              <div style="height:10px"></div>
+              <div id="photoPickGrid"></div>
+            </div>
+
+            <div class="ctrlGroup">
+              <button id="exportStripBtn" type="button">Export strip PNG</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* =========================
+         CACHE BUSTING
+      ========================= */
+      const ASSET_VERSION = "27";
+
+      /* =========================
+         HELPERS
+      ========================= */
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      const clamp01 = (v) => clamp(v, 0, 1);
+      const clamp255 = (v) => clamp(v, 0, 255);
+      const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      const angleDeg = (a, b) =>
+        (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+
+      function applyTransform(el, state) {
+        el.style.left = state.x + "%";
+        el.style.top = state.y + "%";
+        el.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg)`;
+      }
+
+      function getCoverSrcRect(srcW, srcH, dstW, dstH) {
+        const scale = Math.max(dstW / srcW, dstH / srcH);
+        const cropW = dstW / scale;
+        const cropH = dstH / scale;
+        const sx = (srcW - cropW) / 2;
+        const sy = (srcH - cropH) / 2;
+        return { sx, sy, sw: cropW, sh: cropH };
+      }
+
+      function isAppleSafari() {
+        const ua = navigator.userAgent;
+        const isIOS =
+          /iPad|iPhone|iPod/.test(ua) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        const isSafari =
+          /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox/.test(ua);
+        return isIOS || isSafari;
+      }
+
+      // Image cache
+      const __imgCache = new Map();
+      function loadImage(src) {
+        return new Promise((resolve) => {
+          if (!src) return resolve(null);
+          if (__imgCache.has(src)) return resolve(__imgCache.get(src));
+
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            __imgCache.set(src, img);
+            resolve(img);
+          };
+          img.onerror = () => resolve(null);
+
+          const isBlob = src.startsWith("blob:") || src.startsWith("data:");
+          img.src = isBlob
+            ? src
+            : src +
+              (src.includes("?") ? "" : `?v=${encodeURIComponent(ASSET_VERSION)}`);
+        });
+      }
+
+      /* =========================
+         MAIN APP ELEMENTS
+      ========================= */
+      const cameraEl = document.getElementById("camera");
+      const puffEl = document.getElementById("puff");
+      const stickerLayer = document.getElementById("stickerLayer");
+
+      const startBtn = document.getElementById("start");
+      const flipBtn = document.getElementById("flip");
+      const mirrorBtn = document.getElementById("mirror");
+      const stickersBtn = document.getElementById("stickers");
+      const captureBtn = document.getElementById("capture");
+      const photoboothToggleBtn = document.getElementById("photoboothToggle");
+      const timingBtn = document.getElementById("timingBtn");
+
+      const countdownOverlay = document.getElementById("countdownOverlay");
+      const countdownNumber = document.getElementById("countdownNumber");
+
+      const filterBtn = document.getElementById("filterBtn");
+      const filterPanel = document.getElementById("filterPanel");
+      const filterClose = document.getElementById("filterClose");
+      const filterListEl = document.getElementById("filterList");
+
+      const stickerPanel = document.getElementById("stickerPanel");
+      const stickerGrid = document.getElementById("stickerGrid");
+      const stickerClose = document.getElementById("stickerClose");
+      const stickerRemove = document.getElementById("stickerRemove");
+      const stickerClear = document.getElementById("stickerClear");
+
+      /* =========================
+         INTRO
+      ========================= */
+      const introOverlay = document.getElementById("introOverlay");
+      const introVideo = document.getElementById("introVideo");
+      const exploreBtn = document.getElementById("exploreBtn");
+      const introClosePuff = document.getElementById("introClosePuff");
+      const app = document.getElementById("app");
+
+      function setIntroSources() {
+        const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
+        introVideo.innerHTML = `
+          <source src="intro.mp4?${v}" type="video/mp4">
+          <source src="intro.webm?${v}" type="video/webm">
+        `;
+        introVideo.load();
+      }
+      setIntroSources();
+
+      let introLoopStarted = false;
+      introVideo.addEventListener("ended", async () => {
+        if (!introLoopStarted) {
+          introLoopStarted = true;
+          exploreBtn.classList.remove("hidden");
+          introVideo.loop = true;
+          try {
+            introVideo.currentTime = 0;
+            await introVideo.play();
+          } catch (_) {}
+        }
+      });
+
+      const tryPlayIntro = async () => {
+        try {
+          await introVideo.play();
+        } catch (_) {}
+        window.removeEventListener("pointerdown", tryPlayIntro, true);
+      };
+      window.addEventListener("pointerdown", tryPlayIntro, true);
+
+      async function closeIntro() {
+        introOverlay.classList.add("hidden");
+        app.classList.remove("hidden");
+        // NOTE: we DO NOT auto-start AR. User presses Start AR.
+        try {
+          await puffEl.play();
+        } catch (_) {}
+      }
+      introClosePuff.addEventListener("click", closeIntro);
+      exploreBtn.addEventListener("click", closeIntro);
+
+      /* =========================================================
+         FILTERS
+      ========================================================= */
+      function srgbToLin(c) {
+        c /= 255;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      }
+      function linToSrgb(c) {
+        c = clamp01(c);
+        const v =
+          c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+        return clamp255(v * 255);
+      }
+      function lumaLin(rLin, gLin, bLin) {
+        return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
+      }
+      function applySaturationLin(r, g, b, sat) {
+        const y = lumaLin(r, g, b);
+        return [y + (r - y) * sat, y + (g - y) * sat, y + (b - y) * sat];
+      }
+      function adjustShadowsHighlightsLin(y, shadows, highlights) {
+        let out = y;
+        if (shadows !== 0) {
+          const t = clamp01((0.45 - y) / 0.45);
+          out += shadows * t * 0.35;
+        }
+        if (highlights !== 0) {
+          const t = clamp01((y - 0.55) / 0.45);
+          out += highlights * t * 0.35;
+        }
+        return clamp01(out);
+      }
+      function applyBrillianceLin(y, brilliance) {
+        if (brilliance === 0) return y;
+        const k = brilliance * 0.55;
+        const s = y * y * (3 - 2 * y);
+        return clamp01(y + (s - y) * k);
+      }
+      function applyFadeLin(y, fade) {
+        if (!fade) return y;
+        const lift = fade * 0.1;
+        return clamp01(y * (1 - fade * 0.15) + lift);
+      }
+      function applyWarmthLin(r, g, b, warmth) {
+        if (!warmth) return [r, g, b];
+        const w = warmth * 0.1;
+        return [r * (1 + w), g, b * (1 - w)];
+      }
+      function unsharpMask(imageData, amount = 0.35, radius = 1) {
+        const { width: w, height: h, data } = imageData;
+        const src = new Uint8ClampedArray(data);
+        const idx = (x, y) => (y * w + x) * 4;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let r = 0, g = 0, b = 0, n = 0;
+            for (let dy = -radius; dy <= radius; dy++) {
+              const yy = y + dy;
+              if (yy < 0 || yy >= h) continue;
+              for (let dx = -radius; dx <= radius; dx++) {
+                const xx = x + dx;
+                if (xx < 0 || xx >= w) continue;
+                const p = idx(xx, yy);
+                r += src[p];
+                g += src[p + 1];
+                b += src[p + 2];
+                n++;
+              }
+            }
+            const p = idx(x, y);
+            const br = r / n, bg = g / n, bb = b / n;
+
+            data[p] = clamp255(src[p] + amount * (src[p] - br));
+            data[p + 1] = clamp255(src[p + 1] + amount * (src[p + 1] - bg));
+            data[p + 2] = clamp255(src[p + 2] + amount * (src[p + 2] - bb));
+          }
+        }
+        return imageData;
+      }
+      function noiseReduceLight(imageData, strength = 0.15) {
+        if (!strength) return imageData;
+        const { width: w, height: h, data } = imageData;
+        const src = new Uint8ClampedArray(data);
+        const idx = (x, y) => (y * w + x) * 4;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let r = 0, g = 0, b = 0, n = 0;
+            for (let dy = -1; dy <= 1; dy++) {
+              const yy = y + dy;
+              if (yy < 0 || yy >= h) continue;
+              for (let dx = -1; dx <= 1; dx++) {
+                const xx = x + dx;
+                if (xx < 0 || xx >= w) continue;
+                const p = idx(xx, yy);
+                r += src[p];
+                g += src[p + 1];
+                b += src[p + 2];
+                n++;
+              }
+            }
+            const p = idx(x, y);
+            const br = r / n, bg = g / n, bb = b / n;
+
+            data[p] = clamp255(src[p] * (1 - strength) + br * strength);
+            data[p + 1] = clamp255(src[p + 1] * (1 - strength) + bg * strength);
+            data[p + 2] = clamp255(src[p + 2] * (1 - strength) + bb * strength);
+          }
+        }
+        return imageData;
+      }
+      function recipe(params) {
+        return {
+          exposure: (params.exposure || 0) / 100,
+          brilliance: (params.brilliance || 0) / 100,
+          highlights: (params.highlights || 0) / 100,
+          shadows: (params.shadows || 0) / 100,
+          brightness: (params.brightness || 0) / 100,
+          contrast: (params.contrast || 0) / 100,
+          saturation: (params.saturation || 0) / 100,
+          warmth: (params.warmth || 0) / 100,
+          fade: (params.fade || 0) / 100,
+          sharpness: (params.sharpness || 0) / 100,
+          noiseReduce: (params.noiseReduce || 0) / 100,
+        };
+      }
+
+      const FILTERS = [
+        { id: "none", name: "None", recipe: recipe({}) },
+        {
+          id: "35mm04",
+          name: "35mm 04",
+          recipe: recipe({
+            exposure: -5, brilliance: -10, highlights: -30, shadows: +18,
+            brightness: -10, contrast: -8, saturation: -6, warmth: -6,
+            fade: +12, sharpness: -5, noiseReduce: +8,
+          }),
+        },
+        {
+          id: "vi4",
+          name: "VI4",
+          recipe: recipe({
+            exposure: +10, brilliance: +18, highlights: -35, shadows: +14,
+            brightness: +6, contrast: -6, saturation: +10, warmth: +10,
+            fade: +10, sharpness: +6, noiseReduce: +10,
+          }),
+        },
+        {
+          id: "cm1",
+          name: "CM1",
+          recipe: recipe({
+            exposure: +8, brilliance: +22, highlights: -25, shadows: +12,
+            brightness: +4, contrast: -4, saturation: +12, warmth: +6,
+            fade: +6, sharpness: +10, noiseReduce: +8,
+          }),
+        },
+        {
+          id: "sapa",
+          name: "Sapa",
+          recipe: recipe({
+            exposure: +12, brilliance: +10, highlights: -22, shadows: +18,
+            brightness: +8, contrast: -10, saturation: +6, warmth: -10,
+            fade: +16, sharpness: +6, noiseReduce: +10,
+          }),
+        },
+        {
+          id: "salt",
+          name: "Salt",
+          recipe: recipe({
+            exposure: +18, brilliance: +18, highlights: -40, shadows: +10,
+            brightness: +10, contrast: -8, saturation: +14, warmth: +14,
+            fade: +8, sharpness: +8, noiseReduce: +8,
+          }),
+        },
+        {
+          id: "in2",
+          name: "IN2",
+          recipe: recipe({
+            exposure: +10, brilliance: +8, highlights: -30, shadows: +16,
+            brightness: +4, contrast: -12, saturation: -4, warmth: -8,
+            fade: +18, sharpness: +6, noiseReduce: +12,
+          }),
+        },
+        {
+          id: "fl2",
+          name: "FL2",
+          recipe: recipe({
+            exposure: +14, brilliance: +14, highlights: -28, shadows: +10,
+            brightness: +8, contrast: -6, saturation: +10, warmth: +8,
+            fade: +10, sharpness: +8, noiseReduce: +10,
+          }),
+        },
+        {
+          id: "bwfilm",
+          name: "B&W Film",
+          recipe: recipe({
+            exposure: +6, brilliance: +10, highlights: -20, shadows: +10,
+            brightness: +4, contrast: +10, saturation: -100, fade: +8,
+            sharpness: +10, noiseReduce: +10,
+          }),
+        },
+      ];
+
+      let currentFilterId = "none";
+      let currentRecipe = FILTERS[0].recipe;
+
+      function recipeToPreviewCss(r) {
+        const bright = 1 + r.exposure * 0.55 + r.brightness * 0.35;
+        const cont = 1 + r.contrast * 0.6 + r.brilliance * 0.25;
+        const sat = 1 + r.saturation * 0.75;
+        const hue = r.warmth * -18;
+        const sep = clamp01(r.warmth * 0.35 + 0.05);
+        return `brightness(${bright.toFixed(3)}) contrast(${cont.toFixed(
+          3
+        )}) saturate(${sat.toFixed(3)}) sepia(${sep.toFixed(
+          3
+        )}) hue-rotate(${hue.toFixed(1)}deg)`;
+      }
+
+      function applyCameraFilterPreview() {
+        cameraEl.style.filter = recipeToPreviewCss(currentRecipe);
+      }
+
+      function openFilterPanel() {
+        filterPanel.classList.add("open");
+        filterPanel.setAttribute("aria-hidden", "false");
+      }
+      function closeFilterPanel() {
+        filterPanel.classList.remove("open");
+        filterPanel.setAttribute("aria-hidden", "true");
+      }
+
+      function renderFilters() {
+        filterListEl.innerHTML = "";
+        FILTERS.forEach((f) => {
+          const b = document.createElement("button");
+          b.className =
+            "filterItem" + (f.id === currentFilterId ? " active" : "");
+          b.type = "button";
+
+          const r = f.recipe;
+          const recLine =
+            f.id === "none"
+              ? "no recipe"
+              : `exp ${Math.round(r.exposure * 100)} • hi ${Math.round(
+                  r.highlights * 100
+                )} • sh ${Math.round(r.shadows * 100)} • sat ${Math.round(
+                  r.saturation * 100
+                )}`;
+
+          b.innerHTML = `${f.name}<span class="sub">${recLine}</span>`;
+
+          b.addEventListener("click", () => {
+            currentFilterId = f.id;
+            currentRecipe = f.recipe;
+            applyCameraFilterPreview();
+            renderFilters();
+            closeFilterPanel();
+          });
+          filterListEl.appendChild(b);
+        });
+      }
+      renderFilters();
+
+      filterBtn.addEventListener("click", () => {
+        if (filterBtn.disabled) return;
+        openFilterPanel();
+      });
+      filterClose.addEventListener("click", closeFilterPanel);
+
+      /* =========================
+         PUFF RANDOM (weighted)
+      ========================= */
+      const puffBasesWeighted = ["puff","puff","puff","puff","puff","puff","puff2","puff3"];
+      const chosenBase =
+        puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
+
+      function setPuffSource(base) {
+        const v = `v=${encodeURIComponent(ASSET_VERSION)}`;
+        if (isAppleSafari()) {
+          puffEl.innerHTML = `
+            <source src="${base}.mov?${v}" type='video/quicktime; codecs="hvc1"'>
+            <source src="${base}.mp4?${v}" type='video/mp4; codecs="hvc1"'>
+          `;
+        } else {
+          puffEl.innerHTML = `
+            <source src="${base}.webm?${v}" type='video/webm; codecs="vp09.00.10.08"'>
+            <source src="${base}.webm?${v}" type="video/webm">
+          `;
+        }
+        puffEl.load();
+      }
+
+      puffEl.setAttribute("playsinline", "");
+      puffEl.setAttribute("webkit-playsinline", "");
+      puffEl.muted = true;
+      puffEl.crossOrigin = "anonymous";
+      setPuffSource(chosenBase);
+
+      function lockPuffAspect() {
+        const vw = puffEl.videoWidth;
+        const vh = puffEl.videoHeight;
+        if (vw > 0 && vh > 0) {
+          puffEl.style.aspectRatio = `${vw} / ${vh}`;
+          puffEl.style.height = "auto";
+        }
+      }
+      puffEl.addEventListener("loadedmetadata", lockPuffAspect);
+      puffEl.addEventListener("loadeddata", lockPuffAspect);
+
+      /* =========================
+         CAMERA + MIRROR
+      ========================= */
+      let currentFacingMode = "environment";
+      let stream = null;
+      let mirrorMode = "auto";
+
+      function shouldMirrorPreview() {
+        return (
+          mirrorMode === "on" ||
+          (mirrorMode === "auto" && currentFacingMode === "user")
+        );
+      }
+
+      function applyMirrorToPreview() {
+        cameraEl.classList.toggle("mirror", shouldMirrorPreview());
+        mirrorBtn.textContent =
+          mirrorMode === "auto"
+            ? "Mirror: Auto"
+            : mirrorMode === "on"
+            ? "Mirror: On"
+            : "Mirror: Off";
+      }
+
+      function waitLoadedMetadata(videoEl, timeoutMs = 6000) {
+        return new Promise((resolve, reject) => {
+          if (videoEl.readyState >= 1 && videoEl.videoWidth > 0) return resolve();
+          const t = setTimeout(() => {
+            cleanup();
+            reject(new Error("metadata timeout"));
+          }, timeoutMs);
+          const onMeta = () => {
+            cleanup();
+            resolve();
+          };
+          const cleanup = () => {
+            clearTimeout(t);
+            videoEl.removeEventListener("loadedmetadata", onMeta);
+          };
+          videoEl.addEventListener("loadedmetadata", onMeta, { once: true });
+        });
+      }
+
+      async function startCamera() {
+        captureBtn.disabled = true;
+        stickersBtn.disabled = true;
+        mirrorBtn.disabled = true;
+        filterBtn.disabled = true;
+        photoboothToggleBtn.disabled = true;
+        timingBtn.disabled = true;
+
+        if (stream) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = null;
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: currentFacingMode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+
+        cameraEl.srcObject = stream;
+
+        await waitLoadedMetadata(cameraEl).catch(() => {});
+        await cameraEl.play().catch(() => {});
+
+        await waitLoadedMetadata(puffEl).catch(() => {});
+        await puffEl.play().catch(() => {});
+        lockPuffAspect();
+
+        flipBtn.disabled = false;
+        captureBtn.disabled = false;
+        stickersBtn.disabled = false;
+        mirrorBtn.disabled = false;
+        filterBtn.disabled = false;
+        photoboothToggleBtn.disabled = false;
+        timingBtn.disabled = false;
+
+        applyMirrorToPreview();
+        applyCameraFilterPreview();
+
+        startBtn.textContent = "AR Running";
+        startBtn.disabled = true;
+      }
+
+      startBtn.addEventListener("click", async () => {
+        try {
+          await startCamera();
+        } catch (e) {
+          console.error(e);
+          alert("Could not access camera. Please allow permission and use HTTPS.");
+        }
+      });
+
+      flipBtn.addEventListener("click", async () => {
+        currentFacingMode =
+          currentFacingMode === "environment" ? "user" : "environment";
+        startBtn.disabled = false;
+        startBtn.textContent = "Restart AR";
+        try {
+          await startCamera();
+        } catch (e) {
+          console.error(e);
+        }
+      });
+
+      mirrorBtn.addEventListener("click", () => {
+        mirrorMode =
+          mirrorMode === "auto" ? "on" : mirrorMode === "on" ? "off" : "auto";
+        applyMirrorToPreview();
+      });
+
+      /* =========================
+         INPUT: Desktop R-to-rotate
+      ========================= */
+      let rKeyDown = false;
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "r" || e.key === "R") rKeyDown = true;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.key === "r" || e.key === "R") rKeyDown = false;
+      });
+
+      /* =========================
+         PUFF transform (touch drag/pinch)
+      ========================= */
+      function enableTouchDragPinch(el, state, onUpdate) {
+        let mode = null;
+        let start = null;
+
+        const getTouch = (t) => ({ x: t.clientX, y: t.clientY });
+        const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+        const ang2 = (a, b) =>
+          (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+
+        function toPct(dxPx, dyPx) {
+          return { dx: (dxPx / innerWidth) * 100, dy: (dyPx / innerHeight) * 100 };
+        }
+
+        function onTouchStart(e) {
+          e.preventDefault();
+          if (e.touches.length === 1) {
+            mode = "drag";
+            const t = getTouch(e.touches[0]);
+            start = { x: t.x, y: t.y, baseX: state.x, baseY: state.y };
+          } else if (e.touches.length === 2) {
+            mode = "pinch";
+            const a = getTouch(e.touches[0]);
+            const b = getTouch(e.touches[1]);
+            start = {
+              d: dist2(a, b),
+              ang: ang2(a, b),
+              baseScale: state.scale,
+              baseRot: state.rotation,
+            };
+          }
+        }
+
+        function onTouchMove(e) {
+          if (!mode || !start) return;
+          e.preventDefault();
+
+          if (mode === "drag" && e.touches.length === 1) {
+            const t = getTouch(e.touches[0]);
+            const { dx, dy } = toPct(t.x - start.x, t.y - start.y);
+            state.x = clamp(start.baseX + dx, 0, 100);
+            state.y = clamp(start.baseY + dy, 0, 100);
+            onUpdate();
+          }
+
+          if (mode === "pinch" && e.touches.length === 2) {
+            const a = getTouch(e.touches[0]);
+            const b = getTouch(e.touches[1]);
+            const newD = dist2(a, b);
+            const newAng = ang2(a, b);
+
+            const s = newD / Math.max(10, start.d);
+            state.scale = clamp(start.baseScale * s, 0.2, 6);
+            state.rotation = start.baseRot + (newAng - start.ang);
+            onUpdate();
+          }
+        }
+
+        function onTouchEnd(e) {
+          if (e.touches.length === 0) {
+            mode = null;
+            start = null;
+          } else if (e.touches.length === 1) {
+            mode = "drag";
+            const t = getTouch(e.touches[0]);
+            start = { x: t.x, y: t.y, baseX: state.x, baseY: state.y };
+          }
+        }
+
+        // Mouse drag + wheel zoom + R-drag rotate
+        let mouseDown = false;
+        let mouseStart = null;
+
+        function onMouseDown(e) {
+          e.preventDefault();
+          mouseDown = true;
+          mouseStart = {
+            x: e.clientX, y: e.clientY,
+            baseX: state.x, baseY: state.y,
+            baseRot: state.rotation,
+          };
+          window.addEventListener("mousemove", onMouseMove, { passive: false });
+          window.addEventListener("mouseup", onMouseUp, { passive: false });
+        }
+        function onMouseMove(e) {
+          if (!mouseDown || !mouseStart) return;
+          e.preventDefault();
+          const { dx, dy } = toPct(e.clientX - mouseStart.x, e.clientY - mouseStart.y);
+          if (rKeyDown) {
+            state.rotation = mouseStart.baseRot + dx * 3.0;
+          } else {
+            state.x = clamp(mouseStart.baseX + dx, 0, 100);
+            state.y = clamp(mouseStart.baseY + dy, 0, 100);
+          }
+          onUpdate();
+        }
+        function onMouseUp() {
+          mouseDown = false;
+          mouseStart = null;
+          window.removeEventListener("mousemove", onMouseMove);
+          window.removeEventListener("mouseup", onMouseUp);
+        }
+
+        function onWheel(e) {
+          e.preventDefault();
+          const delta = -Math.sign(e.deltaY) * 0.08;
+          state.scale = clamp(state.scale * (1 + delta), 0.2, 6);
+          onUpdate();
+        }
+
+        el.addEventListener("touchstart", onTouchStart, { passive: false });
+        el.addEventListener("touchmove", onTouchMove, { passive: false });
+        el.addEventListener("touchend", onTouchEnd, { passive: false });
+        el.addEventListener("touchcancel", onTouchEnd, { passive: false });
+        el.addEventListener("mousedown", onMouseDown, { passive: false });
+        el.addEventListener("wheel", onWheel, { passive: false });
+      }
+
+      /* =========================
+         PUFF state
+      ========================= */
+      const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
+      function updatePuff() {
+        applyTransform(puffEl, puffState);
+      }
+      updatePuff();
+      enableTouchDragPinch(puffEl, puffState, updatePuff);
+
+      /* =========================
+         MULTI-STICKERS
+      ========================= */
+      function makeTransformable(el, state, onUpdate) {
+        const pointers = new Map();
+        let gestureStart = null;
+        let dragStart = null;
+
+        el.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        el.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          el.setPointerCapture?.(e.pointerId);
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+          if (pointers.size === 1) {
+            dragStart = {
+              x: e.clientX,
+              y: e.clientY,
+              baseX: state.x,
+              baseY: state.y,
+              baseRotation: state.rotation,
+              w: innerWidth,
+              h: innerHeight,
+            };
+            gestureStart = null;
+          } else if (pointers.size === 2) {
+            const pts = Array.from(pointers.values());
+            const a = pts[0], b = pts[1];
+            gestureStart = {
+              distance: dist(a, b),
+              angle: angleDeg(a, b),
+              scale: state.scale,
+              rotation: state.rotation,
+            };
+            dragStart = null;
+          }
+        });
+
+        el.addEventListener("pointermove", (e) => {
+          if (!pointers.has(e.pointerId)) return;
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+          if (pointers.size === 1 && dragStart) {
+            const dx = ((e.clientX - dragStart.x) / dragStart.w) * 100;
+            const dy = ((e.clientY - dragStart.y) / dragStart.h) * 100;
+
+            if (e.pointerType === "mouse" && rKeyDown) {
+              state.rotation = dragStart.baseRotation + dx * 3.0;
+            } else {
+              state.x = clamp(dragStart.baseX + dx, 0, 100);
+              state.y = clamp(dragStart.baseY + dy, 0, 100);
+            }
+            onUpdate();
+          }
+
+          if (pointers.size === 2 && gestureStart) {
+            const pts = Array.from(pointers.values());
+            const a = pts[0], b = pts[1];
+            const newDistance = dist(a, b);
+            const newAngle = angleDeg(a, b);
+
+            state.scale = clamp(
+              gestureStart.scale * (newDistance / gestureStart.distance),
+              0.2,
+              6
+            );
+            state.rotation =
+              gestureStart.rotation + (newAngle - gestureStart.angle);
+
+            onUpdate();
+          }
+        });
+
+        function endGesture() {
+          pointers.clear();
+          dragStart = null;
+          gestureStart = null;
+        }
+
+        el.addEventListener("pointerup", endGesture);
+        el.addEventListener("pointercancel", endGesture);
+
+        el.addEventListener(
+          "wheel",
+          (e) => {
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.92 : 1.08;
+            state.scale = clamp(state.scale * factor, 0.2, 6);
+            onUpdate();
+          },
+          { passive: false }
+        );
+      }
+
+      let stickersLoaded = false;
+      const stickerStates = new Map();
+      let lastStickerEl = null;
+
+      function createSticker(src) {
+        const el = document.createElement("img");
+        el.className = "sticker";
+        el.alt = "sticker";
+        el.crossOrigin = "anonymous";
+        el.src = src;
+        el.style.pointerEvents = "auto";
+        stickerLayer.appendChild(el);
+
+        const state = { x: 50, y: 40, scale: 1.0, rotation: 0 };
+        stickerStates.set(el, state);
+
+        function update() {
+          applyTransform(el, state);
+        }
+        update();
+
+        makeTransformable(el, state, update);
+        lastStickerEl = el;
+
+        stickerRemove.disabled = stickerStates.size === 0;
+        stickerClear.disabled = stickerStates.size === 0;
+      }
+
+      function openStickerPanel() {
+        stickerPanel.classList.add("open");
+        stickerPanel.setAttribute("aria-hidden", "false");
+        if (!stickersLoaded) loadStickers();
+      }
+      function closeStickerPanel() {
+        stickerPanel.classList.remove("open");
+        stickerPanel.setAttribute("aria-hidden", "true");
+      }
+
+      stickersBtn.addEventListener("click", () => {
+        if (stickersBtn.disabled) return;
+        openStickerPanel();
+      });
+      stickerClose.addEventListener("click", closeStickerPanel);
+
+      stickerRemove.addEventListener("click", () => {
+        if (!lastStickerEl) return;
+        stickerStates.delete(lastStickerEl);
+        lastStickerEl.remove();
+        lastStickerEl = Array.from(stickerStates.keys()).pop() || null;
+
+        stickerRemove.disabled = stickerStates.size === 0;
+        stickerClear.disabled = stickerStates.size === 0;
+      });
+
+      stickerClear.addEventListener("click", () => {
+        for (const el of stickerStates.keys()) el.remove();
+        stickerStates.clear();
+        lastStickerEl = null;
+        stickerRemove.disabled = true;
+        stickerClear.disabled = true;
+      });
+
+      async function loadStickers() {
+        try {
+          const res = await fetch(`./stickers.json?v=${encodeURIComponent(ASSET_VERSION)}`);
+          const list = await res.json();
+          stickersLoaded = true;
+
+          stickerGrid.innerHTML = "";
+          list.forEach((item) => {
+            const cell = document.createElement("button");
+            cell.className = "stickerItem";
+            cell.type = "button";
+            cell.style.border = "0";
+            cell.style.cursor = "pointer";
+
+            const img = document.createElement("img");
+            img.loading = "lazy";
+            img.alt = item.name || item.id || "sticker";
+            const encodedSrc = encodeURI(item.src);
+            img.src = `${encodedSrc}?v=${encodeURIComponent(ASSET_VERSION)}`;
+            img.crossOrigin = "anonymous";
+
+            cell.appendChild(img);
+
+            cell.addEventListener("click", () => {
+              createSticker(img.src);
+              closeStickerPanel();
+            });
+
+            stickerGrid.appendChild(cell);
+          });
+        } catch (e) {
+          console.error(e);
+          stickerGrid.innerHTML = `<div style="color:#fff;font:700 12px system-ui;opacity:.9">
+              Could not load stickers.json. Check ./stickers.json is deployed.
+            </div>`;
+        }
+      }
+
+      /* =========================
+         COUNTDOWN (Timing)
+      ========================= */
+      let timingOn = false;
+      timingBtn.addEventListener("click", () => {
+        if (timingBtn.disabled) return;
+        timingOn = !timingOn;
+        timingBtn.classList.toggle("on", timingOn);
+        timingBtn.textContent = timingOn ? "Timing: ON" : "Timing: OFF";
+      });
+
+      async function runCountdown3() {
+        countdownOverlay.classList.add("show");
+        countdownOverlay.setAttribute("aria-hidden", "false");
+
+        const steps = ["3", "2", "1", "0"];
+        for (let i = 0; i < steps.length; i++) {
+          countdownNumber.textContent = steps[i];
+          await new Promise((r) => setTimeout(r, i === steps.length - 1 ? 220 : 700));
+        }
+
+        countdownOverlay.classList.remove("show");
+        countdownOverlay.setAttribute("aria-hidden", "true");
+      }
+
+      /* =========================
+         CAPTURE (safe, no-stretch, preview-match)
+         - rect only for center
+         - size from offsetWidth/offsetHeight * dpr * state.scale
+         - viewport mapping uses visualViewport for Android stability
+      ========================= */
+      function applyRecipeToImageData(imageData, r) {
+        const d = imageData.data;
+
+        const sat = 1 + r.saturation * 0.9;
+        const exposureGain = Math.pow(2, r.exposure);
+        const brightnessGain = 1 + r.brightness * 0.35;
+        const contrastGain = 1 + r.contrast * 0.6;
+
+        for (let i = 0; i < d.length; i += 4) {
+          let rLin = srgbToLin(d[i]);
+          let gLin = srgbToLin(d[i + 1]);
+          let bLin = srgbToLin(d[i + 2]);
+
+          [rLin, gLin, bLin] = applyWarmthLin(rLin, gLin, bLin, r.warmth);
+
+          rLin *= exposureGain * brightnessGain;
+          gLin *= exposureGain * brightnessGain;
+          bLin *= exposureGain * brightnessGain;
+
+          let y = lumaLin(rLin, gLin, bLin);
+          y = applyBrillianceLin(y, r.brilliance);
+          y = adjustShadowsHighlightsLin(y, r.shadows, r.highlights);
+
+          const y0 = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
+          const sc = y / y0;
+          rLin *= sc;
+          gLin *= sc;
+          bLin *= sc;
+
+          [rLin, gLin, bLin] = applySaturationLin(rLin, gLin, bLin, sat);
+
+          const pivot = 0.18;
+          rLin = (rLin - pivot) * contrastGain + pivot;
+          gLin = (gLin - pivot) * contrastGain + pivot;
+          bLin = (bLin - pivot) * contrastGain + pivot;
+
+          const yFade = applyFadeLin(lumaLin(rLin, gLin, bLin), r.fade);
+          const yNow = Math.max(1e-6, lumaLin(rLin, gLin, bLin));
+          const s2 = yFade / yNow;
+          rLin *= s2;
+          gLin *= s2;
+          bLin *= s2;
+
+          d[i] = linToSrgb(rLin);
+          d[i + 1] = linToSrgb(gLin);
+          d[i + 2] = linToSrgb(bLin);
+        }
+
+        if (r.noiseReduce > 0.01)
+          noiseReduceLight(imageData, clamp01(r.noiseReduce * 0.35));
+        if (r.sharpness > 0.01)
+          unsharpMask(imageData, clamp01(r.sharpness * 0.55), 1);
+        return imageData;
+      }
+
+      function getVisualViewportBox(dpr) {
+        const vv = window.visualViewport;
+        const w = vv ? vv.width : window.innerWidth;
+        const h = vv ? vv.height : window.innerHeight;
+        const ox = vv ? vv.offsetLeft : 0;
+        const oy = vv ? vv.offsetTop : 0;
+        return {
+          vw: w,
+          vh: h,
+          ox,
+          oy,
+          W: Math.round(w * dpr),
+          H: Math.round(h * dpr),
+        };
+      }
+
+      function elementCenterInVV(el, dpr, vvBox) {
+        const r = el.getBoundingClientRect();
+        const cx = (r.left - vvBox.ox + r.width / 2) * dpr;
+        const cy = (r.top - vvBox.oy + r.height / 2) * dpr;
+        return { cx, cy };
+      }
+
+      function captureToBlob(cb) {
+        if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
+          alert("Start AR first.");
+          return;
+        }
+
+        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        const vvBox = getVisualViewportBox(dpr);
+        const W = vvBox.W;
+        const H = vvBox.H;
+
+        const out = document.createElement("canvas");
+        out.width = W;
+        out.height = H;
+        const ctx = out.getContext("2d", { willReadFrequently: true });
+
+        // Mirror output must match preview EXACTLY:
+        // Preview mirrors ONLY the camera video (not puff/stickers).
+        const mirrorCameraOnly = shouldMirrorPreview();
+
+        const camSrcW = cameraEl.videoWidth;
+        const camSrcH = cameraEl.videoHeight;
+        const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
+
+        // draw camera
+        ctx.save();
+        if (mirrorCameraOnly) {
+          ctx.translate(W, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(
+          cameraEl,
+          crop.sx, crop.sy, crop.sw, crop.sh,
+          0, 0, W, H
+        );
+        ctx.restore();
+
+        // apply filter to camera
+        if (currentFilterId !== "none") {
+          const imgData = ctx.getImageData(0, 0, W, H);
+          applyRecipeToImageData(imgData, currentRecipe);
+          ctx.putImageData(imgData, 0, 0);
+        }
+
+        // draw Puff (SAFE: center from rect, size from offsetWidth/Height + state.scale)
+        const puffCenter = elementCenterInVV(puffEl, dpr, vvBox);
+        const baseW = puffEl.offsetWidth * dpr;
+        const baseH = puffEl.offsetHeight * dpr;
+        const drawW = baseW * puffState.scale;
+        const drawH = baseH * puffState.scale;
+
+        ctx.save();
+        ctx.translate(puffCenter.cx, puffCenter.cy);
+        ctx.rotate((puffState.rotation * Math.PI) / 180);
+        ctx.drawImage(puffEl, -drawW / 2, -drawH / 2, drawW, drawH);
+        ctx.restore();
+
+        // draw stickers (SAFE: same rule)
+        for (const [el, st] of stickerStates.entries()) {
+          if (!el.complete || !el.naturalWidth) continue;
+          const c = elementCenterInVV(el, dpr, vvBox);
+          const bw = el.offsetWidth * dpr;
+          const bh = el.offsetHeight * dpr;
+          const w = bw * st.scale;
+          const h = bh * st.scale;
+
+          ctx.save();
+          ctx.translate(c.cx, c.cy);
+          ctx.rotate((st.rotation * Math.PI) / 180);
+          ctx.drawImage(el, -w / 2, -h / 2, w, h);
+          ctx.restore();
+        }
+
+        out.toBlob((blob) => cb(blob), "image/png");
+      }
+
+      /* =========================
+         SINGLE CAPTURE (photobooth OFF)
+      ========================= */
+      function nextCaptureFilename() {
+        const key = "puff_capture_counter";
+        const current = parseInt(localStorage.getItem(key) || "0", 10) + 1;
+        localStorage.setItem(key, String(current));
+        const num = String(current).padStart(3, "0");
+        return `Puff Dragon_HPNY2026_${num}.png`;
+      }
+
+      function openDownloadWindow(blob) {
+        const win = window.open("about:blank", "_blank");
+        if (!win) {
+          alert("Popup blocked. Please allow popups for this site.");
+          return;
+        }
+        const filename = nextCaptureFilename();
+        const url = URL.createObjectURL(blob);
+
+        win.document.write(`
+          <title>${filename}</title>
+          <div style="margin:0;background:#000;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;">
+            <img src="${url}" style="max-width:100%;height:auto;display:block;" />
+            <a
+              href="${url}"
+              download="${filename}"
+              style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
+            >
+              Download (${filename})
+            </a>
+          </div>
+        `);
+        win.document.close();
+        setTimeout(() => URL.revokeObjectURL(url), 15000);
+      }
+
+      /* =========================
+         PHOTOBOOTH MODE
+      ========================= */
+      let photoboothOn = false;
+
+      const capturedPanel = document.getElementById("capturedPanel");
+      const capturedHeader = document.getElementById("capturedHeader");
+      const capturedList = document.getElementById("capturedList");
+      const cueBtn = document.getElementById("cueBtn");
+      const clearCapturedBtn = document.getElementById("clearCapturedBtn");
+
+      const capturedItems = []; // { blob, url }
+
+      function setPhotoboothMode(on) {
+        photoboothOn = on;
+        photoboothToggleBtn.textContent = on ? "Photobooth: ON" : "Photobooth: OFF";
+        photoboothToggleBtn.classList.toggle("on", on);
+
+        if (on) {
+          capturedPanel.classList.remove("hidden");
+          capturedPanel.setAttribute("aria-hidden", "false");
+        } else {
+          capturedPanel.classList.add("hidden");
+          capturedPanel.setAttribute("aria-hidden", "true");
+        }
+        updateCapturedUI();
+      }
+
+      photoboothToggleBtn.addEventListener("click", () => {
+        if (photoboothToggleBtn.disabled) return;
+        setPhotoboothMode(!photoboothOn);
+      });
+
+      function updateCapturedUI() {
+        capturedList.innerHTML = "";
+        capturedItems.forEach((it) => {
+          const cell = document.createElement("div");
+          cell.className = "capThumb";
+          const img = document.createElement("img");
+          img.src = it.url;
+          img.alt = "capture";
+          cell.appendChild(img);
+          capturedList.appendChild(cell);
+        });
+        cueBtn.disabled = capturedItems.length === 0;
+      }
+
+      clearCapturedBtn.addEventListener("click", () => {
+        for (const it of capturedItems) URL.revokeObjectURL(it.url);
+        capturedItems.length = 0;
+        updateCapturedUI();
+      });
+
+      /* make captured panel movable */
+      (function enableDragPanel() {
+        let dragging = false;
+        let start = null;
+
+        capturedHeader.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          dragging = true;
+          capturedHeader.setPointerCapture?.(e.pointerId);
+          const rect = capturedPanel.getBoundingClientRect();
+          start = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
+          capturedHeader.style.cursor = "grabbing";
+        });
+
+        window.addEventListener(
+          "pointermove",
+          (e) => {
+            if (!dragging || !start) return;
+            e.preventDefault();
+            const dx = e.clientX - start.x;
+            const dy = e.clientY - start.y;
+
+            const newLeft = clamp(
+              start.left + dx,
+              6,
+              innerWidth - capturedPanel.offsetWidth - 6
+            );
+            const newTop = clamp(
+              start.top + dy,
+              6,
+              innerHeight - capturedPanel.offsetHeight - 6
+            );
+
+            capturedPanel.style.left = newLeft + "px";
+            capturedPanel.style.top = newTop + "px";
+            capturedPanel.style.right = "auto";
+          },
+          { passive: false }
+        );
+
+        window.addEventListener("pointerup", () => {
+          dragging = false;
+          start = null;
+          capturedHeader.style.cursor = "grab";
+        });
+      })();
+
+      /* =========================
+         CAPTURE BUTTON
+      ========================= */
+      captureBtn.addEventListener("click", async () => {
+        if (captureBtn.disabled) return;
+
+        if (timingOn) {
+          await runCountdown3();
+        }
+
+        if (!photoboothOn) {
+          captureToBlob((blob) => {
+            if (!blob) {
+              alert("Capture failed.");
+              return;
+            }
+            openDownloadWindow(blob);
+          });
+          return;
+        }
+
+        captureToBlob((blob) => {
+          if (!blob) {
+            alert("Capture failed.");
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          capturedItems.push({ blob, url });
+          updateCapturedUI();
+        });
+      });
+
+      /* =========================
+         BUILDER (customize page)
+      ========================= */
+      const builderOverlay = document.getElementById("builderOverlay");
+      const builderCloseBtn = document.getElementById("builderCloseBtn");
+      const stripCanvas = document.getElementById("stripCanvas");
+      const stripCtx = stripCanvas.getContext("2d");
+
+      const frameColorRow = document.getElementById("frameColorRow");
+      const layoutRow = document.getElementById("layoutRow");
+      const fitModeRow = document.getElementById("fitModeRow");
+      const slotRow = document.getElementById("slotRow");
+      const photoPickGrid = document.getElementById("photoPickGrid");
+      const exportStripBtn = document.getElementById("exportStripBtn");
+
+      const builderHideBtn = document.getElementById("builderHideBtn");
+      const builderOpenBtn = document.getElementById("builderOpenBtn");
+      const builderShell = document.getElementById("builderShell");
+
+      cueBtn.addEventListener("click", () => openBuilder());
+      builderCloseBtn.addEventListener("click", () => closeBuilder());
+      builderOverlay.addEventListener("pointerdown", (e) => {
+        if (e.target === builderOverlay) closeBuilder();
+      });
+
+      // frame colors (unchanged)
+      const FRAME_COLORS = [
+        { id: "red", name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
+        { id: "blue", name: "Dark Blue", value: "#060d3d", logo: "puff-logo-3.png" },
+        { id: "grey", name: "Bright Grey", value: "#e8eef1", logo: "puff-logo-1.png" },
+        { id: "white", name: "White", value: "#ffffff", logo: "puff-logo-1.png" },
+        { id: "black", name: "Pure Black", value: "#000000", logo: "puff-logo-3.png" },
+      ];
+
+      // layouts (kept)
+      const LAYOUTS = [
+        { id: "L1", name: "Layout 1 (3 horizontal strip)" },
+        { id: "L2", name: "Layout 2 (3 vertical strip)" },
+        { id: "L3", name: "Layout 3 (4 grid 2x2)" },
+        { id: "L4", name: "Layout 4 (2 horizontal, left bar)" },
+        { id: "L5", name: "Layout 5 (2 horizontal, center bar)" },
+        { id: "L6", name: "Layout 6 (4x6 landscape, 2 stacked + right bar)" },
+        { id: "L7", name: "Layout 7 (4x6 landscape, 1 photo)" },
+      ];
+
+      let builderState = {
+        frameColorId: "blue",
+        layoutId: "L2",
+        fitMode: "smart", // contain | smart | cover | manual
+        slotToCapture: [],
+        slotTransforms: [], // per slot: { scaleMul, offsetX, offsetY }
+      };
+
+      let activeSlot = 0;
+
+      let builderControlsHidden = false;
+      function setBuilderControlsHidden(hidden) {
+        builderControlsHidden = hidden;
+        builderShell.classList.toggle("controlsHidden", hidden);
+        builderOpenBtn.classList.toggle("hidden", !hidden);
+        builderHideBtn.textContent = hidden ? "Show" : "Hide";
+      }
+      builderHideBtn.addEventListener("click", () =>
+        setBuilderControlsHidden(!builderControlsHidden)
+      );
+      builderOpenBtn.addEventListener("click", () => setBuilderControlsHidden(false));
+
+      const logoImgCache = new Map();
+      async function getLogoImage() {
+        const c =
+          FRAME_COLORS.find((x) => x.id === builderState.frameColorId) ||
+          FRAME_COLORS[1];
+        const src = c.logo;
+        if (logoImgCache.has(src)) return logoImgCache.get(src);
+        const img = await loadImage(src);
+        logoImgCache.set(src, img);
+        return img;
+      }
+
+      function getFrameColor() {
+        const c =
+          FRAME_COLORS.find((x) => x.id === builderState.frameColorId) ||
+          FRAME_COLORS[1];
+        return c.value;
+      }
+
+      function syncCanvasToLayout() {
+        if (builderState.layoutId === "L1") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
+        if (builderState.layoutId === "L2") { stripCanvas.width = 400; stripCanvas.height = 1200; return; }
+        if (builderState.layoutId === "L3") { stripCanvas.width = 900; stripCanvas.height = 1350; return; }
+        if (builderState.layoutId === "L4" || builderState.layoutId === "L5") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
+        if (builderState.layoutId === "L6" || builderState.layoutId === "L7") { stripCanvas.width = 1350; stripCanvas.height = 900; return; }
+      }
+
+      function slotsNeeded() {
+        if (builderState.layoutId === "L3") return 4;
+        if (builderState.layoutId === "L4" || builderState.layoutId === "L5") return 2;
+        if (builderState.layoutId === "L6") return 2;
+        if (builderState.layoutId === "L7") return 1;
+        return 3;
+      }
+
+      function ensureSlotMapping() {
+        const n = slotsNeeded();
+
+        const arr = builderState.slotToCapture || [];
+        const next = new Array(n).fill(-1);
+        for (let i = 0; i < n; i++) next[i] = arr[i] ?? i;
+        for (let i = 0; i < n; i++) {
+          if (next[i] >= capturedItems.length) next[i] = -1;
+        }
+        builderState.slotToCapture = next;
+
+        const tArr = builderState.slotTransforms || [];
+        const tNext = new Array(n).fill(null).map((_, i) => {
+          const prev = tArr[i];
+          return {
+            scaleMul: prev?.scaleMul ?? 1,
+            offsetX: prev?.offsetX ?? 0,
+            offsetY: prev?.offsetY ?? 0,
+          };
+        });
+        builderState.slotTransforms = tNext;
+
+        activeSlot = clamp(activeSlot, 0, n - 1);
+      }
+
+      function renderBuilderUI() {
+        frameColorRow.innerHTML = "";
+        FRAME_COLORS.forEach((c) => {
+          const p = document.createElement("div");
+          p.className =
+            "pill" + (builderState.frameColorId === c.id ? " active" : "");
+          p.textContent = c.name;
+          p.addEventListener("click", async () => {
+            builderState.frameColorId = c.id;
+            renderBuilderUI();
+            await drawStrip({ forExport: false });
+          });
+          frameColorRow.appendChild(p);
+        });
+
+        layoutRow.innerHTML = "";
+        LAYOUTS.forEach((l) => {
+          const p = document.createElement("div");
+          p.className = "pill" + (builderState.layoutId === l.id ? " active" : "");
+          p.textContent = l.name;
+          p.addEventListener("click", async () => {
+            builderState.layoutId = l.id;
+            syncCanvasToLayout();
+            ensureSlotMapping();
+            renderBuilderUI();
+            await drawStrip({ forExport: false });
+            document.getElementById("builderStageWrap").scrollTop = 0;
+          });
+          layoutRow.appendChild(p);
+        });
+
+        fitModeRow.innerHTML = "";
+        [
+          { id: "contain", label: "Contain (no crop)" },
+          { id: "smart", label: "Smart (recommended)" },
+          { id: "cover", label: "Cover (fill slot)" },
+          { id: "manual", label: "Manual (pan/zoom)" },
+        ].forEach((m) => {
+          const p = document.createElement("div");
+          p.className = "pill" + (builderState.fitMode === m.id ? " active" : "");
+          p.textContent = m.label;
+          p.addEventListener("click", async () => {
+            builderState.fitMode = m.id;
+            renderBuilderUI();
+            await drawStrip({ forExport: false });
+          });
+          fitModeRow.appendChild(p);
+        });
+
+        slotRow.innerHTML = "";
+        const nSlots = slotsNeeded();
+        for (let i = 0; i < nSlots; i++) {
+          const p = document.createElement("div");
+          p.className = "pill" + (activeSlot === i ? " active" : "");
+          p.textContent = `Slot ${i + 1}`;
+          p.addEventListener("click", () => {
+            activeSlot = i;
+            renderBuilderUI();
+            drawStrip({ forExport: false });
+          });
+          slotRow.appendChild(p);
+        }
+
+        photoPickGrid.innerHTML = "";
+        capturedItems.forEach((it, idx) => {
+          const cell = document.createElement("button");
+          cell.className = "pickThumb";
+          cell.type = "button";
+          cell.style.border = "0";
+          cell.style.padding = "0";
+          const img = document.createElement("img");
+          img.src = it.url;
+          img.alt = "pick";
+          cell.appendChild(img);
+
+          cell.addEventListener("click", async () => {
+            builderState.slotToCapture[activeSlot] = idx;
+            const n = slotsNeeded();
+            activeSlot = (activeSlot + 1) % n;
+            renderBuilderUI();
+            await drawStrip({ forExport: false });
+          });
+
+          photoPickGrid.appendChild(cell);
+        });
+      }
+
+      function openBuilder() {
+        if (capturedItems.length === 0) return;
+        builderOverlay.classList.remove("hidden");
+        builderOverlay.setAttribute("aria-hidden", "false");
+        setBuilderControlsHidden(false);
+
+        syncCanvasToLayout();
+        ensureSlotMapping();
+        renderBuilderUI();
+        drawStrip({ forExport: false });
+        document.getElementById("builderStageWrap").scrollTop = 0;
+      }
+
+      function closeBuilder() {
+        builderOverlay.classList.add("hidden");
+        builderOverlay.setAttribute("aria-hidden", "true");
+      }
+
+      /* ======= Draw helpers ======= */
+      function drawCover(ctx, img, rx, ry, rw, rh) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+
+        const s = Math.max(rw / iw, rh / ih);
+        const dw = iw * s;
+        const dh = ih * s;
+        const dx = rx + (rw - dw) / 2;
+        const dy = ry + (rh - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+      }
+
+      function drawContain(ctx, img, rx, ry, rw, rh) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+
+        const s = Math.min(rw / iw, rh / ih);
+        const dw = iw * s;
+        const dh = ih * s;
+        const dx = rx + (rw - dw) / 2;
+        const dy = ry + (rh - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+      }
+
+      function drawSmart(ctx, img, rx, ry, rw, rh) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+
+        const imgAR = iw / ih;
+        const slotAR = rw / rh;
+        const ratio = imgAR / slotAR;
+        const closeEnough = ratio > 0.82 && ratio < 1.22;
+        if (closeEnough) drawCover(ctx, img, rx, ry, rw, rh);
+        else drawContain(ctx, img, rx, ry, rw, rh);
+      }
+
+      function drawManual(ctx, img, rx, ry, rw, rh, tr) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+
+        const coverS = Math.max(rw / iw, rh / ih);
+        const containS = Math.min(rw / iw, rh / ih);
+
+        const minMul = containS / coverS;
+        const maxMul = 3.0;
+        tr.scaleMul = clamp(tr.scaleMul || 1, minMul, maxMul);
+
+        const s = coverS * tr.scaleMul;
+        const dw = iw * s;
+        const dh = ih * s;
+
+        let dx = rx + (rw - dw) / 2;
+        let dy = ry + (rh - dh) / 2;
+
+        let offX = tr.offsetX || 0;
+        let offY = tr.offsetY || 0;
+
+        if (dw > rw) {
+          const maxPanX = (dw - rw) / 2;
+          offX = clamp(offX, -maxPanX, +maxPanX);
+        } else offX = 0;
+
+        if (dh > rh) {
+          const maxPanY = (dh - rh) / 2;
+          offY = clamp(offY, -maxPanY, +maxPanY);
+        } else offY = 0;
+
+        tr.offsetX = offX;
+        tr.offsetY = offY;
+
+        dx += offX;
+        dy += offY;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(rx, ry, rw, rh);
+        ctx.clip();
+        ctx.drawImage(img, dx, dy, dw, dh);
+        ctx.restore();
+      }
+
+      function getLayoutSlots() {
+        const W = stripCanvas.width;
+        const H = stripCanvas.height;
+
+        const minSide = Math.min(W, H);
+        const outer = Math.round(minSide * 0.06);
+
+        const topBar = Math.round(minSide * 0.16);
+        const bottomBar = Math.round(minSide * 0.1);
+
+        const gap = Math.max(6, Math.round(minSide * 0.012));
+
+        const contentX = outer;
+        const contentY = outer + topBar;
+        const contentW = W - outer * 2;
+        const contentH = H - outer - bottomBar - contentY;
+
+        const topBarRect = { x: outer, y: outer, w: contentW, h: topBar };
+        const botBarRect = { x: outer, y: H - outer - bottomBar, w: contentW, h: bottomBar };
+
+        if (builderState.layoutId === "L1") {
+          const slotW = Math.floor((contentW - gap * 2) / 3);
+          const slotH = contentH;
+          return {
+            topBar: topBarRect,
+            botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
+              { x: contentX + (slotW + gap) * 2, y: contentY, w: slotW, h: slotH },
+            ],
+          };
+        }
+
+        if (builderState.layoutId === "L2") {
+          const slotH = Math.floor((contentH - gap * 2) / 3);
+          const slotW = contentW;
+          return {
+            topBar: topBarRect,
+            botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
+              { x: contentX, y: contentY + (slotH + gap) * 2, w: slotW, h: slotH },
+            ],
+          };
+        }
+
+        if (builderState.layoutId === "L3") {
+          const slotW = Math.floor((contentW - gap) / 2);
+          const slotH = Math.floor((contentH - gap) / 2);
+          return {
+            topBar: topBarRect,
+            botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX + slotW + gap, y: contentY, w: slotW, h: slotH },
+              { x: contentX, y: contentY + slotH + gap, w: slotW, h: slotH },
+              { x: contentX + slotW + gap, y: contentY + slotH + gap, w: slotW, h: slotH },
+            ],
+          };
+        }
+
+        if (builderState.layoutId === "L4") {
+          const barW = Math.floor(contentW * 0.22);
+          const photosW = contentW - barW - gap;
+          const slotW = Math.floor((photosW - gap) / 2);
+          const slotH = contentH;
+          return {
+            topBar: topBarRect,
+            botBar: botBarRect,
+            slots: [
+              { x: contentX + barW + gap, y: contentY, w: slotW, h: slotH },
+              { x: contentX + barW + gap + slotW + gap, y: contentY, w: slotW, h: slotH },
+            ],
+          };
+        }
+
+        if (builderState.layoutId === "L5") {
+          const barW = Math.floor(contentW * 0.24);
+          const slotW = Math.floor((contentW - barW - gap * 2) / 2);
+          const slotH = contentH;
+          return {
+            topBar: topBarRect,
+            botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: slotW, h: slotH },
+              { x: contentX + slotW + gap + barW + gap, y: contentY, w: slotW, h: slotH },
+            ],
+          };
+        }
+
+        if (builderState.layoutId === "L6") {
+          const rightW = Math.floor(contentW * 0.4);
+          const leftW = contentW - rightW - gap;
+          const slotH = Math.floor((contentH - gap) / 2);
+          return {
+            topBar: topBarRect,
+            botBar: botBarRect,
+            slots: [
+              { x: contentX, y: contentY, w: leftW, h: slotH },
+              { x: contentX, y: contentY + slotH + gap, w: leftW, h: slotH },
+            ],
+          };
+        }
+
+        if (builderState.layoutId === "L7") {
+          const inset = Math.round(minSide * 0.04);
+          const slotX = contentX + inset;
+          const slotY = contentY + inset;
+          const slotW = contentW - inset * 2;
+          const slotH = contentH - inset * 2;
+          return {
+            topBar: topBarRect,
+            botBar: botBarRect,
+            slots: [{ x: slotX, y: slotY, w: slotW, h: slotH }],
+          };
+        }
+
+        return { topBar: topBarRect, botBar: botBarRect, slots: [] };
+      }
+
+      function canvasPointToSlotIndex(clientX, clientY) {
+        const rect = stripCanvas.getBoundingClientRect();
+        const x = ((clientX - rect.left) / rect.width) * stripCanvas.width;
+        const y = ((clientY - rect.top) / rect.height) * stripCanvas.height;
+
+        const layout = getLayoutSlots();
+        for (let i = 0; i < layout.slots.length; i++) {
+          const s = layout.slots[i];
+          if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) return i;
+        }
+        return -1;
+      }
+
+      let manualPointer = {
+        active: false,
+        pointerId: null,
+        startX: 0,
+        startY: 0,
+        baseX: 0,
+        baseY: 0,
+      };
+
+      function setActiveSlotFromPoint(clientX, clientY) {
+        const idx = canvasPointToSlotIndex(clientX, clientY);
+        if (idx >= 0) {
+          if (idx !== activeSlot) {
+            activeSlot = idx;
+            renderBuilderUI();
+          }
+          return idx;
+        }
+        return -1;
+      }
+
+      stripCanvas.addEventListener(
+        "pointerdown",
+        (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+
+          const idx = setActiveSlotFromPoint(e.clientX, e.clientY);
+          if (idx < 0) return;
+
+          drawStrip({ forExport: false });
+
+          if (builderState.fitMode !== "manual") return;
+
+          e.preventDefault();
+          manualPointer.active = true;
+          manualPointer.pointerId = e.pointerId;
+          manualPointer.startX = e.clientX;
+          manualPointer.startY = e.clientY;
+
+          const tr = builderState.slotTransforms[activeSlot];
+          manualPointer.baseX = tr?.offsetX || 0;
+          manualPointer.baseY = tr?.offsetY || 0;
+
+          stripCanvas.setPointerCapture?.(e.pointerId);
+        },
+        { passive: false }
+      );
+
+      stripCanvas.addEventListener(
+        "pointermove",
+        (e) => {
+          if (!manualPointer.active) return;
+          if (builderState.fitMode !== "manual") return;
+          if (e.pointerId !== manualPointer.pointerId) return;
+
+          e.preventDefault();
+          const dx = e.clientX - manualPointer.startX;
+          const dy = e.clientY - manualPointer.startY;
+
+          const tr = builderState.slotTransforms[activeSlot];
+          tr.offsetX = manualPointer.baseX + dx;
+          tr.offsetY = manualPointer.baseY + dy;
+
+          drawStrip({ forExport: false });
+        },
+        { passive: false }
+      );
+
+      stripCanvas.addEventListener("pointerup", (e) => {
+        if (e.pointerId === manualPointer.pointerId) {
+          manualPointer.active = false;
+          manualPointer.pointerId = null;
+        }
+      });
+      stripCanvas.addEventListener("pointercancel", () => {
+        manualPointer.active = false;
+        manualPointer.pointerId = null;
+      });
+
+      stripCanvas.addEventListener(
+        "wheel",
+        (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+          if (builderState.fitMode !== "manual") return;
+
+          setActiveSlotFromPoint(e.clientX, e.clientY);
+
+          e.preventDefault();
+          const tr = builderState.slotTransforms[activeSlot];
+          const zoom = e.deltaY > 0 ? 0.92 : 1.08;
+          tr.scaleMul = (tr.scaleMul || 1) * zoom;
+
+          drawStrip({ forExport: false });
+        },
+        { passive: false }
+      );
+
+      let pinchStart = null;
+      stripCanvas.addEventListener(
+        "touchstart",
+        (e) => {
+          if (builderOverlay.classList.contains("hidden")) return;
+          if (builderState.fitMode !== "manual") return;
+
+          if (e.touches.length === 2) {
+            const a = e.touches[0];
+            const b = e.touches[1];
+
+            const cx = (a.clientX + b.clientX) / 2;
+            const cy = (a.clientY + b.clientY) / 2;
+            setActiveSlotFromPoint(cx, cy);
+
+            pinchStart = {
+              dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+              baseScale: builderState.slotTransforms[activeSlot]?.scaleMul || 1,
+            };
+          }
+        },
+        { passive: false }
+      );
+
+      stripCanvas.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!pinchStart) return;
+          if (builderState.fitMode !== "manual") return;
+          if (e.touches.length === 2) {
+            e.preventDefault();
+            const a = e.touches[0];
+            const b = e.touches[1];
+            const newDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+            const factor = newDist / pinchStart.dist;
+            builderState.slotTransforms[activeSlot].scaleMul = pinchStart.baseScale * factor;
+            drawStrip({ forExport: false });
+          }
+        },
+        { passive: false }
+      );
+
+      stripCanvas.addEventListener("touchend", () => {
+        pinchStart = null;
+      });
+
+      async function drawStrip({ forExport } = { forExport: false }) {
+        ensureSlotMapping();
+
+        const selectedIdxs = builderState.slotToCapture.slice();
+        const imgs = await Promise.all(
+          selectedIdxs.map((ci) =>
+            ci >= 0 ? loadImage(capturedItems[ci]?.url || "") : Promise.resolve(null)
+          )
+        );
+
+        const frameColor = getFrameColor();
+        const layout = getLayoutSlots();
+
+        stripCtx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
+        stripCtx.fillStyle = frameColor;
+        stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
+
+        for (let i = 0; i < layout.slots.length; i++) {
+          const slot = layout.slots[i];
+          const img = imgs[i];
+
+          stripCtx.fillStyle = frameColor;
+          stripCtx.fillRect(slot.x, slot.y, slot.w, slot.h);
+
+          if (img) {
+            const mode = builderState.fitMode || "smart";
+            if (mode === "contain") drawContain(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+            else if (mode === "cover") drawCover(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+            else if (mode === "manual") drawManual(stripCtx, img, slot.x, slot.y, slot.w, slot.h, builderState.slotTransforms[i]);
+            else drawSmart(stripCtx, img, slot.x, slot.y, slot.w, slot.h);
+          }
+        }
+
+        const logoImg = await getLogoImage();
+        if (logoImg) {
+          const top = layout.topBar;
+          const maxW = top.w * 0.4;
+          const maxH = top.h * 0.8;
+
+          const iw = logoImg.naturalWidth || logoImg.width;
+          const ih = logoImg.naturalHeight || logoImg.height;
+          if (iw && ih) {
+            const s = Math.min(maxW / iw, maxH / ih);
+            const w = iw * s;
+            const h = ih * s;
+            const x = top.x + (top.w - w) / 2;
+            const y = top.y + (top.h - h) / 2;
+            stripCtx.drawImage(logoImg, x, y, w, h);
+          }
+        }
+      }
+
+      exportStripBtn.addEventListener("click", async () => {
+        await drawStrip({ forExport: true });
+
+        stripCanvas.toBlob((blob) => {
+          if (!blob) {
+            alert("Export failed.");
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const win = window.open("about:blank", "_blank");
+          if (!win) {
+            alert("Popup blocked.");
+            return;
+          }
+          const filename = `Puff_Dragon_Photobooth_${Date.now()}.png`;
+
+          win.document.write(`
+            <title>${filename}</title>
+            <div style="margin:0;background:#000;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;">
+              <img src="${url}" style="max-width:100%;height:auto;display:block;background:#000" />
+              <a
+                href="${url}"
+                download="${filename}"
+                style="display:inline-block;padding:10px 14px;border-radius:12px;background:#fff100;color:#060d3d;font:900 14px system-ui;text-decoration:none"
+              >
+                Download (${filename})
+              </a>
+            </div>
+          `);
+          win.document.close();
+          setTimeout(() => URL.revokeObjectURL(url), 15000);
+        }, "image/png");
+      });
+
+      /* =========================
+         Photobooth toggle default
+      ========================= */
+      setPhotoboothMode(false);
+      applyCameraFilterPreview();
+    </script>
+  </body>
 </html>
