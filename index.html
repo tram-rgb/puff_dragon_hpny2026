@@ -2336,49 +2336,63 @@
       }
 
       function drawManual(ctx, img, rx, ry, rw, rh, tr) {
-        const iw = img.naturalWidth || img.width;
-        const ih = img.naturalHeight || img.height;
-        if (!iw || !ih) return;
+      const iw = img.naturalWidth || img.width;
+      const ih = img.naturalHeight || img.height;
+      if (!iw || !ih) return;
+    
+      // Base cover scale (panel always filled)
+      const coverScale = Math.max(rw / iw, rh / ih);
+    
+      // Contain scale (smallest allowed)
+      const containScale = Math.min(rw / iw, rh / ih);
+    
+      // Minimum zoom-out = contain relative to cover
+      const minMul = containScale / coverScale;
+      const maxMul = 3.0;
+    
+      tr.scaleMul = clamp(tr.scaleMul || 1, minMul, maxMul);
+    
+      const finalScale = coverScale * tr.scaleMul;
+    
+      const drawW = iw * finalScale;
+      const drawH = ih * finalScale;
+    
+      // Base centered position
+      let dx = rx + (rw - drawW) / 2;
+      let dy = ry + (rh - drawH) / 2;
+    
+      // Clamp panning so image never leaves panel bounds
+      let offX = tr.offsetX || 0;
+      let offY = tr.offsetY || 0;
+    
+      if (drawW > rw) {
+        const maxX = (drawW - rw) / 2;
+        offX = clamp(offX, -maxX, maxX);
+      } else {
+        offX = 0;
+      }
+    
+      if (drawH > rh) {
+        const maxY = (drawH - rh) / 2;
+        offY = clamp(offY, -maxY, maxY);
+      } else {
+        offY = 0;
+      }
+    
+      tr.offsetX = offX;
+      tr.offsetY = offY;
+    
+      dx += offX;
+      dy += offY;
+    
+      // Strict clipping to panel rectangle
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(rx, ry, rw, rh);
+      ctx.clip();
+      ctx.drawImage(img, dx, dy, drawW, drawH);
+      ctx.restore();
 
-        const coverS = Math.max(rw / iw, rh / ih);
-        const containS = Math.min(rw / iw, rh / ih);
-
-        const minMul = Math.max(containS / coverS, 0.6);
-        const maxMul = 3.0;
-        tr.scaleMul = clamp(tr.scaleMul || 1, minMul, maxMul);
-
-        const s = coverS * tr.scaleMul;
-        const dw = iw * s;
-        const dh = ih * s;
-
-        let dx = rx + (rw - dw) / 2;
-        let dy = ry + (rh - dh) / 2;
-
-        let offX = tr.offsetX || 0;
-        let offY = tr.offsetY || 0;
-
-        if (dw > rw) {
-          const maxPanX = (dw - rw) / 2;
-          offX = clamp(offX, -maxPanX, +maxPanX);
-        } else offX = 0;
-
-        if (dh > rh) {
-          const maxPanY = (dh - rh) / 2;
-          offY = clamp(offY, -maxPanY, +maxPanY);
-        } else offY = 0;
-
-        tr.offsetX = offX;
-        tr.offsetY = offY;
-
-        dx += offX;
-        dy += offY;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(rx, ry, rw, rh);
-        ctx.clip();
-        ctx.drawImage(img, dx, dy, dw, dh);
-        ctx.restore();
       }
 
       function getLayoutSlots() {
