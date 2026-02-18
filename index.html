@@ -2180,6 +2180,7 @@ function captureToBlob(cb) {
         { id: "L5", name: "Layout 5 (2 horizontal, center bar)" },
         { id: "L6", name: "Layout 6 (4x6 landscape, 2 stacked + right bar)" },
         { id: "L7", name: "Layout 7 (4x6 landscape, 1 photo)" },
+        { id: "L8", name: "Layout 8 (4x6 portrait, 1 photo)" },
       ];
 
       let builderState = {
@@ -2228,14 +2229,18 @@ function captureToBlob(cb) {
         if (builderState.layoutId === "L2") { stripCanvas.width = 400; stripCanvas.height = 1200; return; }
         if (builderState.layoutId === "L3") { stripCanvas.width = 900; stripCanvas.height = 1350; return; }
         if (builderState.layoutId === "L4" || builderState.layoutId === "L5") { stripCanvas.width = 1200; stripCanvas.height = 400; return; }
-        if (builderState.layoutId === "L6" || builderState.layoutId === "L7") { stripCanvas.width = 1350; stripCanvas.height = 900; return; }
-      }
+        if (builderState.layoutId === "L6" || builderState.layoutId === "L7") {
+  stripCanvas.width = 1350; stripCanvas.height = 900; return;
+}
+if (builderState.layoutId === "L8") {
+  stripCanvas.width = 900; stripCanvas.height = 1350; return;
+}
 
       function slotsNeeded() {
         if (builderState.layoutId === "L3") return 4;
         if (builderState.layoutId === "L4" || builderState.layoutId === "L5") return 2;
         if (builderState.layoutId === "L6") return 2;
-        if (builderState.layoutId === "L7") return 1;
+        if (builderState.layoutId === "L7" || builderState.layoutId === "L8") return 1;
         return 3;
       }
 
@@ -2584,6 +2589,19 @@ function captureToBlob(cb) {
         }
 
         if (builderState.layoutId === "L7") {
+          const inset = Math.round(minSide * 0.04);
+          const slotX = contentX + inset;
+          const slotY = contentY + inset;
+          const slotW = contentW - inset * 2;
+          const slotH = contentH - inset * 2;
+          return {
+            topBar: topBarRect,
+            botBar: botBarRect,
+            slots: [{ x: slotX, y: slotY, w: slotW, h: slotH }],
+          };
+        }
+
+        if (builderState.layoutId === "L8") {
           const inset = Math.round(minSide * 0.04);
           const slotX = contentX + inset;
           const slotY = contentY + inset;
