@@ -866,14 +866,8 @@
     </div>
 
     <script>
-      /* =========================
-         CACHE BUSTING
-      ========================= */
       const ASSET_VERSION = "27";
 
-      /* =========================
-         HELPERS
-      ========================= */
       const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
       const clamp01 = (v) => clamp(v, 0, 1);
       const clamp255 = (v) => clamp(v, 0, 255);
@@ -906,13 +900,11 @@
         return isIOS || isSafari;
       }
 
-      // Image cache
       const __imgCache = new Map();
       function loadImage(src) {
         return new Promise((resolve) => {
           if (!src) return resolve(null);
           if (__imgCache.has(src)) return resolve(__imgCache.get(src));
-
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.onload = () => {
@@ -920,7 +912,6 @@
             resolve(img);
           };
           img.onerror = () => resolve(null);
-
           const isBlob = src.startsWith("blob:") || src.startsWith("data:");
           img.src = isBlob
             ? src
@@ -929,9 +920,6 @@
         });
       }
 
-      /* =========================
-         MAIN APP ELEMENTS
-      ========================= */
       const cameraEl = document.getElementById("camera");
       const puffEl = document.getElementById("puff");
       const stickerLayer = document.getElementById("stickerLayer");
@@ -958,9 +946,6 @@
       const stickerRemove = document.getElementById("stickerRemove");
       const stickerClear = document.getElementById("stickerClear");
 
-      /* =========================
-         INTRO
-      ========================= */
       const introOverlay = document.getElementById("introOverlay");
       const introVideo = document.getElementById("introVideo");
       const exploreBtn = document.getElementById("exploreBtn");
@@ -1001,7 +986,6 @@
       async function closeIntro() {
         introOverlay.classList.add("hidden");
         app.classList.remove("hidden");
-        // NOTE: we DO NOT auto-start AR. User presses Start AR.
         try {
           await puffEl.play();
         } catch (_) {}
@@ -1009,9 +993,6 @@
       introClosePuff.addEventListener("click", closeIntro);
       exploreBtn.addEventListener("click", closeIntro);
 
-      /* =========================================================
-         FILTERS
-      ========================================================= */
       function srgbToLin(c) {
         c /= 255;
         return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
@@ -1057,6 +1038,7 @@
         const w = warmth * 0.1;
         return [r * (1 + w), g, b * (1 - w)];
       }
+
       function unsharpMask(imageData, amount = 0.35, radius = 1) {
         const { width: w, height: h, data } = imageData;
         const src = new Uint8ClampedArray(data);
@@ -1088,6 +1070,7 @@
         }
         return imageData;
       }
+
       function noiseReduceLight(imageData, strength = 0.15) {
         if (!strength) return imageData;
         const { width: w, height: h, data } = imageData;
@@ -1120,6 +1103,7 @@
         }
         return imageData;
       }
+
       function recipe(params) {
         return {
           exposure: (params.exposure || 0) / 100,
@@ -1279,10 +1263,7 @@
       });
       filterClose.addEventListener("click", closeFilterPanel);
 
-      /* =========================
-         PUFF RANDOM (weighted)
-      ========================= */
-      const puffBasesWeighted = ["puff","puff","puff","puff","puff","puff","puff2","puff3"];
+      const puffBasesWeighted = ["puff","puff","puff","puff","puff","puff","puff","puff2","puff3"];
       const chosenBase =
         puffBasesWeighted[Math.floor(Math.random() * puffBasesWeighted.length)];
 
@@ -1319,9 +1300,6 @@
       puffEl.addEventListener("loadedmetadata", lockPuffAspect);
       puffEl.addEventListener("loadeddata", lockPuffAspect);
 
-      /* =========================
-         CAMERA + MIRROR
-      ========================= */
       let currentFacingMode = "environment";
       let stream = null;
       let mirrorMode = "auto";
@@ -1435,9 +1413,6 @@
         applyMirrorToPreview();
       });
 
-      /* =========================
-         INPUT: Desktop R-to-rotate
-      ========================= */
       let rKeyDown = false;
       window.addEventListener("keydown", (e) => {
         if (e.key === "r" || e.key === "R") rKeyDown = true;
@@ -1446,9 +1421,6 @@
         if (e.key === "r" || e.key === "R") rKeyDown = false;
       });
 
-      /* =========================
-         PUFF transform (touch drag/pinch)
-      ========================= */
       function enableTouchDragPinch(el, state, onUpdate) {
         let mode = null;
         let start = null;
@@ -1517,7 +1489,6 @@
           }
         }
 
-        // Mouse drag + wheel zoom + R-drag rotate
         let mouseDown = false;
         let mouseStart = null;
 
@@ -1535,7 +1506,8 @@
         function onMouseMove(e) {
           if (!mouseDown || !mouseStart) return;
           e.preventDefault();
-          const { dx, dy } = toPct(e.clientX - mouseStart.x, e.clientY - mouseStart.y);
+          const dx = ((e.clientX - mouseStart.x) / innerWidth) * 100;
+          const dy = ((e.clientY - mouseStart.y) / innerHeight) * 100;
           if (rKeyDown) {
             state.rotation = mouseStart.baseRot + dx * 3.0;
           } else {
@@ -1566,9 +1538,6 @@
         el.addEventListener("wheel", onWheel, { passive: false });
       }
 
-      /* =========================
-         PUFF state
-      ========================= */
       const puffState = { x: 50, y: 72, scale: 1.55, rotation: 0 };
       function updatePuff() {
         applyTransform(puffEl, puffState);
@@ -1576,9 +1545,7 @@
       updatePuff();
       enableTouchDragPinch(puffEl, puffState, updatePuff);
 
-      /* =========================
-         MULTI-STICKERS
-      ========================= */
+      // Stickers
       function makeTransformable(el, state, onUpdate) {
         const pointers = new Map();
         let gestureStart = null;
@@ -1771,37 +1738,29 @@
         }
       }
 
-      /* =========================
-         COUNTDOWN (Timing)
-      ========================= */
-      let timingOn = false;
+      // Timing
+      let timingSeconds = 0;
       timingBtn.addEventListener("click", () => {
         if (timingBtn.disabled) return;
-        timingOn = !timingOn;
-        timingBtn.classList.toggle("on", timingOn);
-        timingBtn.textContent = timingOn ? "Timing: ON" : "Timing: OFF";
+        timingSeconds++;
+        if (timingSeconds > 3) timingSeconds = 0;
+        timingBtn.classList.toggle("on", timingSeconds > 0);
+        timingBtn.textContent =
+          timingSeconds === 0 ? "Timing: OFF" : `Timing: ${timingSeconds}s`;
       });
 
-      async function runCountdown3() {
+      async function runCountdownCustom(seconds) {
         countdownOverlay.classList.add("show");
         countdownOverlay.setAttribute("aria-hidden", "false");
-
-        const steps = ["3", "2", "1", "0"];
-        for (let i = 0; i < steps.length; i++) {
-          countdownNumber.textContent = steps[i];
-          await new Promise((r) => setTimeout(r, i === steps.length - 1 ? 220 : 700));
+        for (let i = seconds; i >= 0; i--) {
+          countdownNumber.textContent = i;
+          await new Promise((r) => setTimeout(r, i === 0 ? 200 : 800));
         }
-
         countdownOverlay.classList.remove("show");
         countdownOverlay.setAttribute("aria-hidden", "true");
       }
 
-      /* =========================
-         CAPTURE (safe, no-stretch, preview-match)
-         - rect only for center
-         - size from offsetWidth/offsetHeight * dpr * state.scale
-         - viewport mapping uses visualViewport for Android stability
-      ========================= */
+      // Filter apply to export
       function applyRecipeToImageData(imageData, r) {
         const d = imageData.data;
 
@@ -1857,29 +1816,26 @@
         return imageData;
       }
 
-      function getVisualViewportBox(dpr) {
-        const vv = window.visualViewport;
-        const w = vv ? vv.width : window.innerWidth;
-        const h = vv ? vv.height : window.innerHeight;
-        const ox = vv ? vv.offsetLeft : 0;
-        const oy = vv ? vv.offsetTop : 0;
+      function getViewportBox(dpr) {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
         return {
           vw: w,
           vh: h,
-          ox,
-          oy,
           W: Math.round(w * dpr),
           H: Math.round(h * dpr),
         };
       }
 
-      function elementCenterInVV(el, dpr, vvBox) {
+      function elementCenterInViewport(el, dpr) {
         const r = el.getBoundingClientRect();
-        const cx = (r.left - vvBox.ox + r.width / 2) * dpr;
-        const cy = (r.top - vvBox.oy + r.height / 2) * dpr;
-        return { cx, cy };
+        return {
+          cx: (r.left + r.width / 2) * dpr,
+          cy: (r.top + r.height / 2) * dpr,
+        };
       }
 
+      // ✅ Capture: mirrored preview only mirrors CAMERA, Puff stays identical to preview
       function captureToBlob(cb) {
         if (!stream || !cameraEl.videoWidth || !cameraEl.videoHeight) {
           alert("Start AR first.");
@@ -1887,24 +1843,21 @@
         }
 
         const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-        const vvBox = getVisualViewportBox(dpr);
-        const W = vvBox.W;
-        const H = vvBox.H;
+        const vp = getViewportBox(dpr);
+        const W = vp.W;
+        const H = vp.H;
 
         const out = document.createElement("canvas");
         out.width = W;
         out.height = H;
         const ctx = out.getContext("2d", { willReadFrequently: true });
 
-        // Mirror output must match preview EXACTLY:
-        // Preview mirrors ONLY the camera video (not puff/stickers).
         const mirrorCameraOnly = shouldMirrorPreview();
 
         const camSrcW = cameraEl.videoWidth;
         const camSrcH = cameraEl.videoHeight;
         const crop = getCoverSrcRect(camSrcW, camSrcH, W, H);
 
-        // draw camera
         ctx.save();
         if (mirrorCameraOnly) {
           ctx.translate(W, 0);
@@ -1917,15 +1870,13 @@
         );
         ctx.restore();
 
-        // apply filter to camera
         if (currentFilterId !== "none") {
           const imgData = ctx.getImageData(0, 0, W, H);
           applyRecipeToImageData(imgData, currentRecipe);
           ctx.putImageData(imgData, 0, 0);
         }
 
-        // draw Puff (SAFE: center from rect, size from offsetWidth/Height + state.scale)
-        const puffCenter = elementCenterInVV(puffEl, dpr, vvBox);
+        const puffCenter = elementCenterInViewport(puffEl, dpr);
         const baseW = puffEl.offsetWidth * dpr;
         const baseH = puffEl.offsetHeight * dpr;
         const drawW = baseW * puffState.scale;
@@ -1937,10 +1888,9 @@
         ctx.drawImage(puffEl, -drawW / 2, -drawH / 2, drawW, drawH);
         ctx.restore();
 
-        // draw stickers (SAFE: same rule)
         for (const [el, st] of stickerStates.entries()) {
           if (!el.complete || !el.naturalWidth) continue;
-          const c = elementCenterInVV(el, dpr, vvBox);
+          const c = elementCenterInViewport(el, dpr);
           const bw = el.offsetWidth * dpr;
           const bh = el.offsetHeight * dpr;
           const w = bw * st.scale;
@@ -1956,9 +1906,6 @@
         out.toBlob((blob) => cb(blob), "image/png");
       }
 
-      /* =========================
-         SINGLE CAPTURE (photobooth OFF)
-      ========================= */
       function nextCaptureFilename() {
         const key = "puff_capture_counter";
         const current = parseInt(localStorage.getItem(key) || "0", 10) + 1;
@@ -1993,9 +1940,7 @@
         setTimeout(() => URL.revokeObjectURL(url), 15000);
       }
 
-      /* =========================
-         PHOTOBOOTH MODE
-      ========================= */
+      // Photobooth captured panel
       let photoboothOn = false;
 
       const capturedPanel = document.getElementById("capturedPanel");
@@ -2004,7 +1949,7 @@
       const cueBtn = document.getElementById("cueBtn");
       const clearCapturedBtn = document.getElementById("clearCapturedBtn");
 
-      const capturedItems = []; // { blob, url }
+      const capturedItems = [];
 
       function setPhotoboothMode(on) {
         photoboothOn = on;
@@ -2046,7 +1991,6 @@
         updateCapturedUI();
       });
 
-      /* make captured panel movable */
       (function enableDragPanel() {
         let dragging = false;
         let start = null;
@@ -2093,14 +2037,11 @@
         });
       })();
 
-      /* =========================
-         CAPTURE BUTTON
-      ========================= */
       captureBtn.addEventListener("click", async () => {
         if (captureBtn.disabled) return;
 
-        if (timingOn) {
-          await runCountdown3();
+        if (timingSeconds > 0) {
+          await runCountdownCustom(timingSeconds);
         }
 
         if (!photoboothOn) {
@@ -2125,9 +2066,9 @@
         });
       });
 
-      /* =========================
-         BUILDER (customize page)
-      ========================= */
+      // =========================
+      // BUILDER OVERLAY
+      // =========================
       const builderOverlay = document.getElementById("builderOverlay");
       const builderCloseBtn = document.getElementById("builderCloseBtn");
       const stripCanvas = document.getElementById("stripCanvas");
@@ -2150,7 +2091,6 @@
         if (e.target === builderOverlay) closeBuilder();
       });
 
-      // frame colors (unchanged)
       const FRAME_COLORS = [
         { id: "red", name: "Imperial Red", value: "#fa213f", logo: "puff-logo-2.png" },
         { id: "blue", name: "Dark Blue", value: "#060d3d", logo: "puff-logo-3.png" },
@@ -2159,7 +2099,6 @@
         { id: "black", name: "Pure Black", value: "#000000", logo: "puff-logo-3.png" },
       ];
 
-      // layouts (kept)
       const LAYOUTS = [
         { id: "L1", name: "Layout 1 (3 horizontal strip)" },
         { id: "L2", name: "Layout 2 (3 vertical strip)" },
@@ -2173,9 +2112,9 @@
       let builderState = {
         frameColorId: "blue",
         layoutId: "L2",
-        fitMode: "smart", // contain | smart | cover | manual
+        fitMode: "smart",
         slotToCapture: [],
-        slotTransforms: [], // per slot: { scaleMul, offsetX, offsetY }
+        slotTransforms: [],
       };
 
       let activeSlot = 0;
@@ -2357,7 +2296,6 @@
         builderOverlay.setAttribute("aria-hidden", "true");
       }
 
-      /* ======= Draw helpers ======= */
       function drawCover(ctx, img, rx, ry, rw, rh) {
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
@@ -2405,7 +2343,7 @@
         const coverS = Math.max(rw / iw, rh / ih);
         const containS = Math.min(rw / iw, rh / ih);
 
-        const minMul = containS / coverS;
+        const minMul = Math.max(containS / coverS, 0.6);
         const maxMul = 3.0;
         tr.scaleMul = clamp(tr.scaleMul || 1, minMul, maxMul);
 
@@ -2565,162 +2503,6 @@
         return { topBar: topBarRect, botBar: botBarRect, slots: [] };
       }
 
-      function canvasPointToSlotIndex(clientX, clientY) {
-        const rect = stripCanvas.getBoundingClientRect();
-        const x = ((clientX - rect.left) / rect.width) * stripCanvas.width;
-        const y = ((clientY - rect.top) / rect.height) * stripCanvas.height;
-
-        const layout = getLayoutSlots();
-        for (let i = 0; i < layout.slots.length; i++) {
-          const s = layout.slots[i];
-          if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) return i;
-        }
-        return -1;
-      }
-
-      let manualPointer = {
-        active: false,
-        pointerId: null,
-        startX: 0,
-        startY: 0,
-        baseX: 0,
-        baseY: 0,
-      };
-
-      function setActiveSlotFromPoint(clientX, clientY) {
-        const idx = canvasPointToSlotIndex(clientX, clientY);
-        if (idx >= 0) {
-          if (idx !== activeSlot) {
-            activeSlot = idx;
-            renderBuilderUI();
-          }
-          return idx;
-        }
-        return -1;
-      }
-
-      stripCanvas.addEventListener(
-        "pointerdown",
-        (e) => {
-          if (builderOverlay.classList.contains("hidden")) return;
-
-          const idx = setActiveSlotFromPoint(e.clientX, e.clientY);
-          if (idx < 0) return;
-
-          drawStrip({ forExport: false });
-
-          if (builderState.fitMode !== "manual") return;
-
-          e.preventDefault();
-          manualPointer.active = true;
-          manualPointer.pointerId = e.pointerId;
-          manualPointer.startX = e.clientX;
-          manualPointer.startY = e.clientY;
-
-          const tr = builderState.slotTransforms[activeSlot];
-          manualPointer.baseX = tr?.offsetX || 0;
-          manualPointer.baseY = tr?.offsetY || 0;
-
-          stripCanvas.setPointerCapture?.(e.pointerId);
-        },
-        { passive: false }
-      );
-
-      stripCanvas.addEventListener(
-        "pointermove",
-        (e) => {
-          if (!manualPointer.active) return;
-          if (builderState.fitMode !== "manual") return;
-          if (e.pointerId !== manualPointer.pointerId) return;
-
-          e.preventDefault();
-          const dx = e.clientX - manualPointer.startX;
-          const dy = e.clientY - manualPointer.startY;
-
-          const tr = builderState.slotTransforms[activeSlot];
-          tr.offsetX = manualPointer.baseX + dx;
-          tr.offsetY = manualPointer.baseY + dy;
-
-          drawStrip({ forExport: false });
-        },
-        { passive: false }
-      );
-
-      stripCanvas.addEventListener("pointerup", (e) => {
-        if (e.pointerId === manualPointer.pointerId) {
-          manualPointer.active = false;
-          manualPointer.pointerId = null;
-        }
-      });
-      stripCanvas.addEventListener("pointercancel", () => {
-        manualPointer.active = false;
-        manualPointer.pointerId = null;
-      });
-
-      stripCanvas.addEventListener(
-        "wheel",
-        (e) => {
-          if (builderOverlay.classList.contains("hidden")) return;
-          if (builderState.fitMode !== "manual") return;
-
-          setActiveSlotFromPoint(e.clientX, e.clientY);
-
-          e.preventDefault();
-          const tr = builderState.slotTransforms[activeSlot];
-          const zoom = e.deltaY > 0 ? 0.92 : 1.08;
-          tr.scaleMul = (tr.scaleMul || 1) * zoom;
-
-          drawStrip({ forExport: false });
-        },
-        { passive: false }
-      );
-
-      let pinchStart = null;
-      stripCanvas.addEventListener(
-        "touchstart",
-        (e) => {
-          if (builderOverlay.classList.contains("hidden")) return;
-          if (builderState.fitMode !== "manual") return;
-
-          if (e.touches.length === 2) {
-            const a = e.touches[0];
-            const b = e.touches[1];
-
-            const cx = (a.clientX + b.clientX) / 2;
-            const cy = (a.clientY + b.clientY) / 2;
-            setActiveSlotFromPoint(cx, cy);
-
-            pinchStart = {
-              dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
-              baseScale: builderState.slotTransforms[activeSlot]?.scaleMul || 1,
-            };
-          }
-        },
-        { passive: false }
-      );
-
-      stripCanvas.addEventListener(
-        "touchmove",
-        (e) => {
-          if (!pinchStart) return;
-          if (builderState.fitMode !== "manual") return;
-          if (e.touches.length === 2) {
-            e.preventDefault();
-            const a = e.touches[0];
-            const b = e.touches[1];
-            const newDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-            const factor = newDist / pinchStart.dist;
-            builderState.slotTransforms[activeSlot].scaleMul = pinchStart.baseScale * factor;
-            drawStrip({ forExport: false });
-          }
-        },
-        { passive: false }
-      );
-
-      stripCanvas.addEventListener("touchend", () => {
-        pinchStart = null;
-      });
-
       async function drawStrip({ forExport } = { forExport: false }) {
         ensureSlotMapping();
 
@@ -2807,9 +2589,6 @@
         }, "image/png");
       });
 
-      /* =========================
-         Photobooth toggle default
-      ========================= */
       setPhotoboothMode(false);
       applyCameraFilterPreview();
     </script>
